@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.AI;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Application.Contracts.Dtos.AI;
 using Item.Internal.StandardApi.Response;
@@ -19,12 +20,17 @@ namespace FlowFlex.WebApi.Controllers.AI
     [Authorize]
     public class AIWorkflowController : Controllers.ControllerBase
     {
-        private readonly IAIService _aiService;
+        private readonly IAIWorkflowGenerationService _workflowService;
+        private readonly IAIRequirementsParsingService _requirementsService;
         private readonly ILogger<AIWorkflowController> _logger;
 
-        public AIWorkflowController(IAIService aiService, ILogger<AIWorkflowController> logger)
+        public AIWorkflowController(
+            IAIWorkflowGenerationService workflowService,
+            IAIRequirementsParsingService requirementsService,
+            ILogger<AIWorkflowController> logger)
         {
-            _aiService = aiService;
+            _workflowService = workflowService;
+            _requirementsService = requirementsService;
             _logger = logger;
         }
 
@@ -45,7 +51,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             // Enhanced input information logged via structured logging
 
-            var result = await _aiService.GenerateWorkflowAsync(input);
+            var result = await _workflowService.GenerateWorkflowAsync(input);
             return Success(result);
         }
 
@@ -84,7 +90,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 // Performance metrics tracked internally
 
-                await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
+                await foreach (var result in _workflowService.StreamGenerateWorkflowAsync(input))
                 {
                     try
                     {
@@ -142,7 +148,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Enhancement description is required");
             }
 
-            var result = await _aiService.EnhanceWorkflowAsync(workflowId, request.Enhancement);
+            var result = await _workflowService.EnhanceWorkflowAsync(workflowId, request.Enhancement);
             return Success(result);
         }
 
@@ -161,7 +167,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Workflow data is required");
             }
 
-            var result = await _aiService.ValidateWorkflowAsync(workflow);
+            var result = await _workflowService.ValidateWorkflowAsync(workflow);
             return Success(result);
         }
 
@@ -183,11 +189,11 @@ namespace FlowFlex.WebApi.Controllers.AI
             // If client provides model override, use it; otherwise fallback to default provider
             if (!string.IsNullOrWhiteSpace(request.ModelProvider) || !string.IsNullOrWhiteSpace(request.ModelName) || !string.IsNullOrWhiteSpace(request.ModelId))
             {
-                var resultWithOverride = await _aiService.ParseRequirementsAsync(request.NaturalLanguage, request.ModelProvider, request.ModelName, request.ModelId);
+                var resultWithOverride = await _requirementsService.ParseRequirementsAsync(request.NaturalLanguage, request.ModelProvider, request.ModelName, request.ModelId);
                 return Success(resultWithOverride);
             }
 
-            var result = await _aiService.ParseRequirementsAsync(request.NaturalLanguage);
+            var result = await _requirementsService.ParseRequirementsAsync(request.NaturalLanguage);
             return Success(result);
         }
 
@@ -247,7 +253,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             input.WorkflowId = workflowId;
 
-            var result = await _aiService.EnhanceWorkflowAsync(input);
+            var result = await _workflowService.EnhanceWorkflowAsync(input);
 
             return Success(result);
         }
@@ -269,7 +275,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             // Stage components creation logged via structured logging
 
-            var result = await _aiService.CreateStageComponentsAsync(
+            var result = await _workflowService.CreateStageComponentsAsync(
                 request.WorkflowId,
                 request.Stages ?? new List<AIStageGenerationResult>(),
                 request.Checklists ?? new List<AIChecklistGenerationResult>(),

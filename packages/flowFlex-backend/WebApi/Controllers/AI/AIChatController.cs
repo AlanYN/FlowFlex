@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.AI;
 using Item.Internal.StandardApi.Response;
 using System.Net;
-using static FlowFlex.Application.Contracts.IServices.IAIService;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -23,13 +23,13 @@ namespace FlowFlex.WebApi.Controllers.AI
     [Authorize]
     public class AIChatController : Controllers.ControllerBase
     {
-        private readonly IAIService _aiService;
+        private readonly IAIChatService _chatService;
         private readonly IAIModelConfigService _configService;
         private readonly ILogger<AIChatController> _logger;
 
-        public AIChatController(IAIService aiService, IAIModelConfigService configService, ILogger<AIChatController> logger)
+        public AIChatController(IAIChatService chatService, IAIModelConfigService configService, ILogger<AIChatController> logger)
         {
-            _aiService = aiService;
+            _chatService = chatService;
             _configService = configService;
             _logger = logger;
         }
@@ -54,7 +54,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 _logger.LogInformation("Processing chat message for session: {SessionId}, ModelId: {ModelId}, Provider: {Provider}, Model: {Model}",
                     input.SessionId, input.ModelId, input.ModelProvider, input.ModelName);
 
-                var result = await _aiService.SendChatMessageAsync(input);
+                var result = await _chatService.SendChatMessageAsync(input);
 
                 _logger.LogInformation("Chat response generated for session: {SessionId}", input.SessionId);
 
@@ -113,7 +113,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             try
             {
-                await foreach (var result in _aiService.StreamChatAsync(input))
+                await foreach (var result in _chatService.StreamChatAsync(input))
                 {
                     var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
                     await Response.WriteAsync($"data: {jsonData}\n\n");

@@ -1,6 +1,7 @@
 using Application.Contracts.Options;
 using Application.Services.AI;
 using FlowFlex.Application.Contracts;
+using FlowFlex.Application.Services.AI;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Services.OW;
@@ -373,6 +374,10 @@ namespace FlowFlex.WebApi.Extensions
             services.AddScoped<IAIModelConfigRepository, AIModelConfigRepository>();
             services.AddScoped<IAIModelConfigService, AIModelConfigService>();
             services.AddScoped<FlowFlex.Domain.Repository.OW.IAIPromptHistoryRepository, FlowFlex.SqlSugarDB.Repositories.OW.AIPromptHistoryRepository>();
+
+            // Register fine-grained AI services via Application layer extension method
+            // (avoids System.Action namespace conflict with AI.Action namespace)
+            services.AddFineGrainedAIServices();
 
             // Register distributed cache service
             services.AddScoped<IDistributedCacheService, FlowFlex.Infrastructure.Services.RedisCacheService>();
