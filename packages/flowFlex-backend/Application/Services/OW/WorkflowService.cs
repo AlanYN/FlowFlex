@@ -513,7 +513,6 @@ namespace FlowFlex.Application.Services.OW
         public async Task<List<WorkflowOutputDto>> GetListAsync()
         {
             // Temporarily disable expired workflow processing to avoid concurrent database operations
-            // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
 
             // Apply permission filtering - filter out workflows user cannot view
@@ -549,14 +548,12 @@ namespace FlowFlex.Application.Services.OW
                 var cacheKey = $"ow:workflow:all:{tenantId}";
 
                 // Get directly from database, temporarily skip cache to avoid Redis stream reading issues
-                // Debug logging handled by structured logging
                 // Temporarily disable expired workflow processing to avoid concurrent database operations
-                // Debug logging handled by structured logging
                 // Get from database using optimized query
                 var list = await _workflowRepository.GetAllOptimizedAsync();
                 if (list == null)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning("GetAllAsync returned null workflow list from repository");
                     return new List<WorkflowOutputDto>();
                 }
 
@@ -568,7 +565,7 @@ namespace FlowFlex.Application.Services.OW
                 var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning("AutoMapper returned null when mapping workflow list");
                     return new List<WorkflowOutputDto>();
                 }
 
@@ -580,13 +577,12 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Error getting all workflows, elapsed {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
                 // Provide more detailed error information
                 var errorMessage = ex.InnerException != null
                     ? $"{ex.Message} -> {ex.InnerException.Message}"
@@ -975,7 +971,7 @@ namespace FlowFlex.Application.Services.OW
                         await _cacheService.RemoveAsync(cacheKey);
 
                         // Log record
-                        // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
+                        _logger.LogInformation("Workflow {WorkflowId} has been set to inactive due to expiration. EndDate: {EndDate}", workflow.Id, workflow.EndDate);
                     }
                 }
 

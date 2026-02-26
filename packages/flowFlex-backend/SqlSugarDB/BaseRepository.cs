@@ -1267,7 +1267,6 @@ namespace FlowFlex.SqlSugarDB
                 db.AsTenant().RollbackTran();
                 // Log exception information
                 // Exception logging is handled by global exception middleware
-                // Debug logging handled by structured logging
                 // Throw exception directly
                 throw;
             }

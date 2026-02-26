@@ -10,6 +10,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using FlowFlex.Domain.Shared.Const;
+
 namespace FlowFlex.Application.Services.AI.Action
 {
     /// <summary>
@@ -164,7 +166,7 @@ namespace FlowFlex.Application.Services.AI.Action
         public async IAsyncEnumerable<AIActionStreamResult> StreamAnalyzeActionAsync(
             AIActionAnalysisInput input)
         {
-            yield return new AIActionStreamResult { Type = "delta", Content = "Analyzing conversation...", Progress = 10 };
+            yield return new AIActionStreamResult { Type = AIStreamResultTypes.Delta, Content = "Analyzing conversation...", Progress = 10 };
 
             // Execute outside yield context to avoid yield-in-catch restriction
             AIActionAnalysisResult result = null;
@@ -180,19 +182,19 @@ namespace FlowFlex.Application.Services.AI.Action
 
             if (errorMessage != null)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = errorMessage, Message = "Analysis failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = errorMessage, Message = "Analysis failed" };
                 yield break;
             }
 
             if (!result.Success)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = result.Message, Message = "Analysis failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = result.Message, Message = "Analysis failed" };
                 yield break;
             }
 
             yield return new AIActionStreamResult
             {
-                Type = "analysis",
+                Type = AIStreamResultTypes.Analysis,
                 Content = JsonSerializer.Serialize(result),
                 Data = result,
                 Progress = 100,
@@ -204,7 +206,7 @@ namespace FlowFlex.Application.Services.AI.Action
         public async IAsyncEnumerable<AIActionStreamResult> StreamCreateActionAsync(
             AIActionCreationInput input)
         {
-            yield return new AIActionStreamResult { Type = "delta", Content = "Creating action plan...", Progress = 10 };
+            yield return new AIActionStreamResult { Type = AIStreamResultTypes.Delta, Content = "Creating action plan...", Progress = 10 };
 
             AIActionCreationResult result = null;
             string errorMessage = null;
@@ -219,13 +221,13 @@ namespace FlowFlex.Application.Services.AI.Action
 
             if (errorMessage != null)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = errorMessage, Message = "Creation failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = errorMessage, Message = "Creation failed" };
                 yield break;
             }
 
             if (!result.Success)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = result.Message, Message = "Creation failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = result.Message, Message = "Creation failed" };
                 yield break;
             }
 
@@ -243,7 +245,7 @@ namespace FlowFlex.Application.Services.AI.Action
         public async IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigAsync(
             AIHttpConfigGenerationInput input)
         {
-            yield return new AIActionStreamResult { Type = "delta", Content = "Generating HTTP configuration...", Progress = 10 };
+            yield return new AIActionStreamResult { Type = AIStreamResultTypes.Delta, Content = "Generating HTTP configuration...", Progress = 10 };
 
             // Execute AI call outside yield context
             AIProviderResponse aiResponse = null;
@@ -282,19 +284,19 @@ namespace FlowFlex.Application.Services.AI.Action
 
             if (errorMessage != null)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = errorMessage, Message = "HTTP config generation failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = errorMessage, Message = "HTTP config generation failed" };
                 yield break;
             }
 
             if (!aiResponse.Success)
             {
-                yield return new AIActionStreamResult { Type = "error", Content = aiResponse.ErrorMessage, Message = "HTTP config generation failed" };
+                yield return new AIActionStreamResult { Type = AIStreamResultTypes.Error, Content = aiResponse.ErrorMessage, Message = "HTTP config generation failed" };
                 yield break;
             }
 
             yield return new AIActionStreamResult
             {
-                Type = "complete",
+                Type = AIStreamResultTypes.Complete,
                 Content = aiResponse.Content,
                 Progress = 100,
                 Message = "HTTP configuration generated"

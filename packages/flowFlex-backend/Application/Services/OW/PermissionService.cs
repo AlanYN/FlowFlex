@@ -102,30 +102,16 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Step 1: Check View permission first
-                PermissionResult viewResult;
-
-                switch (resourceType)
+                var viewResult = await CheckAccessByResourceTypeAsync(userId, resourceId, resourceType, PermissionOperationType.View);
+                if (viewResult == null)
                 {
-                    case PermissionEntityTypeEnum.Workflow:
-                        viewResult = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.View);
-                        break;
-
-                    case PermissionEntityTypeEnum.Stage:
-                        viewResult = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.View);
-                        break;
-
-                    case PermissionEntityTypeEnum.Case:
-                        viewResult = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.View);
-                        break;
-
-                    default:
-                        _logger.LogWarning("Unsupported resource type: {ResourceType}", resourceType);
-                        return new CheckPermissionResponse
-                        {
-                            CanView = false,
-                            CanOperate = false,
-                            ErrorMessage = $"Unsupported resource type: {resourceType}"
-                        };
+                    _logger.LogWarning("Unsupported resource type: {ResourceType}", resourceType);
+                    return new CheckPermissionResponse
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = $"Unsupported resource type: {resourceType}"
+                    };
                 }
 
                 // If View permission check failed, return immediately
@@ -142,26 +128,8 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Step 2: Check Operate permission (only if View succeeded)
-                PermissionResult operateResult;
-
-                switch (resourceType)
-                {
-                    case PermissionEntityTypeEnum.Workflow:
-                        operateResult = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    case PermissionEntityTypeEnum.Stage:
-                        operateResult = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    case PermissionEntityTypeEnum.Case:
-                        operateResult = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    default:
-                        operateResult = PermissionResult.CreateFailure("Unsupported resource type", "UNSUPPORTED_RESOURCE_TYPE");
-                        break;
-                }
+                var operateResult = await CheckAccessByResourceTypeAsync(userId, resourceId, resourceType, PermissionOperationType.Operate)
+                    ?? PermissionResult.CreateFailure("Unsupported resource type", "UNSUPPORTED_RESOURCE_TYPE");
 
                 // Build response with both View and Operate results
                 var response = new CheckPermissionResponse
@@ -191,6 +159,25 @@ namespace FlowFlex.Application.Services.OW
                     ErrorMessage = "Internal error during permission check"
                 };
             }
+        }
+
+        /// <summary>
+        /// Route permission check to the appropriate service based on resource type.
+        /// Returns null for unsupported resource types.
+        /// </summary>
+        private async Task<PermissionResult?> CheckAccessByResourceTypeAsync(
+            long userId,
+            long resourceId,
+            PermissionEntityTypeEnum resourceType,
+            PermissionOperationType operationType)
+        {
+            return resourceType switch
+            {
+                PermissionEntityTypeEnum.Workflow => await CheckWorkflowAccessAsync(userId, resourceId, operationType),
+                PermissionEntityTypeEnum.Stage => await CheckStageAccessAsync(userId, resourceId, operationType),
+                PermissionEntityTypeEnum.Case => await CheckCaseAccessAsync(userId, resourceId, operationType),
+                _ => null
+            };
         }
 
         #endregion

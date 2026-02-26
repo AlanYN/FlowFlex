@@ -242,7 +242,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var attachment = await GetAttachmentByIdAsync(id, CancellationToken.None);
+                var attachment = await GetAttachmentByIdAsync(id, default);
 
                 // Try to get real file from file storage
                 try

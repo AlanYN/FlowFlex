@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using Item.Internal.StandardApi.Response;
@@ -15,6 +16,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
     [ApiController]
     [Route("ow/logs/workflow/v{version:apiVersion}")]
     [Display(Name = "Workflow Operation Logs")]
+    [Authorize]
     public class WorkflowLogController : Controllers.ControllerBase
     {
         private readonly IWorkflowLogService _workflowLogService;

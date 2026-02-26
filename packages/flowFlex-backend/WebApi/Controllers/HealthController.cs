@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SqlSugar;
 using System.Net;
@@ -25,19 +26,20 @@ namespace FlowFlex.WebApi.Controllers
         [ProducesResponseType((int)HttpStatusCode.OK)]
         public IActionResult Get()
         {
-            return Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow });
+            return Ok(new { Status = "Healthy", Timestamp = DateTimeOffset.UtcNow });
         }
 
         /// <summary>
         /// Database connectivity check
+        /// Requires authentication to prevent information disclosure
         /// </summary>
         [HttpGet("database")]
+        [Authorize]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         public IActionResult DatabaseCheck()
         {
             try
             {
-                // Test database connection using SqlSugar
                 _sqlSugarClient.Ado.CheckConnection();
 
                 return Ok(new
@@ -45,9 +47,8 @@ namespace FlowFlex.WebApi.Controllers
                     Status = "Healthy",
                     Database = "Connected",
                     TestResult = "Connection OK",
-                    Timestamp = DateTime.UtcNow,
-                    Provider = _sqlSugarClient.CurrentConnectionConfig.DbType.ToString(),
-                    ConnectionString = HidePassword(_sqlSugarClient.CurrentConnectionConfig.ConnectionString)
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Provider = _sqlSugarClient.CurrentConnectionConfig.DbType.ToString()
                 });
             }
             catch (Exception ex)
@@ -57,25 +58,25 @@ namespace FlowFlex.WebApi.Controllers
                     Status = "Unhealthy",
                     Database = "Disconnected",
                     Error = ex.Message,
-                    Type = ex.GetType().Name,
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTimeOffset.UtcNow
                 });
             }
         }
 
         /// <summary>
         /// Detailed system health check
+        /// Requires authentication - exposes system diagnostics information
         /// </summary>
         [HttpGet("detailed")]
+        [Authorize]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DetailedCheck()
         {
             var healthStatus = new
             {
                 Status = "Healthy",
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTimeOffset.UtcNow,
                 Version = "1.0.0",
-                Environment = System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown",
                 Database = await CheckDatabaseHealthAsync(),
                 Memory = new
                 {
@@ -83,13 +84,6 @@ namespace FlowFlex.WebApi.Controllers
                     Gen0Collections = GC.CollectionCount(0),
                     Gen1Collections = GC.CollectionCount(1),
                     Gen2Collections = GC.CollectionCount(2)
-                },
-                Server = new
-                {
-                    MachineName = System.Environment.MachineName,
-                    ProcessorCount = System.Environment.ProcessorCount,
-                    OSVersion = System.Environment.OSVersion.ToString(),
-                    DotNETVersion = System.Environment.Version.ToString()
                 }
             };
 
@@ -101,10 +95,7 @@ namespace FlowFlex.WebApi.Controllers
             try
             {
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-                // Test connection using SqlSugar's synchronous method
                 _sqlSugarClient.Ado.CheckConnection();
-
                 stopwatch.Stop();
 
                 var result = new
@@ -122,24 +113,11 @@ namespace FlowFlex.WebApi.Controllers
                 var result = new
                 {
                     Status = "Disconnected",
-                    Error = ex.Message,
-                    Type = ex.GetType().Name
+                    Error = ex.Message
                 };
 
                 return Task.FromResult<object>(result);
             }
-        }
-
-        private static string HidePassword(string connectionString)
-        {
-            if (string.IsNullOrEmpty(connectionString))
-                return "";
-
-            return System.Text.RegularExpressions.Regex.Replace(
-                connectionString,
-                @"(password|pwd)\s*=\s*[^;]*",
-                "$1=***",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
     }
 }

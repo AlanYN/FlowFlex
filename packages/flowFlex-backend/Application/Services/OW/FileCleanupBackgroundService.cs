@@ -62,7 +62,7 @@ namespace FlowFlex.Application.Services.OW
                 // Clean up temporary files
                 var deletedCount = await fileStorageService.CleanupTempFilesAsync();
 
-                _logger.LogInformation($"File cleanup completed. Deleted {deletedCount} temporary files");
+                _logger.LogInformation("File cleanup completed. Deleted {DeletedCount} temporary files", deletedCount);
             }
             catch (Exception ex)
             {

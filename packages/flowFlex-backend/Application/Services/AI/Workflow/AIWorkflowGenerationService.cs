@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -164,14 +165,14 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
             yield return new AIWorkflowStreamResult
             {
-                Type = "start",
+                Type = AIStreamResultTypes.Start,
                 Message = "Starting workflow generation...",
                 IsComplete = false
             };
 
             yield return new AIWorkflowStreamResult
             {
-                Type = "progress",
+                Type = AIStreamResultTypes.Progress,
                 Message = "Analyzing requirements...",
                 IsComplete = false
             };
@@ -226,7 +227,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                     // Send initial progress message
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "progress",
+                        Type = AIStreamResultTypes.Progress,
                         Message = "Generating workflow structure...",
                         IsComplete = false
                     });
@@ -261,7 +262,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                             {
                                 await writer.WriteAsync(new AIWorkflowStreamResult
                                 {
-                                    Type = "progress",
+                                    Type = AIStreamResultTypes.Progress,
                                     Message = $"Generating workflow... ({streamingContent.Length} characters, {timeSinceLastProgress / 1000:F1}s)",
                                     IsComplete = false
                                 });
@@ -306,7 +307,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                     {
                         await writer.WriteAsync(new AIWorkflowStreamResult
                         {
-                            Type = "error",
+                            Type = AIStreamResultTypes.Error,
                             Message = aiResponse.ErrorMessage ?? "AI service call failed",
                             IsComplete = true
                         });
@@ -318,7 +319,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                 {
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "error",
+                        Type = AIStreamResultTypes.Error,
                         Message = "No content received from AI service",
                         IsComplete = true
                     });
@@ -327,7 +328,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                 await writer.WriteAsync(new AIWorkflowStreamResult
                 {
-                    Type = "progress",
+                    Type = AIStreamResultTypes.Progress,
                     Message = "Parsing workflow structure...",
                     IsComplete = false
                 });
@@ -349,7 +350,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                     {
                         await writer.WriteAsync(new AIWorkflowStreamResult
                         {
-                            Type = "stage",
+                            Type = AIStreamResultTypes.Stage,
                             Data = stage,
                             Message = $"Stage '{stage.Name}' generated",
                             IsComplete = false
@@ -358,7 +359,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "complete",
+                        Type = AIStreamResultTypes.Complete,
                         Data = result,
                         Message = "Workflow generation completed",
                         IsComplete = true
@@ -368,7 +369,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                 {
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "error",
+                        Type = AIStreamResultTypes.Error,
                         Message = "Unable to parse AI-generated workflow structure",
                         IsComplete = true
                     });
@@ -394,7 +395,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                 await writer.WriteAsync(new AIWorkflowStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Message = $"Workflow generation failed: {ex.Message}",
                     IsComplete = true
                 });
@@ -417,7 +418,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
         {
             await writer.WriteAsync(new AIWorkflowStreamResult
             {
-                Type = "progress",
+                Type = AIStreamResultTypes.Progress,
                 Message = "Parsing workflow structure...",
                 IsComplete = false
             });
@@ -446,7 +447,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                 {
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "stage",
+                        Type = AIStreamResultTypes.Stage,
                         Data = stage,
                         Message = $"Stage '{stage.Name}' generated",
                         IsComplete = false
@@ -481,7 +482,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                 await writer.WriteAsync(new AIWorkflowStreamResult
                 {
-                    Type = "complete",
+                    Type = AIStreamResultTypes.Complete,
                     Data = streamResult,
                     Message = "Workflow generation completed with AI-powered components",
                     IsComplete = true
@@ -530,7 +531,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
                     {
                         await writer.WriteAsync(new AIWorkflowStreamResult
                         {
-                            Type = "stage",
+                            Type = AIStreamResultTypes.Stage,
                             Data = stage,
                             Message = $"Stage '{stage.Name}' generated",
                             IsComplete = false
@@ -539,7 +540,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                     await writer.WriteAsync(new AIWorkflowStreamResult
                     {
-                        Type = "complete",
+                        Type = AIStreamResultTypes.Complete,
                         Data = fallbackResult,
                         Message = $"Workflow generation completed in {(DateTime.UtcNow - fallbackStartTime).TotalMilliseconds}ms",
                         IsComplete = true
@@ -549,7 +550,7 @@ namespace FlowFlex.Application.Services.AI.Workflow
 
                 await writer.WriteAsync(new AIWorkflowStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Message = "AI generation failed and fallback unsuccessful",
                     IsComplete = true
                 });

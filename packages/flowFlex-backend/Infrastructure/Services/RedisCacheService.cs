@@ -22,9 +22,9 @@ namespace FlowFlex.Infrastructure.Services
         private readonly CacheOptions _cacheOptions;
         private readonly IConnectionMultiplexer _connectionMultiplexer;
 
-        // Cache statistics (in-memory counters)
-        private static long _hitCount = 0;
-        private static long _missCount = 0;
+        // Cache statistics (per-instance counters for tenant isolation)
+        private long _hitCount = 0;
+        private long _missCount = 0;
 
         // JSON serialization options
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions

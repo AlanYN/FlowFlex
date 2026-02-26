@@ -96,7 +96,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
             
-            _logger.LogInformation($"Created integration: {input.Name} (ID: {id})");
+            _logger.LogInformation("Created integration: {Name} (ID: {Id})", input.Name, id);
             
             return id;
         }
@@ -143,7 +143,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Updated integration: {input.Name} (ID: {id})");
+            _logger.LogInformation("Updated integration: {Name} (ID: {Id})", input.Name, id);
             
             return result;
         }
@@ -162,7 +162,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Deleted integration: {entity.Name} (ID: {id})");
+            _logger.LogInformation("Deleted integration: {Name} (ID: {Id})", entity.Name, id);
             
             return result;
         }
@@ -385,7 +385,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to get field mappings through action mapping for integration {id}");
+                _logger.LogWarning(ex, "Failed to get field mappings through action mapping for integration {IntegrationId}", id);
                 dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
                 dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
             }
@@ -416,7 +416,7 @@ namespace FlowFlex.Application.Services.Integration
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, $"Failed to extract outbound mappings from action config for action {actionId}");
+                            _logger.LogWarning(ex, "Failed to extract outbound mappings from action config for action {ActionId}", actionId);
                         }
                     }
 
@@ -443,7 +443,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to extract outbound mappings from action configs for integration {id}");
+                _logger.LogWarning(ex, "Failed to extract outbound mappings from action configs for integration {IntegrationId}", id);
             }
             
             // Populate LastDaysSeconds with real execution data
@@ -526,7 +526,7 @@ namespace FlowFlex.Application.Services.Integration
                 // Decrypt credentials
                 var credentials = DecryptCredentials(entity.EncryptedCredentials);
                 
-                _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id}), AuthMethod: {entity.AuthMethod}, EndpointUrl: {entity.EndpointUrl}");
+                _logger.LogInformation("Testing connection for integration: {Name} (ID: {Id}), AuthMethod: {AuthMethod}, EndpointUrl: {EndpointUrl}", entity.Name, id, entity.AuthMethod, entity.EndpointUrl);
                 
                 // Perform actual HTTP connection test
                 var (success, errorMessage) = await PerformConnectionTestAsync(entity.EndpointUrl, entity.AuthMethod, credentials);
@@ -537,7 +537,7 @@ namespace FlowFlex.Application.Services.Integration
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Connected;
                     entity.ErrorMessage = null;
                     entity.LastSyncDate = DateTimeOffset.UtcNow;
-                    _logger.LogInformation($"Connection test succeeded for integration: {entity.Name} (ID: {id})");
+                    _logger.LogInformation("Connection test succeeded for integration: {Name} (ID: {Id})", entity.Name, id);
                     
                     entity.InitModifyInfo(_userContext);
                     await _integrationRepository.UpdateAsync(entity);
@@ -553,7 +553,7 @@ namespace FlowFlex.Application.Services.Integration
                     // Update status to Error if test fails
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                     entity.ErrorMessage = errorMessage;
-                    _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
+                    _logger.LogWarning("Connection test failed for integration: {Name} (ID: {Id}), Error: {ErrorMessage}", entity.Name, id, errorMessage);
                 
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
@@ -567,7 +567,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Connection test failed for integration: {entity.Name} (ID: {id})");
+                _logger.LogError(ex, "Connection test failed for integration: {Name} (ID: {Id})", entity.Name, id);
                 
                 // Update status to Error if test fails
                 entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
@@ -685,12 +685,12 @@ namespace FlowFlex.Application.Services.Integration
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 request.Headers.Add("User-Agent", "FlowFlex-Integration/1.0");
 
-                _logger.LogDebug($"Sending {request.Method} request to {endpointUrl} with AuthMethod: {authMethod}");
+                _logger.LogDebug("Sending {Method} request to {EndpointUrl} with AuthMethod: {AuthMethod}", request.Method, endpointUrl, authMethod);
 
                 var response = await httpClient.SendAsync(request);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                _logger.LogDebug($"Response status: {response.StatusCode}, Content length: {responseContent.Length}");
+                _logger.LogDebug("Response status: {StatusCode}, Content length: {ContentLength}", response.StatusCode, responseContent.Length);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -731,7 +731,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Updated integration status: {entity.Name} (ID: {id}) to {status}");
+            _logger.LogInformation("Updated integration status: {Name} (ID: {Id}) to {Status}", entity.Name, id, status);
             
             return result;
         }
@@ -839,7 +839,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to parse actionConfig for action {action.Id}: {action.ActionConfig}");
+                _logger.LogWarning(ex, "Failed to parse actionConfig for action {ActionId}: {ActionConfig}", action.Id, action.ActionConfig);
             }
 
             return mappings;
@@ -861,7 +861,7 @@ namespace FlowFlex.Application.Services.Integration
         /// <returns>Dictionary with date as key (yyyy-MM-dd) and call count as value</returns>
         private async Task<Dictionary<string, string>> GetLastDaysSecondsAsync(long integrationId)
         {
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
             var result = new Dictionary<string, string>();
             var startDate = today.AddDays(-29);
 
@@ -918,7 +918,7 @@ namespace FlowFlex.Application.Services.Integration
                 return result;
             }
 
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
 
             try
             {
@@ -984,7 +984,7 @@ namespace FlowFlex.Application.Services.Integration
         private Dictionary<string, string> GetEmptyLastDaysSeconds()
         {
             var result = new Dictionary<string, string>();
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
 
             for (int i = 29; i >= 0; i--)
             {
@@ -1145,7 +1145,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to populate ConfiguredEntityTypeNames for integration {dto.Id}");
+                _logger.LogWarning(ex, "Failed to populate ConfiguredEntityTypeNames for integration {IntegrationId}", dto.Id);
                 dto.ConfiguredEntityTypeNames = new List<string>();
                 dto.ConfiguredEntityTypes = 0;
             }

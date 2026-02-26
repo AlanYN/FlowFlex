@@ -39,23 +39,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (!tableExists)
                 {
-                    // Debug logging handled by structured logging
                     // Create table using SqlSugar code first
                     db.CodeFirst.SetStringDefaultLength(200).InitTables<Onboarding>();
-                    // Debug logging handled by structured logging
                     // Create performance optimization indexes
                     await CreatePerformanceIndexesAsync();
                 }
                 else
                 {
-                    // Debug logging handled by structured logging
                     // Ensure indexes exist
                     await EnsurePerformanceIndexesAsync();
                 }
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to ensure onboarding table exists, will attempt insert anyway");
                 // Log but don't throw, let the insert try anyway
             }
         }
@@ -114,18 +111,16 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     try
                     {
                         await db.Ado.ExecuteCommandAsync(query);
-                        // Debug logging handled by structured logging[5]}"); // Extract index name
                     }
                     catch (Exception ex)
                     {
-                        // Debug logging handled by structured logging
+                        _logger.LogWarning(ex, "Failed to create index with query: {Query}", query);
                     }
                 }
-                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to create performance indexes for onboarding table");
             }
         }
 
@@ -147,13 +142,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (indexExists == 0)
                 {
-                    // Debug logging handled by structured logging
                     await CreatePerformanceIndexesAsync();
                 }
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to ensure performance indexes for onboarding table");
             }
         }
 
@@ -342,12 +336,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
-            // Debug logging handled by structured logging
             // Try raw SQL update as the most direct approach
             try
             {
                 var modifyDate = DateTimeOffset.UtcNow;
-                // Debug logging handled by structured logging
                 var rawSql = @"
                     UPDATE ff_onboarding 
                     SET completion_rate = @CompletionRate, 
@@ -360,33 +352,27 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     ModifyDate = modifyDate,
                     Id = id
                 };
-                // Debug logging handled by structured logging
                 var rowsAffected = await db.Ado.ExecuteCommandAsync(rawSql, parameters);
-                // Debug logging handled by structured logging
                 if (rowsAffected > 0)
                 {
-                    // Debug logging handled by structured logging
                     // Verify the update by reading back the data
                     var verifyEntity = await GetByIdAsync(id);
-                    // Debug logging handled by structured logging
                     return true;
                 }
                 else
                 {
-                    // Debug logging handled by structured logging
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Raw SQL update failed for completion rate, OnboardingId: {OnboardingId}", id);
             }
 
             // Try direct SQL update with SqlSugar
             try
             {
                 var modifyDate = DateTimeOffset.UtcNow;
-                // Debug logging handled by structured logging
                 var sqlResult = await db.Updateable<Onboarding>()
                     .SetColumns(x => new Onboarding
                     {
@@ -395,31 +381,25 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     })
                     .Where(x => x.Id == id)
                     .ExecuteCommandAsync();
-                // Debug logging handled by structured logging
                 if (sqlResult > 0)
                 {
-                    // Debug logging handled by structured logging
                     // Verify the update by reading back the data
                     var verifyEntity = await GetByIdAsync(id);
-                    // Debug logging handled by structured logging
                     return true;
                 }
                 else
                 {
-                    // Debug logging handled by structured logging
                 }
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "SqlSugar update failed for completion rate, OnboardingId: {OnboardingId}", id);
             }
 
             // Fallback to entity update
             entity.CompletionRate = completionRate;
             entity.ModifyDate = DateTimeOffset.UtcNow;
-            // Debug logging handled by structured logging
             var result = await UpdateAsync(entity);
-            // Debug logging handled by structured logging
             return result;
         }
 

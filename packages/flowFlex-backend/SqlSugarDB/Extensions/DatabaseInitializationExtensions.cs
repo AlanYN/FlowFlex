@@ -51,11 +51,9 @@ namespace FlowFlex.SqlSugarDB.Extensions
                 // Run migrations
                 var migrationManager = new MigrationManager(db, verboseLogging: false);
                 migrationManager.RunMigrations();
-                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
                 throw;
             }
         }

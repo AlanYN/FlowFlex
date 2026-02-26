@@ -3,6 +3,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Helpers.OW;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -11,6 +12,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -19,7 +21,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for managing onboarding stage operations
     /// Handles: MoveToNextStage, MoveToStage, CompleteCurrentStage, stage validation
     /// </summary>
-    public class OnboardingStageManagementService : IOnboardingStageManagementService
+    public class OnboardingStageManagementService : IOnboardingStageManagementService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
@@ -34,6 +36,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IEmailService _emailService;
         private readonly IUserService _userService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly EmailOptions _emailOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStageManagementService> _logger;
 
@@ -51,6 +54,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IEmailService emailService,
             IUserService userService,
             IHttpContextAccessor httpContextAccessor,
+            IOptions<EmailOptions> emailOptions,
             UserContext userContext,
             ILogger<OnboardingStageManagementService> logger)
         {
@@ -67,6 +71,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _httpContextAccessor = httpContextAccessor;
+            _emailOptions = emailOptions.Value;
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -739,7 +744,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 _logger.LogWarning(ex, "Failed to build case URL from request context");
             }
 
-            var fallbackUrl = $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
+            var fallbackBaseUrl = _emailOptions.FallbackBaseUrl ?? "https://workflow.item.com";
+            var fallbackUrl = $"{fallbackBaseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
             if (!string.IsNullOrWhiteSpace(tenantId))
             {
                 fallbackUrl += $"&tenantId={Uri.EscapeDataString(tenantId)}";

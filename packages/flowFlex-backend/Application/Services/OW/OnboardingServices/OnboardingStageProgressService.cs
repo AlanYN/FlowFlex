@@ -20,7 +20,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for managing onboarding stage progress operations
     /// Handles stage progress initialization, updates, validation, and serialization
     /// </summary>
-    public class OnboardingStageProgressService : IOnboardingStageProgressService
+    public class OnboardingStageProgressService : IOnboardingStageProgressService, IScopedService
     {
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;

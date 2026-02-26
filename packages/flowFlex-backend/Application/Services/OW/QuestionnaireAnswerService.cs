@@ -174,11 +174,10 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 // Stage completion log functionality removed
-                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to log questionnaire answer change for OnboardingId: {OnboardingId}, StageId: {StageId}, QuestionnaireId: {QuestionnaireId}", onboardingId, stageId, questionnaireId);
             }
         }
 
@@ -189,7 +188,6 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
                 // Check if answer already exists - use questionnaireId if provided
                 QuestionnaireAnswer existingAnswer = null;
 
@@ -218,10 +216,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Format and validate answer JSON
                 var formattedJson = string.IsNullOrWhiteSpace(input.AnswerJson) ? "{}" : input.AnswerJson.Trim();
-                // Debug logging handled by structured logging
                 if (isUpdate)
                 {
-                    // Debug logging handled by structured logging
                     // Process answer changes history
                     var updatedAnswerJson = await ProcessAnswerChangesAsync(oldAnswerJson, formattedJson);
 
@@ -238,7 +234,6 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                     var updateResult = await _repository.UpdateAsync(existingAnswer);
-                    // Debug logging handled by structured logging
                     // Log the update
                     if (updateResult)
                     {
@@ -257,7 +252,6 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else
                 {
-                    // Debug logging handled by structured logging
                     // Process new answer changes history
                     var processedAnswerJson = await ProcessAnswerChangesAsync(null, formattedJson);
 
@@ -282,11 +276,9 @@ namespace FlowFlex.Application.Services.OW
                     // Initialize create information with proper ID and timestamps
                     entity.InitCreateInfo(_userContext);
                     AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
-                    // Debug logging handled by structured logging ?? "NULL"}");
 
                     // Use SqlSugar ORM insert
                     var result = await _sqlSugarClient.Insertable(entity).ExecuteCommandAsync();
-                    // Debug logging handled by structured logging
                     // Log the creation
                     if (result > 0)
                     {
@@ -323,7 +315,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Failed to save questionnaire answer for OnboardingId: {OnboardingId}, StageId: {StageId}", input.OnboardingId, input.StageId);
                 throw;
             }
         }
@@ -335,40 +327,27 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
                 // Get current tenant ID - from HTTP headers
                 string httpTenantId = GetTenantId();
-                // Debug logging handled by structured logging
                 // Get tenant ID from UserContext
                 var userContext = _httpContextAccessor.HttpContext?.RequestServices.GetService(typeof(UserContext)) as UserContext;
                 string userContextTenantId = userContext?.TenantId;
-                // Debug logging handled by structured logging
-                // Check SqlSugar filter status
-                // Debug logging handled by structured logging
                 // First try querying without filters to see if data exists
                 using var scope = _sqlSugarClient.CreateFilterScope();
                 var allEntities = await _sqlSugarClient.Queryable<QuestionnaireAnswer>()
                     .Where(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsValid)
                     .ToListAsync();
-                // Debug logging handled by structured logging
-                foreach (var e in allEntities)
-                {
-                    // Debug logging handled by structured logging
-                }
 
                 // Use normal repository method query (with tenant filter)
                 var entity = await _repository.GetByOnboardingAndStageAsync(onboardingId, stageId);
-                // Debug logging handled by structured logging}");
 
                 // If not found, try manual tenant ID matching
                 if (entity == null && allEntities.Count > 0)
                 {
-                    // Debug logging handled by structured logging
                     var matchingEntity = allEntities.FirstOrDefault(e =>
                         e.TenantId == httpTenantId || e.TenantId == userContextTenantId);
                     if (matchingEntity != null)
                     {
-                        // Debug logging handled by structured logging
                         return _mapper.Map<QuestionnaireAnswerOutputDto>(matchingEntity);
                     }
                 }
@@ -377,7 +356,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Failed to get questionnaire answer for OnboardingId: {OnboardingId}, StageId: {StageId}", onboardingId, stageId);
                 throw;
             }
         }
@@ -389,14 +368,12 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
                 var entities = await _repository.GetAllByOnboardingAndStageAsync(onboardingId, stageId);
-                // Debug logging handled by structured logging
                 return _mapper.Map<List<QuestionnaireAnswerOutputDto>>(entities);
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Failed to get all questionnaire answers for OnboardingId: {OnboardingId}, StageId: {StageId}", onboardingId, stageId);
                 throw;
             }
         }
@@ -455,7 +432,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Failed to update questionnaire answer with AnswerId: {AnswerId}", answerId);
                 throw;
             }
         }
@@ -791,18 +768,16 @@ namespace FlowFlex.Application.Services.OW
                                         }
                                         catch (Exception ex)
                                         {
-                                            // Debug logging handled by structured logging
+                                            _logger.LogWarning(ex, "Failed to deserialize existing change history");
                                             responseObj["changeHistory"] = new List<object>();
                                         }
                                     }
 
                                     AddChangeHistory(responseObj, currentUser, currentTime, "modified");
-                                    // Debug logging handled by structured logging
                                 }
                                 else
                                 {
-                                    // 答案未变更，保留原有的变更历史（如果存在�?
-                                    // Debug logging handled by structured logging
+                                    // Answer unchanged, preserve existing change history if present
                                     bool hasExistingHistory = false;
                                     if (oldResponse.TryGetProperty("changeHistory", out var changeHistory))
                                     {
@@ -813,19 +788,17 @@ namespace FlowFlex.Application.Services.OW
                                             {
                                                 responseObj["changeHistory"] = historyList;
                                                 hasExistingHistory = true;
-                                                // Debug logging handled by structured logging
                                             }
                                         }
                                         catch (Exception ex)
                                         {
-                                            // Debug logging handled by structured logging
+                                            _logger.LogWarning(ex, "Failed to deserialize change history for unchanged answer");
                                         }
                                     }
 
                                     // 如果没有现有的变更历史，创建一个初始记�?
                                     if (!hasExistingHistory)
                                     {
-                                        // Debug logging handled by structured logging
                                         AddChangeHistory(responseObj, "System", currentTime, "created");
                                     }
                                     else
@@ -846,7 +819,6 @@ namespace FlowFlex.Application.Services.OW
                             {
                                 // 新增的问题答�?
                                 AddChangeHistory(responseObj, currentUser, currentTime, "created");
-                                // Debug logging handled by structured logging
                             }
 
                             updatedResponses.Add(responseObj);
@@ -865,7 +837,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to process answer changes");
                 // 如果处理过程中出错，返回原始新答�?
                 return newAnswerJson;
             }
@@ -902,14 +874,6 @@ namespace FlowFlex.Application.Services.OW
                         {
                             // Only add change history for answers with values
                             AddChangeHistory(responseObj, currentUser, currentTime, "created");
-
-                            string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                            // Debug logging handled by structured logging
-                        }
-                        else
-                        {
-                            string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                            // Debug logging handled by structured logging
                         }
 
                         updatedResponses.Add(responseObj);
@@ -926,7 +890,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to add change history to new answers");
                 return newAnswerJson;
             }
         }
@@ -947,10 +911,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     bool oldHasField = oldResponse.TryGetProperty(field, out var oldValue);
                     bool newHasField = newResponse.TryGetProperty(field, out var newValue);
-                    // Debug logging handled by structured logging
                     if (oldHasField != newHasField)
                     {
-                        // Debug logging handled by structured logging
                         return true; // 字段存在性发生变�?
                     }
 
@@ -959,21 +921,18 @@ namespace FlowFlex.Application.Services.OW
                         // 比较�?
                         string oldStr = JsonSerializer.Serialize(oldValue);
                         string newStr = JsonSerializer.Serialize(newValue);
-                        // Debug logging handled by structured logging
                         if (oldStr != newStr)
                         {
-                            // Debug logging handled by structured logging
                             return true; // 值发生变�?
                         }
                     }
                 }
-                // Debug logging handled by structured logging
                 return false;
             }
             catch (Exception ex)
             {
                 string questionId = newResponse.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to compare answer changes for QuestionId: {QuestionId}", questionId);
                 // 如果比较过程中出错，保守地假设没有发生变�?
                 return false;
             }
@@ -1015,7 +974,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 string questionId = response.TryGetProperty("questionId", out var qId) ? qId.GetString() : "unknown";
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to check response value for QuestionId: {QuestionId}", questionId);
                 // 如果检查过程中出错，保守地假设有�?
                 return true;
             }
@@ -1066,7 +1025,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to add change history to response object");
             }
         }
 

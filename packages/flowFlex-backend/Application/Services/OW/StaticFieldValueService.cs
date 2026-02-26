@@ -92,11 +92,10 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 // Stage completion log functionality removed
-                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to log static field value change for OnboardingId: {OnboardingId}, StageId: {StageId}, FieldName: {FieldName}", onboardingId, stageId, fieldName);
             }
         }
 

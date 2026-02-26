@@ -291,14 +291,11 @@ namespace FlowFlex.Application.Services.AI
         {
             var result = new TResult();
 
-            // Use reflection to set common properties
-            var successProp = typeof(TResult).GetProperty("Success");
-            var messageProp = typeof(TResult).GetProperty("Message");
-            var confidenceProp = typeof(TResult).GetProperty("ConfidenceScore");
-
-            successProp?.SetValue(result, false);
-            messageProp?.SetValue(result, errorMessage);
-            confidenceProp?.SetValue(result, 0.0);
+            // Use cached reflection delegates for common properties
+            var props = ReflectionCache<TResult>.Instance;
+            props.SetSuccess?.Invoke(result, false);
+            props.SetMessage?.Invoke(result, errorMessage);
+            props.SetConfidenceScore?.Invoke(result, 0.0);
 
             return result;
         }
@@ -308,8 +305,35 @@ namespace FlowFlex.Application.Services.AI
         /// </summary>
         protected static void SetConfidenceScore<TResult>(TResult result, double score) where TResult : class
         {
-            var confidenceProp = typeof(TResult).GetProperty("ConfidenceScore");
-            confidenceProp?.SetValue(result, score);
+            var props = ReflectionCache<TResult>.Instance;
+            props.SetConfidenceScore?.Invoke(result, score);
+        }
+
+        /// <summary>
+        /// Cached reflection delegates per TResult type to avoid repeated reflection lookups
+        /// </summary>
+        private sealed class ReflectionCache<T> where T : class
+        {
+            public static readonly ReflectionCache<T> Instance = new();
+
+            public readonly Action<T, bool>? SetSuccess;
+            public readonly Action<T, string>? SetMessage;
+            public readonly Action<T, double>? SetConfidenceScore;
+
+            private ReflectionCache()
+            {
+                var successProp = typeof(T).GetProperty("Success");
+                if (successProp?.CanWrite == true)
+                    SetSuccess = (obj, val) => successProp.SetValue(obj, val);
+
+                var messageProp = typeof(T).GetProperty("Message");
+                if (messageProp?.CanWrite == true)
+                    SetMessage = (obj, val) => messageProp.SetValue(obj, val);
+
+                var confidenceProp = typeof(T).GetProperty("ConfidenceScore");
+                if (confidenceProp?.CanWrite == true)
+                    SetConfidenceScore = (obj, val) => confidenceProp.SetValue(obj, val);
+            }
         }
 
         #endregion

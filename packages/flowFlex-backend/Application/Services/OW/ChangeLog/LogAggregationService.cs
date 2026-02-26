@@ -222,7 +222,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 // Add more comprehensive statistics here
                 statistics["TotalOperations"] = basicStats.Values.Sum();
-                statistics["GeneratedAt"] = DateTime.UtcNow;
+                statistics["GeneratedAt"] = DateTimeOffset.UtcNow;
 
                 return statistics;
             }

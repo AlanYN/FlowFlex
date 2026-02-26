@@ -713,7 +713,7 @@ namespace FlowFlex.Application.Services.OW
             var rulesByField = config.Rules
                 .Where(r => !string.IsNullOrEmpty(r.FieldPath))
                 .GroupBy(r => r.FieldPath)
-                .Where(g => g.Count() > 1);
+                .Where(g => g.Skip(1).Any());
 
             foreach (var fieldGroup in rulesByField)
             {

@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Services.Integration
             integration.InitModifyInfo(_userContext);
             await _integrationRepository.UpdateAsync(integration);
 
-            _logger.LogInformation($"Created entity mapping: {input.ExternalEntityName} (ID: {id})");
+            _logger.LogInformation("Created entity mapping: {ExternalEntityName} (ID: {Id})", input.ExternalEntityName, id);
 
             return id;
         }
@@ -107,7 +107,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _entityMappingRepository.UpdateAsync(entity);
 
-            _logger.LogInformation($"Updated entity mapping: {input.ExternalEntityName} (ID: {id})");
+            _logger.LogInformation("Updated entity mapping: {ExternalEntityName} (ID: {Id})", input.ExternalEntityName, id);
 
             return result;
         }
@@ -136,7 +136,7 @@ namespace FlowFlex.Application.Services.Integration
                 await _integrationRepository.UpdateAsync(integration);
             }
 
-            _logger.LogInformation($"Deleted entity mapping: {entity.ExternalEntityName} (ID: {id})");
+            _logger.LogInformation("Deleted entity mapping: {ExternalEntityName} (ID: {Id})", entity.ExternalEntityName, id);
 
             return result;
         }
@@ -231,7 +231,7 @@ namespace FlowFlex.Application.Services.Integration
                     existingEntity.InitModifyInfo(_userContext);
                     await _entityMappingRepository.UpdateAsync(existingEntity);
                     result.DeletedCount++;
-                    _logger.LogInformation($"Batch deleted entity mapping: {existingEntity.ExternalEntityName} (ID: {existingEntity.Id})");
+                    _logger.LogInformation("Batch deleted entity mapping: {ExternalEntityName} (ID: {Id})", existingEntity.ExternalEntityName, existingEntity.Id);
                 }
             }
 
@@ -253,7 +253,7 @@ namespace FlowFlex.Application.Services.Integration
                         await _entityMappingRepository.UpdateAsync(existingEntity);
                         savedItemIds.Add(existingEntity.Id);
                         result.UpdatedCount++;
-                        _logger.LogInformation($"Batch updated entity mapping: {item.ExternalEntityName} (ID: {item.Id})");
+                        _logger.LogInformation("Batch updated entity mapping: {ExternalEntityName} (ID: {Id})", item.ExternalEntityName, item.Id);
                     }
                 }
                 else
@@ -273,7 +273,7 @@ namespace FlowFlex.Application.Services.Integration
                     var newId = await _entityMappingRepository.InsertReturnSnowflakeIdAsync(newEntity);
                     savedItemIds.Add(newId);
                     result.CreatedCount++;
-                    _logger.LogInformation($"Batch created entity mapping: {item.ExternalEntityName} (ID: {newId})");
+                    _logger.LogInformation("Batch created entity mapping: {ExternalEntityName} (ID: {Id})", item.ExternalEntityName, newId);
                 }
             }
 
@@ -295,7 +295,7 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            _logger.LogInformation($"Batch save completed: Created={result.CreatedCount}, Updated={result.UpdatedCount}, Deleted={result.DeletedCount}");
+            _logger.LogInformation("Batch save completed: Created={CreatedCount}, Updated={UpdatedCount}, Deleted={DeletedCount}", result.CreatedCount, result.UpdatedCount, result.DeletedCount);
 
             return result;
         }

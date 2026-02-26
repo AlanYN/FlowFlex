@@ -971,7 +971,7 @@ namespace FlowFlex.Application.Services.AI.StageComponent
                 {
                     _logger.LogWarning(ex, "Error checking checklist name uniqueness for {Name}, using fallback", currentName);
                     // If there's an error checking, use timestamp as fallback
-                    return $"{originalName} {DateTime.Now:yyyyMMdd-HHmmss}";
+                    return $"{originalName} {DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}";
                 }
             }
         }
@@ -1004,7 +1004,7 @@ namespace FlowFlex.Application.Services.AI.StageComponent
                 {
                     _logger.LogWarning(ex, "Error checking questionnaire name uniqueness for {Name}, using fallback", currentName);
                     // If there's an error checking, use timestamp as fallback
-                    return $"{originalName} {DateTime.Now:yyyyMMdd-HHmmss}";
+                    return $"{originalName} {DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}";
                 }
             }
         }

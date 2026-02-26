@@ -7,6 +7,8 @@ using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
+using FlowFlex.Domain.Shared.Const;
+
 namespace FlowFlex.Application.Services.AI.Checklist
 {
     /// <summary>
@@ -74,7 +76,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
 
             yield return new AIChecklistStreamResult
             {
-                Type = "start",
+                Type = AIStreamResultTypes.Start,
                 Message = "Starting checklist generation...",
                 IsComplete = false
             };
@@ -135,7 +137,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
             {
                 yield return new AIChecklistStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Message = $"Error during generation: {caughtException.Message}",
                     IsComplete = true
                 };
@@ -146,7 +148,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
             {
                 yield return new AIChecklistStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Message = aiResponse?.ErrorMessage ?? "AI service call failed",
                     IsComplete = true
                 };
@@ -157,7 +159,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
             {
                 yield return new AIChecklistStreamResult
                 {
-                    Type = "checklist",
+                    Type = AIStreamResultTypes.Checklist,
                     Data = result.GeneratedChecklist,
                     Message = "Checklist basic information generated",
                     IsComplete = false
@@ -165,7 +167,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
 
                 yield return new AIChecklistStreamResult
                 {
-                    Type = "complete",
+                    Type = AIStreamResultTypes.Complete,
                     Data = result,
                     Message = "Checklist generation completed",
                     IsComplete = true
@@ -175,7 +177,7 @@ namespace FlowFlex.Application.Services.AI.Checklist
             {
                 yield return new AIChecklistStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Message = "Unable to parse AI-generated checklist structure",
                     IsComplete = true
                 };

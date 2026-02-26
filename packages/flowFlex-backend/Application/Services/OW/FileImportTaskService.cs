@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -222,6 +223,17 @@ namespace FlowFlex.Application.Services.OW
                         {
                             item.Status = "Cancelled";
                             task.CancelledCount++;
+                            continue;
+                        }
+
+                        // Validate URL to prevent SSRF attacks
+                        if (!UrlValidationHelper.IsSafeUrl(fileInput.DownloadLink))
+                        {
+                            item.Status = "Failed";
+                            item.ErrorMessage = "Invalid or blocked URL: internal network addresses are not allowed";
+                            item.ProgressPercentage = 0;
+                            task.FailedCount++;
+                            _logger.LogWarning("Blocked SSRF attempt in import task {TaskId}: {Url}", taskId, fileInput.DownloadLink);
                             continue;
                         }
 

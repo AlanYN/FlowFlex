@@ -22,7 +22,9 @@ namespace FlowFlex.Application.Maps
         };
         
         // Static logger for mapping profile - initialized via SetLogger method
-        private static ILogger _logger;
+        // AutoMapper Profiles are instantiated during DI container build, so constructor injection is not possible.
+        // Using volatile to ensure thread-safe reads after SetLogger is called from Program.cs.
+        private static volatile ILogger _logger;
         
         /// <summary>
         /// Set the logger instance for this profile (call during application startup)
@@ -34,9 +36,10 @@ namespace FlowFlex.Application.Maps
         
         private static void LogWarning(Exception ex, string message)
         {
-            if (_logger != null)
+            var logger = _logger;
+            if (logger != null)
             {
-                _logger.LogWarning(ex, message);
+                logger.LogWarning(ex, "{Message}", message);
             }
             else
             {

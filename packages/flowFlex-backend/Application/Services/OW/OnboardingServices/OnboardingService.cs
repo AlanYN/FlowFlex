@@ -2,6 +2,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
 using System.Text.Json;
 
@@ -10,7 +11,7 @@ namespace FlowFlex.Application.Services.OW
     /// <summary>
     /// Onboarding service implementation - Facade that delegates to specialized sub-services
     /// </summary>
-    public class OnboardingService : IOnboardingService
+    public class OnboardingService : IOnboardingService, IScopedService
     {
         #region Fields
 

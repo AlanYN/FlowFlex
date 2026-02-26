@@ -17,7 +17,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for managing onboarding status transitions
     /// Handles: Start, Pause, Resume, Cancel, Abort, Reactivate, ForceComplete
     /// </summary>
-    public class OnboardingStatusService : IOnboardingStatusService
+    public class OnboardingStatusService : IOnboardingStatusService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;

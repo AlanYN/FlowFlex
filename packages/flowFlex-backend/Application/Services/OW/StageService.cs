@@ -221,276 +221,8 @@ namespace FlowFlex.Application.Services.OW
                         _logger.LogDebug("Stage {StageId} ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, ViewPermissionMode: {ViewPermissionMode}",
                             createdStage.Id, createdStage.ViewTeams ?? "null", createdStage.OperateTeams ?? "null", createdStage.ViewPermissionMode);
 
-                        // Build afterData JSON for logging (include important fields like ViewPermissionMode, Components, VisibleInPortal)
-                        string afterData;
-                        try
-                        {
-                            using var stream = new System.IO.MemoryStream();
-                            using (var writer = new System.Text.Json.Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-                            {
-                                writer.WriteStartObject();
-
-                                // Write base fields
-                                if (!string.IsNullOrEmpty(createdStage.Name))
-                                {
-                                    writer.WriteString("Name", createdStage.Name);
-                                }
-                                if (!string.IsNullOrEmpty(createdStage.Description))
-                                {
-                                    writer.WriteString("Description", createdStage.Description);
-                                }
-                                writer.WriteNumber("ViewPermissionMode", (int)createdStage.ViewPermissionMode);
-                                writer.WriteBoolean("VisibleInPortal", createdStage.VisibleInPortal);
-                                if (createdStage.PortalPermission.HasValue)
-                                {
-                                    writer.WriteNumber("PortalPermission", (int)createdStage.PortalPermission.Value);
-                                }
-                                writer.WriteBoolean("IsActive", createdStage.IsActive);
-                                if (!string.IsNullOrEmpty(createdStage.Color))
-                                {
-                                    writer.WriteString("Color", createdStage.Color);
-                                }
-                                if (createdStage.EstimatedDuration.HasValue)
-                                {
-                                    writer.WriteNumber("EstimatedDuration", createdStage.EstimatedDuration.Value);
-                                }
-                                writer.WriteNumber("Order", createdStage.Order);
-
-                                // Write DefaultAssignee if it exists
-                                if (!string.IsNullOrEmpty(createdStage.DefaultAssignee))
-                                {
-                                    try
-                                    {
-                                        using var defaultAssigneeDoc = JsonDocument.Parse(createdStage.DefaultAssignee);
-                                        var defaultAssigneeElement = defaultAssigneeDoc.RootElement;
-
-                                        if (defaultAssigneeElement.ValueKind == JsonValueKind.Array)
-                                        {
-                                            writer.WritePropertyName("DefaultAssignee");
-                                            defaultAssigneeElement.WriteTo(writer);
-                                        }
-                                        else if (defaultAssigneeElement.ValueKind == JsonValueKind.String)
-                                        {
-                                            // If DefaultAssignee is a JSON string, parse it again
-                                            var innerJson = defaultAssigneeElement.GetString();
-                                            if (!string.IsNullOrEmpty(innerJson))
-                                            {
-                                                try
-                                                {
-                                                    using var innerDoc = JsonDocument.Parse(innerJson);
-                                                    writer.WritePropertyName("DefaultAssignee");
-                                                    innerDoc.RootElement.WriteTo(writer);
-                                                }
-                                                catch
-                                                {
-                                                    // If inner parsing fails, write empty array
-                                                    writer.WritePropertyName("DefaultAssignee");
-                                                    writer.WriteStartArray();
-                                                    writer.WriteEndArray();
-                                                }
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Failed to parse DefaultAssignee for stage {StageId}", createdStage.Id);
-                                    }
-                                }
-
-                                // Write ViewTeams and OperateTeams
-                                // Always write ViewTeams if it exists or if ViewPermissionMode requires it
-                                if (!string.IsNullOrEmpty(createdStage.ViewTeams))
-                                {
-                                    try
-                                    {
-                                        using var viewTeamsDoc = JsonDocument.Parse(createdStage.ViewTeams);
-                                        var viewTeamsElement = viewTeamsDoc.RootElement;
-
-                                        if (viewTeamsElement.ValueKind == JsonValueKind.Array)
-                                        {
-                                            writer.WritePropertyName("ViewTeams");
-                                            viewTeamsElement.WriteTo(writer);
-                                        }
-                                        else if (viewTeamsElement.ValueKind == JsonValueKind.String)
-                                        {
-                                            // If ViewTeams is a JSON string, parse it again
-                                            var innerJson = viewTeamsElement.GetString();
-                                            if (!string.IsNullOrEmpty(innerJson))
-                                            {
-                                                try
-                                                {
-                                                    using var innerDoc = JsonDocument.Parse(innerJson);
-                                                    writer.WritePropertyName("ViewTeams");
-                                                    innerDoc.RootElement.WriteTo(writer);
-                                                }
-                                                catch
-                                                {
-                                                    // If inner parsing fails, write empty array
-                                                    writer.WritePropertyName("ViewTeams");
-                                                    writer.WriteStartArray();
-                                                    writer.WriteEndArray();
-                                                }
-                                            }
-                                            else
-                                            {
-                                                writer.WritePropertyName("ViewTeams");
-                                                writer.WriteStartArray();
-                                                writer.WriteEndArray();
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // If not an array or string, write empty array
-                                            writer.WritePropertyName("ViewTeams");
-                                            writer.WriteStartArray();
-                                            writer.WriteEndArray();
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Failed to parse ViewTeams for stage {StageId}, ViewTeams value: {ViewTeams}",
-                                            createdStage.Id, createdStage.ViewTeams ?? "null");
-                                        // Write empty array as fallback
-                                        writer.WritePropertyName("ViewTeams");
-                                        writer.WriteStartArray();
-                                        writer.WriteEndArray();
-                                    }
-                                }
-                                else if (createdStage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.VisibleToTeams ||
-                                         createdStage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.InvisibleToTeams)
-                                {
-                                    // Write empty array if ViewTeams is null/empty but ViewPermissionMode requires it
-                                    writer.WritePropertyName("ViewTeams");
-                                    writer.WriteStartArray();
-                                    writer.WriteEndArray();
-                                }
-
-                                // Always write OperateTeams if it exists
-                                if (!string.IsNullOrEmpty(createdStage.OperateTeams))
-                                {
-                                    try
-                                    {
-                                        using var operateTeamsDoc = JsonDocument.Parse(createdStage.OperateTeams);
-                                        var operateTeamsElement = operateTeamsDoc.RootElement;
-
-                                        if (operateTeamsElement.ValueKind == JsonValueKind.Array)
-                                        {
-                                            writer.WritePropertyName("OperateTeams");
-                                            operateTeamsElement.WriteTo(writer);
-                                        }
-                                        else if (operateTeamsElement.ValueKind == JsonValueKind.String)
-                                        {
-                                            // If OperateTeams is a JSON string, parse it again
-                                            var innerJson = operateTeamsElement.GetString();
-                                            if (!string.IsNullOrEmpty(innerJson))
-                                            {
-                                                try
-                                                {
-                                                    using var innerDoc = JsonDocument.Parse(innerJson);
-                                                    writer.WritePropertyName("OperateTeams");
-                                                    innerDoc.RootElement.WriteTo(writer);
-                                                }
-                                                catch
-                                                {
-                                                    // If inner parsing fails, write empty array
-                                                    writer.WritePropertyName("OperateTeams");
-                                                    writer.WriteStartArray();
-                                                    writer.WriteEndArray();
-                                                }
-                                            }
-                                            else
-                                            {
-                                                writer.WritePropertyName("OperateTeams");
-                                                writer.WriteStartArray();
-                                                writer.WriteEndArray();
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // If not an array or string, write empty array
-                                            writer.WritePropertyName("OperateTeams");
-                                            writer.WriteStartArray();
-                                            writer.WriteEndArray();
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Failed to parse OperateTeams for stage {StageId}, OperateTeams value: {OperateTeams}",
-                                            createdStage.Id, createdStage.OperateTeams ?? "null");
-                                        // Write empty array as fallback
-                                        writer.WritePropertyName("OperateTeams");
-                                        writer.WriteStartArray();
-                                        writer.WriteEndArray();
-                                    }
-                                }
-
-                                writer.WriteBoolean("UseSameTeamForOperate", createdStage.UseSameTeamForOperate);
-
-                                // Write Components as JSON array/object (not a string)
-                                if (!string.IsNullOrEmpty(createdStage.ComponentsJson))
-                                {
-                                    try
-                                    {
-                                        using var componentsDoc = JsonDocument.Parse(createdStage.ComponentsJson);
-                                        var rootElement = componentsDoc.RootElement;
-
-                                        // Ensure rootElement is an array or object, not a string
-                                        if (rootElement.ValueKind == JsonValueKind.Array || rootElement.ValueKind == JsonValueKind.Object)
-                                        {
-                                            writer.WritePropertyName("Components");
-                                            rootElement.WriteTo(writer);
-                                        }
-                                        else if (rootElement.ValueKind == JsonValueKind.String)
-                                        {
-                                            // If ComponentsJson is a JSON string, parse it again
-                                            var innerJson = rootElement.GetString();
-                                            if (!string.IsNullOrEmpty(innerJson))
-                                            {
-                                                try
-                                                {
-                                                    using var innerDoc = JsonDocument.Parse(innerJson);
-                                                    writer.WritePropertyName("Components");
-                                                    innerDoc.RootElement.WriteTo(writer);
-                                                }
-                                                catch
-                                                {
-                                                    // If inner parsing fails, skip Components
-                                                }
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Failed to parse ComponentsJson for stage {StageId}", createdStage.Id);
-                                        // Skip Components if parsing fails
-                                    }
-                                }
-
-                                writer.WriteEndObject();
-                            }
-
-                            afterData = System.Text.Encoding.UTF8.GetString(stream.ToArray());
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to build afterData for stage {StageId}", createdStage.Id);
-                            // Fallback to simple serialization without Components
-                            afterData = JsonSerializer.Serialize(new
-                            {
-                                Name = createdStage.Name,
-                                Description = createdStage.Description,
-                                ViewPermissionMode = (int)createdStage.ViewPermissionMode,
-                                VisibleInPortal = createdStage.VisibleInPortal,
-                                PortalPermission = createdStage.PortalPermission,
-                                IsActive = createdStage.IsActive,
-                                Color = createdStage.Color,
-                                EstimatedDuration = createdStage.EstimatedDuration,
-                                Order = createdStage.Order
-                            }, new JsonSerializerOptions
-                            {
-                                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                            });
-                        }
+                        // Build afterData JSON for logging
+                        var afterData = BuildStageAfterDataJson(createdStage);
 
                         // Log the create operation (fire-and-forget via background queue)
                         _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
@@ -807,26 +539,7 @@ namespace FlowFlex.Application.Services.OW
                             UseSameTeamForOperate = originalStageSnapshot.UseSameTeamForOperate
                         });
 
-                        var afterData = JsonSerializer.Serialize(new
-                        {
-                            Name = updatedStage.Name,
-                            Description = updatedStage.Description,
-                            Order = updatedStage.Order,
-                            ComponentsJson = updatedStage.ComponentsJson,
-                            DefaultAssignee = updatedStage.DefaultAssignee,
-                            CoAssignees = updatedStage.CoAssignees,
-                            DefaultAssignedGroup = updatedStage.DefaultAssignedGroup,
-                            EstimatedDuration = updatedStage.EstimatedDuration,
-                            IsActive = updatedStage.IsActive,
-                            VisibleInPortal = updatedStage.VisibleInPortal,
-                            PortalPermission = updatedStage.PortalPermission,
-                            ViewPermissionMode = updatedStage.ViewPermissionMode,
-                            ViewTeams = updatedStage.ViewTeams,
-                            OperateTeams = updatedStage.OperateTeams,
-                            Color = updatedStage.Color,
-                            AttachmentManagementNeeded = updatedStage.AttachmentManagementNeeded,
-                            UseSameTeamForOperate = updatedStage.UseSameTeamForOperate
-                        });
+                        var afterData = BuildStageAfterDataJson(updatedStage);
 
                         // Determine changed fields using the SNAPSHOT (not the tracked entity)
                         var changedFields = new List<string>();
@@ -1164,27 +877,24 @@ namespace FlowFlex.Application.Services.OW
                 {
                     tenantId = "default";
                 }
-                // Debug logging handled by structured logging
                 // Build cache key using safe tenant ID
                 var cacheKey = $"ow:stage:all:{tenantId.ToLowerInvariant()}";
 
                 // Redis cache removed, query database directly
 
                 // Get from database using optimized query
-                // Debug logging handled by structured logging
                 var stages = await _stageRepository.GetAllOptimizedAsync();
                 var result = _mapper.Map<List<StageOutputDto>>(stages);
 
                 // Cache functionality removed
 
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Error getting all stages, elapsed {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Error getting all stages: {ex.Message}");
             }
         }
@@ -1737,7 +1447,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Validate order uniqueness
-                var duplicateOrders = input.Components.GroupBy(c => c.Order).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                var duplicateOrders = input.Components.GroupBy(c => c.Order).Where(g => g.Skip(1).Any()).Select(g => g.Key).ToList();
                 if (duplicateOrders.Any())
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, $"Duplicate order values found: {string.Join(", ", duplicateOrders)}");
@@ -1887,6 +1597,185 @@ namespace FlowFlex.Application.Services.OW
                 // If JSON is invalid, return empty list instead of default components
                 return new List<StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Build afterData JSON string for stage change logging.
+        /// Properly handles nested JSON string fields (DefaultAssignee, ViewTeams, OperateTeams, ComponentsJson)
+        /// by parsing them into real JSON structures instead of escaped strings.
+        /// </summary>
+        private string BuildStageAfterDataJson(Stage stage)
+        {
+            try
+            {
+                using var stream = new System.IO.MemoryStream();
+                using (var writer = new System.Text.Json.Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
+                {
+                    writer.WriteStartObject();
+
+                    // Base fields
+                    if (!string.IsNullOrEmpty(stage.Name))
+                        writer.WriteString("Name", stage.Name);
+                    if (!string.IsNullOrEmpty(stage.Description))
+                        writer.WriteString("Description", stage.Description);
+                    writer.WriteNumber("ViewPermissionMode", (int)stage.ViewPermissionMode);
+                    writer.WriteBoolean("VisibleInPortal", stage.VisibleInPortal);
+                    if (stage.PortalPermission.HasValue)
+                        writer.WriteNumber("PortalPermission", (int)stage.PortalPermission.Value);
+                    writer.WriteBoolean("IsActive", stage.IsActive);
+                    if (!string.IsNullOrEmpty(stage.Color))
+                        writer.WriteString("Color", stage.Color);
+                    if (stage.EstimatedDuration.HasValue)
+                        writer.WriteNumber("EstimatedDuration", stage.EstimatedDuration.Value);
+                    writer.WriteNumber("Order", stage.Order);
+                    writer.WriteBoolean("AttachmentManagementNeeded", stage.AttachmentManagementNeeded);
+
+                    // Nested JSON fields
+                    WriteJsonArrayProperty(writer, "DefaultAssignee", stage.DefaultAssignee, stage.Id);
+                    WriteJsonArrayPropertyWithFallback(writer, "ViewTeams", stage.ViewTeams, stage.Id,
+                        writeEmptyWhenNull: stage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.VisibleToTeams ||
+                                            stage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.InvisibleToTeams);
+                    WriteJsonArrayProperty(writer, "OperateTeams", stage.OperateTeams, stage.Id);
+                    writer.WriteBoolean("UseSameTeamForOperate", stage.UseSameTeamForOperate);
+
+                    // CoAssignees
+                    WriteJsonArrayProperty(writer, "CoAssignees", stage.CoAssignees, stage.Id);
+
+                    // DefaultAssignedGroup
+                    if (!string.IsNullOrEmpty(stage.DefaultAssignedGroup))
+                        writer.WriteString("DefaultAssignedGroup", stage.DefaultAssignedGroup);
+
+                    // Components
+                    WriteJsonProperty(writer, "Components", stage.ComponentsJson, stage.Id);
+
+                    writer.WriteEndObject();
+                }
+
+                return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to build afterData for stage {StageId}, falling back to simple serialization", stage.Id);
+                return JsonSerializer.Serialize(new
+                {
+                    Name = stage.Name,
+                    Description = stage.Description,
+                    ViewPermissionMode = (int)stage.ViewPermissionMode,
+                    VisibleInPortal = stage.VisibleInPortal,
+                    PortalPermission = stage.PortalPermission,
+                    IsActive = stage.IsActive,
+                    Color = stage.Color,
+                    EstimatedDuration = stage.EstimatedDuration,
+                    Order = stage.Order
+                }, new JsonSerializerOptions
+                {
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                });
+            }
+        }
+
+        /// <summary>
+        /// Write a JSON property that may contain a nested JSON string (array or object).
+        /// Handles double-encoded JSON strings gracefully.
+        /// </summary>
+        private void WriteJsonProperty(System.Text.Json.Utf8JsonWriter writer, string propertyName, string jsonValue, long stageId)
+        {
+            if (string.IsNullOrEmpty(jsonValue)) return;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonValue);
+                var element = doc.RootElement;
+
+                if (element.ValueKind == JsonValueKind.Array || element.ValueKind == JsonValueKind.Object)
+                {
+                    writer.WritePropertyName(propertyName);
+                    element.WriteTo(writer);
+                }
+                else if (element.ValueKind == JsonValueKind.String)
+                {
+                    var innerJson = element.GetString();
+                    if (!string.IsNullOrEmpty(innerJson))
+                    {
+                        try
+                        {
+                            using var innerDoc = JsonDocument.Parse(innerJson);
+                            writer.WritePropertyName(propertyName);
+                            innerDoc.RootElement.WriteTo(writer);
+                        }
+                        catch { /* Skip if inner parsing fails */ }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse {PropertyName} for stage {StageId}", propertyName, stageId);
+            }
+        }
+
+        /// <summary>
+        /// Write a JSON array property with fallback to empty array on parse failure.
+        /// </summary>
+        private void WriteJsonArrayProperty(System.Text.Json.Utf8JsonWriter writer, string propertyName, string jsonValue, long stageId)
+        {
+            if (string.IsNullOrEmpty(jsonValue)) return;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonValue);
+                var element = doc.RootElement;
+
+                if (element.ValueKind == JsonValueKind.Array)
+                {
+                    writer.WritePropertyName(propertyName);
+                    element.WriteTo(writer);
+                }
+                else if (element.ValueKind == JsonValueKind.String)
+                {
+                    var innerJson = element.GetString();
+                    if (!string.IsNullOrEmpty(innerJson))
+                    {
+                        try
+                        {
+                            using var innerDoc = JsonDocument.Parse(innerJson);
+                            writer.WritePropertyName(propertyName);
+                            innerDoc.RootElement.WriteTo(writer);
+                        }
+                        catch
+                        {
+                            writer.WritePropertyName(propertyName);
+                            writer.WriteStartArray();
+                            writer.WriteEndArray();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse {PropertyName} for stage {StageId}", propertyName, stageId);
+                writer.WritePropertyName(propertyName);
+                writer.WriteStartArray();
+                writer.WriteEndArray();
+            }
+        }
+
+        /// <summary>
+        /// Write a JSON array property with option to write empty array when value is null/empty.
+        /// </summary>
+        private void WriteJsonArrayPropertyWithFallback(System.Text.Json.Utf8JsonWriter writer, string propertyName, string jsonValue, long stageId, bool writeEmptyWhenNull = false)
+        {
+            if (string.IsNullOrEmpty(jsonValue))
+            {
+                if (writeEmptyWhenNull)
+                {
+                    writer.WritePropertyName(propertyName);
+                    writer.WriteStartArray();
+                    writer.WriteEndArray();
+                }
+                return;
+            }
+
+            WriteJsonArrayProperty(writer, propertyName, jsonValue, stageId);
         }
 
         /// <summary>

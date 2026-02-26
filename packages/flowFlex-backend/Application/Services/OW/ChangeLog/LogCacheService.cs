@@ -29,7 +29,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         // Cache statistics tracking
         private static int _hitCount = 0;
         private static int _missCount = 0;
-        private static DateTime _lastStatsReset = DateTime.UtcNow;
+        private static long _lastStatsResetTicks = DateTimeOffset.UtcNow.Ticks;
 
         public LogCacheService(
             IDistributedCache distributedCache,
@@ -328,7 +328,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Reset statistics
                 Interlocked.Exchange(ref _hitCount, 0);
                 Interlocked.Exchange(ref _missCount, 0);
-                _lastStatsReset = DateTime.UtcNow;
+                Interlocked.Exchange(ref _lastStatsResetTicks, DateTimeOffset.UtcNow.Ticks);
 
                 _logger.LogInformation("Cleared all operation log caches");
             }

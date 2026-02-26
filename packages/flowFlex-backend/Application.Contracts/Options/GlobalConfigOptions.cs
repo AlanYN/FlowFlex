@@ -16,5 +16,10 @@ namespace Application.Contracts.Options
         /// Blob storage type: Local, OSS, AWS, BNP_FTP
         /// </summary>
         public AttachmentStoreType BlobStoreType { get; set; } = AttachmentStoreType.Local;
+
+        /// <summary>
+        /// Portal base URL for generating invitation links
+        /// </summary>
+        public string PortalBaseUrl { get; set; } = "https://workflow.item.com";
     }
 }

@@ -815,14 +815,14 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         try
         {
             var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.SendAsync(request);
+            using var response = await httpClient.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var json = System.Text.Json.JsonDocument.Parse(content);
+                using var json = System.Text.Json.JsonDocument.Parse(content);
                 
                 // Try mail first, then userPrincipalName
                 if (json.RootElement.TryGetProperty("mail", out var mailElement) && 

@@ -27,7 +27,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding query and export operations
     /// Extracted from OnboardingService to reduce complexity
     /// </summary>
-    public class OnboardingQueryService : IOnboardingQueryService
+    public class OnboardingQueryService : IOnboardingQueryService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;

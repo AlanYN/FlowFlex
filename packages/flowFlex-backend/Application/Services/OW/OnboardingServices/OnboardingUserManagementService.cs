@@ -14,7 +14,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding user tree and team management
     /// Handles: User tree filtering, team management, authorized users
     /// </summary>
-    public class OnboardingUserManagementService : IOnboardingUserManagementService
+    public class OnboardingUserManagementService : IOnboardingUserManagementService, IScopedService
     {
         #region Fields
 

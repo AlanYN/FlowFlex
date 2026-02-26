@@ -499,26 +499,26 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     if (File.Exists(normalizedPath))
                     {
                         jsonPath = normalizedPath;
-                        _logger.LogInformation($"Found static-field.json at: {jsonPath}");
+                        _logger.LogInformation("Found static-field.json at: {JsonPath}", jsonPath);
                         break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug($"Error checking path {path}: {ex.Message}");
+                    _logger.LogDebug("Error checking path {Path}: {ErrorMessage}", path, ex.Message);
                 }
             }
 
             if (string.IsNullOrEmpty(jsonPath) || !File.Exists(jsonPath))
             {
-                _logger.LogWarning($"Static field JSON file not found");
+                _logger.LogWarning("Static field JSON file not found");
                 return false;
             }
 
             var jsonContent = await File.ReadAllTextAsync(jsonPath);
             if (string.IsNullOrWhiteSpace(jsonContent))
             {
-                _logger.LogWarning($"static-field.json file is empty");
+                _logger.LogWarning("static-field.json file is empty");
                 return false;
             }
 
@@ -531,7 +531,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                 return false;
             }
 
-            _logger.LogInformation($"Found {staticFields.FormFields.Count} fields in static-field.json");
+            _logger.LogInformation("Found {FieldCount} fields in static-field.json", staticFields.FormFields.Count);
 
             // Check if system fields already initialized
             var existingFields = await _defineFieldRepository.GetAllAsync();
@@ -628,7 +628,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                 await _fieldGroupRepository.UpdateGroupFieldsAsync(kvp.Key, kvp.Value.ToArray());
             }
 
-            _logger.LogInformation($"Initialized {staticFields.FormFields.Count} default properties");
+            _logger.LogInformation("Initialized {FieldCount} default properties", staticFields.FormFields.Count);
             return true;
         }
         catch (Exception ex)

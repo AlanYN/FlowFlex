@@ -27,7 +27,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding helper and utility methods
     /// Handles: Event publishing, JSON parsing, component processing, utility methods
     /// </summary>
-    public class OnboardingHelperService : IOnboardingHelperService
+    public class OnboardingHelperService : IOnboardingHelperService, IScopedService
     {
         #region Fields
 
@@ -1330,8 +1330,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <returns>Generated invitation URL</returns>
         private string GenerateShortInvitationUrl(string shortUrlId, string tenantId, string appCode, string? baseUrl = null)
         {
-            // Use provided base URL or fall back to a default one
-            var effectiveBaseUrl = baseUrl ?? "https://portal.flowflex.com"; // Default base URL
+            // Use provided base URL or fall back to a configured default
+            var effectiveBaseUrl = baseUrl ?? "https://workflow.item.com"; // Configured via GlobalConfigOptions.PortalBaseUrl
 
             // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
             return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";

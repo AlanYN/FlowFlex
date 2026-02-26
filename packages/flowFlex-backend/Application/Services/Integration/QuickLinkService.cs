@@ -66,7 +66,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var id = await _quickLinkRepository.InsertReturnSnowflakeIdAsync(entity);
 
-            _logger.LogInformation($"Created quick link: {input.LinkName} (ID: {id})");
+            _logger.LogInformation("Created quick link: {LinkName} (ID: {Id})", input.LinkName, id);
 
             return id;
         }
@@ -103,7 +103,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _quickLinkRepository.UpdateAsync(entity);
 
-            _logger.LogInformation($"Updated quick link: {input.LinkName} (ID: {id})");
+            _logger.LogInformation("Updated quick link: {LinkName} (ID: {Id})", input.LinkName, id);
 
             return result;
         }
@@ -122,7 +122,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _quickLinkRepository.UpdateAsync(entity);
 
-            _logger.LogInformation($"Deleted quick link: {entity.LinkName} (ID: {id})");
+            _logger.LogInformation("Deleted quick link: {LinkName} (ID: {Id})", entity.LinkName, id);
 
             return result;
         }
@@ -224,7 +224,7 @@ namespace FlowFlex.Application.Services.Integration
                 url = url.Replace(placeholder, Uri.EscapeDataString(value));
             }
 
-            _logger.LogInformation($"Generated URL for quick link {entity.LinkName}: {url}");
+            _logger.LogInformation("Generated URL for quick link {LinkName}: {Url}", entity.LinkName, url);
 
             return url;
         }

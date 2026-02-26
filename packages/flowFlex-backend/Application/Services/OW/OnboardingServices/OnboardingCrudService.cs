@@ -28,7 +28,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding CRUD operations
     /// Handles: Create, Update, Delete, GetById
     /// </summary>
-    public class OnboardingCrudService : IOnboardingCrudService
+    public class OnboardingCrudService : IOnboardingCrudService, IScopedService
     {
         #region Fields
 

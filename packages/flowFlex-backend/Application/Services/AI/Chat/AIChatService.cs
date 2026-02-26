@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -124,7 +125,7 @@ namespace FlowFlex.Application.Services.AI.Chat
 
             yield return new AIChatStreamResult
             {
-                Type = "start",
+                Type = AIStreamResultTypes.Start,
                 Content = "",
                 IsComplete = false,
                 SessionId = sessionId
@@ -175,7 +176,7 @@ namespace FlowFlex.Application.Services.AI.Chat
 
                     await writer.WriteAsync(new AIChatStreamResult
                     {
-                        Type = "delta",
+                        Type = AIStreamResultTypes.Delta,
                         Content = chunk,
                         IsComplete = false,
                         SessionId = sessionId
@@ -185,7 +186,7 @@ namespace FlowFlex.Application.Services.AI.Chat
                 // Send completion signal
                 await writer.WriteAsync(new AIChatStreamResult
                 {
-                    Type = "complete",
+                    Type = AIStreamResultTypes.Complete,
                     Content = "",
                     IsComplete = true,
                     SessionId = sessionId
@@ -234,7 +235,7 @@ namespace FlowFlex.Application.Services.AI.Chat
 
                 await writer.WriteAsync(new AIChatStreamResult
                 {
-                    Type = "error",
+                    Type = AIStreamResultTypes.Error,
                     Content = $"Stream error: {ex.Message}",
                     IsComplete = true,
                     SessionId = sessionId

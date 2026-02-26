@@ -20,7 +20,7 @@ namespace FlowFlex.Application.Services.OW
     /// Stages Progress Sync Service
     /// Handles synchronization of onboarding stages progress when workflow stages are modified
     /// </summary>
-    public class StagesProgressSyncService : IStagesProgressSyncService
+    public class StagesProgressSyncService : IStagesProgressSyncService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
@@ -599,7 +599,7 @@ namespace FlowFlex.Application.Services.OW
             var duplicateGroups = currentProgress
                 .Where(p => p.StageId > 0)
                 .GroupBy(p => p.StageId)
-                .Where(g => g.Count() > 1)
+                .Where(g => g.Skip(1).Any())
                 .ToList();
 
             if (duplicateGroups.Any())
@@ -986,8 +986,8 @@ namespace FlowFlex.Application.Services.OW
                         StageId = stage.Id,
                         Status = isCompleted ? "Completed" : "Pending",
                         IsCompleted = isCompleted,
-                        StartTime = isCompleted ? DateTime.UtcNow.AddDays(-1) : null,
-                        CompletionTime = isCompleted ? DateTime.UtcNow : null,
+                        StartTime = isCompleted ? DateTimeOffset.UtcNow.AddDays(-1) : null,
+                        CompletionTime = isCompleted ? DateTimeOffset.UtcNow : null,
                         CompletedById = isCompleted ? (long?)999999999 : null, // Special ID for recovery system
                         CompletedBy = isCompleted ? "Emergency Recovery System" : null,
                         Notes = isCompleted ? "Stage completion preserved during emergency recovery" : null,
@@ -1049,7 +1049,7 @@ namespace FlowFlex.Application.Services.OW
                 // Check for duplicate stage IDs
                 var duplicateStageIds = progress
                     .GroupBy(p => p.StageId)
-                    .Where(g => g.Count() > 1)
+                    .Where(g => g.Skip(1).Any())
                     .Select(g => g.Key)
                     .ToList();
 

@@ -323,7 +323,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
-                _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
+                _logger.LogWarning("Verification code mismatch for user {Email}", request.Email);
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 
@@ -425,7 +425,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
-                _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
+                _logger.LogWarning("Verification code mismatch for user {Email}", request.Email);
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 

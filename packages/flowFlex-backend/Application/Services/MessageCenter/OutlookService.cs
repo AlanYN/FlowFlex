@@ -183,7 +183,7 @@ public class OutlookService : IOutlookService, IScopedService
             var tenant = GetOAuthTenant();
             var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
 
-            var response = await _httpClient.PostAsync(tokenEndpoint, content);
+            using var response = await _httpClient.PostAsync(tokenEndpoint, content);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -224,7 +224,7 @@ public class OutlookService : IOutlookService, IScopedService
             var tenant = GetOAuthTenant();
             var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
 
-            var response = await _httpClient.PostAsync(tokenEndpoint, content);
+            using var response = await _httpClient.PostAsync(tokenEndpoint, content);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -284,7 +284,7 @@ public class OutlookService : IOutlookService, IScopedService
                 url += "&$filter=" + string.Join(" and ", filters);
             }
 
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -316,7 +316,7 @@ public class OutlookService : IOutlookService, IScopedService
                 $"?$select=id,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients," +
                 $"receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft,parentFolderId";
 
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -405,7 +405,7 @@ public class OutlookService : IOutlookService, IScopedService
                 ["saveToSentItems"] = true
             };
 
-            var response = await SendAuthorizedPostAsync($"{_options.BaseUrl}/me/sendMail", accessToken, requestBody);
+            using var response = await SendAuthorizedPostAsync($"{_options.BaseUrl}/me/sendMail", accessToken, requestBody);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -451,7 +451,7 @@ public class OutlookService : IOutlookService, IScopedService
             // Move to deleted items folder instead of permanent delete
             // This matches user expectation: delete = move to trash, not permanent delete
             var body = new { destinationId = EmailConstants.OutlookFolder.DeletedItems };
-            var response = await SendAuthorizedPostAsync(
+            using var response = await SendAuthorizedPostAsync(
                 $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
 
             return response.IsSuccessStatusCode;
@@ -470,7 +470,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            var response = await SendAuthorizedDeleteAsync(
+            using var response = await SendAuthorizedDeleteAsync(
                 $"{_options.BaseUrl}/me/messages/{messageId}", accessToken);
 
             if (response.IsSuccessStatusCode)
@@ -499,7 +499,7 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             var body = new { destinationId = destinationFolderId };
-            var response = await SendAuthorizedPostAsync(
+            using var response = await SendAuthorizedPostAsync(
                 $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
 
             return response.IsSuccessStatusCode;
@@ -519,7 +519,7 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}?$select=displayName,totalItemCount,unreadItemCount";
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -797,7 +797,7 @@ public class OutlookService : IOutlookService, IScopedService
         // This is the recommended way to initialize delta sync after a full sync
         var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta?$deltaToken=latest";
         
-        var response = await SendAuthorizedGetAsync(url, accessToken);
+        using var response = await SendAuthorizedGetAsync(url, accessToken);
         if (!response.IsSuccessStatusCode)
         {
             return null;
@@ -862,7 +862,7 @@ public class OutlookService : IOutlookService, IScopedService
             // Follow pagination until we get the delta link
             do
             {
-                var response = await SendAuthorizedGetAsync(url, accessToken);
+                using var response = await SendAuthorizedGetAsync(url, accessToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -1146,7 +1146,7 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             var url = $"{_options.BaseUrl}/me/messages/{externalMessageId}/attachments/{externalAttachmentId}";
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1253,7 +1253,7 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1287,7 +1287,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            var response = await SendAuthorizedPatchAsync(
+            using var response = await SendAuthorizedPatchAsync(
                 $"{_options.BaseUrl}/me/messages/{messageId}", accessToken, updateData);
             return response.IsSuccessStatusCode;
         }
@@ -1353,7 +1353,7 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
-            var response = await SendAuthorizedGetAsync(url, accessToken);
+            using var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
