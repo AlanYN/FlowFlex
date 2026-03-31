@@ -1,0 +1,21 @@
+Rule,Do,Don't,Reason
+API Version,Use ${globSetting.apiVersion},Hardcode 'v1',Flexibility for version changes
+Type Location,src/types/ with namespace,src/app/apis/model/,Centralized type management
+Type Import,import type { User } from '#/user',import { User } from '@/apis/model',Path alias consistency
+Icons,Use @iconify/react,Custom SVG components,200k+ icons available
+Colors,Use Item brand palette or Tailwind,Hardcoded hex values,Brand consistency
+Dark Mode,Use dark: prefix,Separate dark theme files,Tailwind native support
+Loading,Use WaveLoading component,Custom loading spinners,Consistent UX
+Components,Use shadcn/ui,Import other UI libraries,Project standard
+Styling,Use Tailwind CSS,Write custom SCSS for components,Utility-first approach
+Console,Remove debug logs,Leave console.log in code,Production cleanliness
+File Size,Split at 300 lines,Keep growing files,Maintainability
+Functions,Single responsibility,Multiple responsibilities,Easier to test
+Naming,Descriptive names,Short unclear names,Code readability
+Types,Specific types,Use 'any' type,Type safety
+Errors,Always handle errors,Ignore try-catch,User experience
+Comments,Explain WHY,Explain WHAT,Code should be self-documenting
+Duplication,Extract to utilities,Copy-paste code,DRY principle
+Nesting,Max 3 levels,Deep nesting,Complexity management
+Early Return,Use early returns,Deep if-else,Reduce nesting
+Memoization,Use useMemo/useCallback,Recreate on every render,Performance optimization

@@ -1,4 +1,9 @@
-# Code Conventions
+---
+inclusion: fileMatch
+fileMatchPattern: "packages/flowFlex-backend/**"
+---
+
+# Backend Code Conventions (C# / ASP.NET Core)
 
 ## Project Architecture
 
