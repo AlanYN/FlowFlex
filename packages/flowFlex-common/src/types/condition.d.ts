@@ -95,6 +95,7 @@ export interface ConditionAction {
 	type: ConditionActionType;
 	targetStageId?: string; // GoToStage 时使用
 	actionDefinitionId?: string; // TriggerAction 时使用
+	integrationId?: string; // TriggerAction 时使用 - Integration ID for token auth
 	parameters?: Record<string, any>; // 动作参数
 	order: number;
 }

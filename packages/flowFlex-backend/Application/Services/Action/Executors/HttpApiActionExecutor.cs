@@ -180,7 +180,12 @@ namespace FlowFlex.Application.Services.Action.Executors
                         contentType = contentHeaders.GetValueOrDefault("Content-Type", "text/plain");
                     }
 
-                    request.Content = new StringContent(finalBody, System.Text.Encoding.UTF8, contentType);
+                    // Strip charset from content type for StringContent constructor
+                    // StringContent handles charset via the Encoding parameter (2nd arg)
+                    // e.g. "application/json;charset=UTF-8" -> "application/json"
+                    var mediaType = contentType.Split(';')[0].Trim();
+
+                    request.Content = new StringContent(finalBody, System.Text.Encoding.UTF8, mediaType);
 
                     // Remove Content-Type from contentHeaders since it's already set in StringContent
                     contentHeaders.Remove("Content-Type");

@@ -86,6 +86,27 @@
 							</div>
 						</el-form-item>
 
+						<!-- TriggerAction: Integration Selection -->
+						<el-form-item
+							v-if="action.type === 'TriggerAction'"
+							label="Integration"
+							class="action-field"
+						>
+							<el-select
+								v-model="action.integrationId"
+								placeholder="Select integration (optional)"
+								clearable
+								@change="(val: string) => handleIntegrationChange(action, val)"
+							>
+								<el-option
+									v-for="intg in availableIntegrations"
+									:key="intg.id"
+									:label="intg.name"
+									:value="intg.id"
+								/>
+							</el-select>
+						</el-form-item>
+
 						<!-- TriggerAction: Action Definition -->
 						<el-form-item
 							v-if="action.type === 'TriggerAction'"
@@ -98,7 +119,7 @@
 								placeholder="Select action"
 							>
 								<el-option-group
-									v-for="(actions, groupName) in groupedActions"
+									v-for="(actions, groupName) in getFilteredActions(action)"
 									:key="groupName"
 									:label="groupName"
 								>
@@ -281,6 +302,7 @@ import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import DynamicValueInput from './DynamicValueInput.vue';
 import { conditionAction } from '@/apis/ow';
+import { getActiveIntegrations, getActionsByIntegration } from '@/apis/ow';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
 import { textraTwoHundredLength, inputTextraAutosize } from '@/settings/projectSetting';
@@ -441,6 +463,16 @@ interface ActionOption {
 }
 const availableActions = ref<ActionOption[]>([]);
 
+// Integration 列表
+interface IntegrationOption {
+	id: string;
+	name: string;
+}
+const availableIntegrations = ref<IntegrationOption[]>([]);
+
+// Integration 关联的 Action 缓存 (integrationId -> ActionOption[])
+const integrationActionsCache = ref<Record<string, ActionOption[]>>({});
+
 // Loading 状态
 const loadingActions = ref(false);
 const loadingFields = ref(false);
@@ -526,7 +558,38 @@ const getActionParams = (action: ActionFormItem) => {
 const handleActionTypeReset = (action: ActionFormItem) => {
 	action.targetStageId = undefined;
 	action.actionDefinitionId = undefined;
+	action.integrationId = undefined;
 	action.parameters = {};
+};
+
+// 处理 Integration 选择变化
+const handleIntegrationChange = async (action: ActionFormItem, integrationId: string) => {
+	action.actionDefinitionId = undefined; // Clear selected action when integration changes
+	if (integrationId && !integrationActionsCache.value[integrationId]) {
+		try {
+			const res: any = await getActionsByIntegration(integrationId);
+			if (res.code === '200' && res.data?.data) {
+				integrationActionsCache.value[integrationId] = res.data.data.map((item: any) => ({
+					id: item.id,
+					name:
+						item.actionCode && item.name
+							? `${item.actionCode} (${item.name})`
+							: item.name || item.actionCode || 'Unnamed Action',
+					toolsType: ToolsType.MyTool,
+				}));
+			}
+		} catch (error) {
+			console.error('Failed to load actions for integration:', error);
+		}
+	}
+};
+
+// 获取过滤后的 Action 列表（根据是否选择了 Integration）
+const getFilteredActions = (action: ActionFormItem): Record<string, ActionOption[]> => {
+	if (action.integrationId && integrationActionsCache.value[action.integrationId]) {
+		return { 'Integration Actions': integrationActionsCache.value[action.integrationId] };
+	}
+	return groupedActions.value;
 };
 
 // 处理 AssignUser 的 assigneeType 变化
@@ -586,6 +649,22 @@ const loadAvailableActions = async () => {
 		availableActions.value = [];
 	} finally {
 		loadingActions.value = false;
+	}
+};
+
+// 加载 Integration 列表
+const loadIntegrations = async () => {
+	try {
+		const res: any = await getActiveIntegrations();
+		if (res.code === '200' && res.data) {
+			availableIntegrations.value = (res.data as any[]).map((item: any) => ({
+				id: item.id?.toString() ?? '',
+				name: item.name || 'Unnamed Integration',
+			}));
+		}
+	} catch (error) {
+		console.error('Failed to load integrations:', error);
+		availableIntegrations.value = [];
 	}
 };
 
@@ -835,6 +914,7 @@ const getFieldConstraints = (action: ActionFormItem): DynamicFieldConstraints =>
 // 加载可用的 Action 定义
 onMounted(async () => {
 	await loadAvailableActions();
+	await loadIntegrations();
 	await loadStaticFieldsMapping();
 
 	// 清除所有表单的验证状态

@@ -132,6 +132,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public long? ActionDefinitionId { get; set; }
 
         /// <summary>
+        /// Integration ID (for TriggerAction action - used to obtain OAuth2 token)
+        /// </summary>
+        [JsonProperty("integrationId")]
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long? IntegrationId { get; set; }
+
+        /// <summary>
         /// User ID to assign (for AssignUser action)
         /// </summary>
         [JsonProperty("userId")]

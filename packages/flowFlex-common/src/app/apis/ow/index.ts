@@ -381,3 +381,23 @@ export function conditionAction(): Promise<ApiResponse<TriggerMapping[]>> {
 		url: `${Api().conditionAction}`,
 	});
 }
+
+/**
+ * Get active integrations list (for Stage Condition TriggerAction integration selection)
+ */
+export function getActiveIntegrations() {
+	return defHttp.get({
+		url: `${globSetting.apiProName}/integration/${globSetting.apiVersion}/active`,
+	});
+}
+
+/**
+ * Get action definitions filtered by integration ID
+ * @param integrationId Integration ID to filter actions
+ */
+export function getActionsByIntegration(integrationId: string) {
+	return defHttp.get({
+		url: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
+		params: { integrationId },
+	});
+}

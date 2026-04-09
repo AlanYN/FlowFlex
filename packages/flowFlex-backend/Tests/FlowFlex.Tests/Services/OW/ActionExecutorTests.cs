@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -42,6 +43,8 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<IStaticFieldValueService> _mockStaticFieldValueService;
         private readonly Mock<IPropertyService> _mockPropertyService;
         private readonly IdmUserDataClient _idmUserDataClient;
+        private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
+        private readonly Mock<IEncryptionService> _mockEncryptionService;
         private readonly Mock<ILogger<ConditionActionExecutor>> _mockLogger;
         private readonly UserContext _userContext;
         private readonly ConditionActionExecutor _executor;
@@ -88,6 +91,9 @@ namespace FlowFlex.Tests.Services.OW
             
             _mockLogger = MockHelper.CreateMockLogger<ConditionActionExecutor>();
 
+            _mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            _mockEncryptionService = new Mock<IEncryptionService>();
+
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
 
             // Setup default email service mock
@@ -117,6 +123,8 @@ namespace FlowFlex.Tests.Services.OW
                 _mockStaticFieldValueService.Object,
                 _mockPropertyService.Object,
                 _idmUserDataClient,
+                _mockHttpClientFactory.Object,
+                _mockEncryptionService.Object,
                 _mockLogger.Object);
         }
 
