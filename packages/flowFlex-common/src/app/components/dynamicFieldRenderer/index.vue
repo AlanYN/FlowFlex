@@ -19,9 +19,16 @@
 						{{ label }}
 						<el-tooltip
 							v-if="field.description"
-							:content="field.description"
 							placement="top"
+							:popper-options="{
+								modifiers: [
+									{ name: 'computeStyles', options: { adaptive: false } },
+								],
+							}"
 						>
+							<template #content>
+								<span style="white-space: pre-wrap">{{ field.description }}</span>
+							</template>
 							<Icon
 								icon="mdi:information-outline"
 								class="text-gray-400 cursor-help"

@@ -42,8 +42,19 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const appEnumStore = appEnum();
 
-const filiterrPhoneCode = ref(appEnumStore.getPhoneArea);
+const filiterrPhoneCode = ref<any[]>([]);
 const phoneCodeOptions = computed(() => filiterrPhoneCode.value);
+
+// Keep filter list in sync with store data
+watch(
+	() => appEnumStore.getPhoneArea,
+	(newData) => {
+		if (newData && newData.length > 0) {
+			filiterrPhoneCode.value = newData;
+		}
+	},
+	{ immediate: true }
+);
 // 本地存储选择的区号，不受modelValue影响
 const localPhoneCode = ref<string | null | undefined>(null);
 

@@ -144,7 +144,10 @@
 									/>
 								</div>
 							</div>
-							<div v-if="item.description" class="question-description mt-2">
+							<div
+								v-if="item.description"
+								class="question-description mt-2 whitespace-pre-wrap"
+							>
 								{{ item.description }}
 							</div>
 							<!-- 显示已上传的文件 -->

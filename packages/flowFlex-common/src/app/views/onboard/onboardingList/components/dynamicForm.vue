@@ -17,7 +17,10 @@
 					<h4 class="section-title" v-if="currentSection.title">
 						{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
 					</h4>
-					<p v-if="currentSection.description" class="section-description">
+					<p
+						v-if="currentSection.description"
+						class="section-description whitespace-pre-wrap"
+					>
 						{{ currentSection.description }}
 					</p>
 				</div>
@@ -60,7 +63,10 @@
 								size="small"
 							/>
 						</div>
-						<p v-if="question.description" class="text-xs form-question-desc mt-1">
+						<p
+							v-if="question.description"
+							class="text-xs form-question-desc mt-1 whitespace-pre-wrap"
+						>
 							{{ question.description }}
 						</p>
 						<div
