@@ -315,6 +315,19 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
 
+            // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
+            // This ensures external API errors (CRM/IAM) block the stage completion
+            bool conditionActionExecuted = false;
+            var allStagesWouldComplete = entity.StagesProgress.Count(s => 
+                s.IsCompleted || string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase)) + 1 >= orderedStages.Count;
+
+            if (!allStagesWouldComplete)
+            {
+                conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+            }
+
+            // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
+
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
@@ -359,13 +372,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 // Log stage completion
                 await LogStageCompletionAsync(entity, stageToComplete, totalStages, completedCount, allStagesCompleted, input.CompletionNotes);
-
-                // Evaluate and execute stage conditions
-                bool conditionActionExecuted = false;
-                if (!allStagesCompleted)
-                {
-                    conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
-                }
 
                 // Auto-advance to next stage if no condition action was executed
                 if (!allStagesCompleted && !conditionActionExecuted)
@@ -416,6 +422,22 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
                         onboardingId, stageId, result.ActionResults?.Count ?? 0);
 
+                    // Check for TriggerAction business errors and propagate to caller
+                    if (result.ActionResults != null)
+                    {
+                        var failedActions = result.ActionResults
+                            .Where(a => !a.Success && !string.IsNullOrEmpty(a.ErrorMessage) && a.ActionType == "TriggerAction")
+                            .ToList();
+
+                        if (failedActions.Any())
+                        {
+                            var errorMessages = string.Join("; ", failedActions.Select(a => a.ErrorMessage));
+                            _logger.LogWarning("TriggerAction business errors detected for OnboardingId={OnboardingId}: {Errors}",
+                                onboardingId, errorMessages);
+                            throw new CRMException(errorMessages, ErrorCodeEnum.BusinessError);
+                        }
+                    }
+
                     if (result.ActionResults != null && result.ActionResults.Any(a => a.Success))
                     {
                         return true;
@@ -433,6 +455,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 }
 
                 return false;
+            }
+            catch (CRMException)
+            {
+                // Re-throw CRMException (business errors) to propagate to frontend
+                throw;
             }
             catch (Exception ex)
             {
@@ -488,6 +515,61 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     entity.CurrentStageOrder = nextIncompleteStage.Order;
                     entity.CurrentStageStartTime = GetNormalizedUtcNow();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Rollback stage completion when TriggerAction fails with business error.
+        /// Reverts the stage progress back to non-completed state so user can fix the issue and retry.
+        /// </summary>
+        private async Task RollbackStageCompletionAsync(Onboarding entity, Stage completedStage, List<Stage> orderedStages)
+        {
+            try
+            {
+                // Re-fetch entity to get latest state
+                entity = await _onboardingRepository.GetByIdAsync(entity.Id);
+                if (entity == null) return;
+
+                // Ensure stages progress is initialized
+                await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+
+                // Find the stage progress for the completed stage and revert it
+                var stageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == completedStage.Id);
+                if (stageProgress != null)
+                {
+                    stageProgress.IsCompleted = false;
+                    stageProgress.Status = "InProgress";
+                    stageProgress.CompletionTime = null;
+                    stageProgress.CompletedBy = null;
+                }
+
+                // Recalculate completion rate
+                var previousRate = entity.CompletionRate;
+                var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                entity.CompletionRate = newRate;
+
+                // Revert status if it was set to Completed
+                if (entity.Status == "Completed")
+                {
+                    entity.Status = "Active";
+                    entity.ActualCompletionDate = null;
+                }
+
+                // Reset current stage to the failed stage
+                entity.CurrentStageId = completedStage.Id;
+                entity.CurrentStageOrder = completedStage.Order;
+
+                UpdateStageTrackingInfo(entity);
+                await SaveOnboardingChangesAsync(entity);
+
+                _logger.LogInformation("Rolled back stage completion for OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                    entity.Id, completedStage.Id, completedStage.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rollback stage completion for OnboardingId={OnboardingId}, StageId={StageId}",
+                    entity.Id, completedStage.Id);
+                // Don't throw - the original CRMException should still propagate
             }
         }
 

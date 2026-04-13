@@ -154,6 +154,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 if (!string.IsNullOrEmpty(config.Body))
                 {
                     bodyContent = ReplacePlaceholders(config.Body, triggerContext);
+                    _logger.LogInformation("HTTP API request body after placeholder replacement: {Body}", bodyContent);
                 }
                 // Priority 2: Convert params to JSON body if body is empty but params exist
                 else if (processedParams != null && processedParams.Count > 0)
@@ -223,6 +224,8 @@ namespace FlowFlex.Application.Services.Action.Executors
                 else
                 {
                     var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation("HTTP API response body: {ResponseBody}", 
+                        content.Length > 2000 ? content.Substring(0, 2000) + "...[truncated]" : content);
                     return CreateSuccessResult(response, content);
                 }
             }

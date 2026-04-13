@@ -1067,6 +1067,10 @@ namespace FlowFlex.Application.Services.OW
                 if (previousActionResult != null)
                 {
                     contextData["previousActionResult"] = previousActionResult;
+
+                    // Flatten previous action's response fields with "prev_" prefix
+                    // so IAM action can use {{prev_customerCode}} to reference CRM response fields
+                    FlattenPreviousActionResult(previousActionResult, contextData);
                 }
 
                 // Get current user ID
@@ -1077,13 +1081,31 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Execute action directly using ActionExecutionService
-                _logger.LogInformation("TriggerAction: Executing ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}, IntegrationId={IntegrationId}, FieldCount={FieldCount}",
-                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId, action.IntegrationId, fieldData.Count);
+                _logger.LogInformation("TriggerAction: Executing ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}, IntegrationId={IntegrationId}, FieldCount={FieldCount}, ContextKeys={ContextKeys}",
+                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId, action.IntegrationId, fieldData.Count,
+                    string.Join(", ", contextData.Keys));
 
                 var executionResult = await _actionExecutionService.ExecuteActionAsync(
                     action.ActionDefinitionId.Value,
                     contextData,
                     currentUserId);
+
+                // Check for business-level errors in the execution result
+                // External APIs may return HTTP 200 but with success:false in the response body
+                var businessError = CheckForBusinessError(executionResult, actionDefinition.ActionName);
+                if (businessError != null)
+                {
+                    _logger.LogWarning("TriggerAction business error: ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, Error={Error}",
+                        action.ActionDefinitionId, actionDefinition.ActionName, businessError);
+
+                    result.Success = false;
+                    result.ErrorMessage = businessError;
+                    result.ResultData["actionDefinitionId"] = action.ActionDefinitionId.Value;
+                    result.ResultData["actionName"] = actionDefinition.ActionName;
+                    result.ResultData["status"] = "BusinessError";
+                    result.ResultData["executionResult"] = executionResult ?? (object)"null";
+                    return result;
+                }
 
                 _logger.LogInformation("TriggerAction executed successfully: ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}",
                     action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId);
@@ -1563,6 +1585,118 @@ namespace FlowFlex.Application.Services.OW
         #endregion
 
         #region StaticFieldValue and Integration Token Helpers
+
+        /// <summary>
+        /// Check execution result for business-level errors from external APIs.
+        /// External APIs may return HTTP 200 but with success:false in the response body.
+        /// </summary>
+        private string CheckForBusinessError(JToken executionResult, string actionName)
+        {
+            if (executionResult == null) return null;
+
+            try
+            {
+                // The executionResult from HttpApiActionExecutor has structure:
+                // { success: true/false, statusCode: 200, response: "...", headers: {...} }
+                var responseStr = executionResult["response"]?.ToString();
+                if (string.IsNullOrEmpty(responseStr)) return null;
+
+                // Try to parse the response as JSON
+                JObject responseObj;
+                try
+                {
+                    responseObj = JObject.Parse(responseStr);
+                }
+                catch
+                {
+                    return null; // Not JSON, skip business error check
+                }
+
+                // Check for common business error patterns:
+                // Pattern 1: { "success": false, "msg": "error message" }
+                // Pattern 2: { "success": false, "message": "error message" }
+                // Pattern 3: { "code": non-zero, "msg": "error message" }
+                var successField = responseObj["success"];
+                if (successField != null && successField.Type == JTokenType.Boolean && !successField.Value<bool>())
+                {
+                    var msg = responseObj["msg"]?.ToString()
+                           ?? responseObj["message"]?.ToString()
+                           ?? responseObj["error"]?.ToString()
+                           ?? "External API returned business error";
+                    var code = responseObj["code"]?.ToString();
+                    return code != null ? $"[{actionName}] {msg} (code: {code})" : $"[{actionName}] {msg}";
+                }
+
+                // Check HTTP-level failure (statusCode >= 400)
+                var statusCode = executionResult["statusCode"]?.Value<int>();
+                if (statusCode.HasValue && statusCode.Value >= 400)
+                {
+                    var msg = responseObj["msg"]?.ToString()
+                           ?? responseObj["message"]?.ToString()
+                           ?? $"HTTP {statusCode}";
+                    return $"[{actionName}] {msg}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error checking business error in execution result for action {ActionName}", actionName);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Flatten previous action's response fields into contextData with "prev_" prefix.
+        /// Parses the "response" field (JSON string) from HttpApiActionExecutor result
+        /// and extracts "data" object fields.
+        /// Example: CRM returns {"data":{"customerCode":"C-123"}} -> contextData["prev_customerCode"] = "C-123"
+        /// </summary>
+        private void FlattenPreviousActionResult(JToken previousResult, Dictionary<string, object> contextData)
+        {
+            try
+            {
+                var responseStr = previousResult?["response"]?.ToString();
+                if (string.IsNullOrEmpty(responseStr)) return;
+
+                JObject responseObj;
+                try { responseObj = JObject.Parse(responseStr); }
+                catch { return; }
+
+                // Extract fields from "data" object (common API pattern: { data: { customerCode: "C-123" } })
+                var dataObj = responseObj["data"] as JObject;
+                if (dataObj != null)
+                {
+                    foreach (var prop in dataObj.Properties())
+                    {
+                        var key = $"prev_{prop.Name}";
+                        if (prop.Value.Type == JTokenType.Null) continue;
+                        contextData[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                            ? prop.Value.ToString()
+                            : prop.Value.ToObject<object>();
+                    }
+                }
+
+                // Also extract top-level fields with "prev_" prefix (for flat response structures)
+                foreach (var prop in responseObj.Properties())
+                {
+                    if (prop.Name == "data" || prop.Name == "success" || prop.Name == "code" || prop.Name == "msg") continue;
+                    var key = $"prev_{prop.Name}";
+                    if (!contextData.ContainsKey(key) && prop.Value.Type != JTokenType.Null)
+                    {
+                        contextData[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                            ? prop.Value.ToString()
+                            : prop.Value.ToObject<object>();
+                    }
+                }
+
+                _logger.LogDebug("Flattened previous action result: injected {Count} prev_ keys",
+                    contextData.Keys.Count(k => k.StartsWith("prev_")));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error flattening previous action result");
+            }
+        }
 
         /// <summary>
         /// Get all StaticFieldValues for an onboarding and convert to camelCase dictionary
