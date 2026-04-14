@@ -317,14 +317,9 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
             // This ensures external API errors (CRM/IAM) block the stage completion
+            // Execute for ALL stages including the last one (Case Complete scenario)
             bool conditionActionExecuted = false;
-            var allStagesWouldComplete = entity.StagesProgress.Count(s => 
-                s.IsCompleted || string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase)) + 1 >= orderedStages.Count;
-
-            if (!allStagesWouldComplete)
-            {
-                conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
-            }
+            conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
 
             // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
 
