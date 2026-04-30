@@ -494,16 +494,19 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Generate Portal-specific access token with limited scope
+                // Use invitation.TenantId (matches the Onboarding's tenant) instead of user.TenantId
+                // to support cross-tenant portal access scenarios where the portal user belongs to
+                // a different tenant than the Onboarding data they are invited to view
                 var tokenDetails = _portalTokenService.GeneratePortalToken(
                     user.Id,
                     user.Email,
                     invitation.OnboardingId,
-                    user.TenantId ?? "default"
+                    invitation.TenantId ?? "default"
                 );
 
                 _logger.LogInformation(
-                    "Generated Portal token for user {Email} with onboarding {OnboardingId}, scope: portal",
-                    user.Email, invitation.OnboardingId);
+                    "Generated Portal token for user {Email} with onboarding {OnboardingId}, tenant: {TenantId}, scope: portal",
+                    user.Email, invitation.OnboardingId, invitation.TenantId);
 
                 // Record token in database for validation
                 await _accessTokenService.RecordTokenAsync(
