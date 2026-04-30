@@ -2,6 +2,7 @@ using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -38,9 +39,12 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task<DynamicDataObject?> GetBusinessDataObjectAsync(long businessId)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == businessId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
 
         if (businessData == null)
@@ -54,9 +58,12 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task<List<DynamicDataObject>> GetBusinessDataObjectListAsync(List<long> businessIds)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         var businessDataList = await db.Queryable<BusinessData>()
             .Where(x => businessIds.Contains(x.Id) && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ToListAsync();
 
         if (!businessDataList.Any())
@@ -84,8 +91,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
         {
             ModuleId = DefaultModuleId,
             InternalData = data.InternalData,
-            TenantId = _userContext.TenantId ?? "default",
-            AppCode = _userContext.AppCode ?? "default",
+            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+            AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
             CreateDate = DateTimeOffset.UtcNow,
             CreateBy = _userContext.UserName ?? "SYSTEM",
             CreateUserId = userId,
@@ -120,9 +127,12 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task UpdateBusinessDataAsync(DynamicDataObject data)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == data.BusinessId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
 
         if (businessData == null)
@@ -130,11 +140,11 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
         // Update business data
         // Parse UserId to long, default to 0 if parsing fails
-        long.TryParse(_userContext.UserId, out var userId);
+        long.TryParse(_userContext?.UserId, out var userId);
         
         businessData.InternalData = data.InternalData;
         businessData.ModifyDate = DateTimeOffset.UtcNow;
-        businessData.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        businessData.ModifyBy = _userContext?.UserName ?? "SYSTEM";
         businessData.ModifyUserId = userId;
 
         await db.Updateable(businessData).ExecuteCommandAsync();
@@ -190,9 +200,12 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task DeleteBusinessDataAsync(long businessId)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == businessId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
 
         if (businessData == null)
@@ -200,11 +213,11 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
         // Soft delete business data
         // Parse UserId to long, default to 0 if parsing fails
-        long.TryParse(_userContext.UserId, out var userId);
+        long.TryParse(_userContext?.UserId, out var userId);
         
         businessData.IsValid = false;
         businessData.ModifyDate = DateTimeOffset.UtcNow;
-        businessData.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        businessData.ModifyBy = _userContext?.UserName ?? "SYSTEM";
         businessData.ModifyUserId = userId;
 
         await db.Updateable(businessData).ExecuteCommandAsync();
@@ -215,9 +228,11 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task BatchDeleteBusinessDataAsync(List<long> businessIds)
     {
-        var modifyBy = _userContext.UserName ?? "SYSTEM";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        var modifyBy = _userContext?.UserName ?? "SYSTEM";
         // Parse UserId to long, default to 0 if parsing fails
-        long.TryParse(_userContext.UserId, out var modifyUserId);
+        long.TryParse(_userContext?.UserId, out var modifyUserId);
         
         await db.Updateable<BusinessData>()
             .SetColumns(x => x.IsValid == false)
@@ -225,7 +240,7 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
             .SetColumns(x => x.ModifyBy == modifyBy)
             .SetColumns(x => x.ModifyUserId == modifyUserId)
             .Where(x => businessIds.Contains(x.Id))
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ExecuteCommandAsync();
 
         await _dataValueRepository.DeleteByBusinessIdsAsync(businessIds);
@@ -314,8 +329,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
             FieldId = fieldId,
             FieldName = item.FieldName,
             DataType = dataType,
-            TenantId = _userContext.TenantId,
-            AppCode = _userContext.AppCode
+            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+            AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext)
         };
 
         SetDataValueField(dataValue, item, fieldDict);

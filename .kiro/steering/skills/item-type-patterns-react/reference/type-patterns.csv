@@ -1,0 +1,10 @@
+Pattern,Structure,Example,Import,Notes
+Namespace,export namespace Feature { },export namespace User { export interface Item {} },import type { User } from '#/user',Preferred pattern
+List params,{ page: number; pageSize: number; keyword?: string },"{ page: 1, pageSize: 20, keyword: 'test' }",type ListParams,Pagination standard
+List response,{ items: T[]; total: number },"{ items: [...], total: 100 }",type ListResponse<T>,Generic type
+Detail response,{ data: T },"{ data: {...} }",type DetailResponse<T>,Single item
+Create params,Omit<T 'id' | 'createdAt'>,Omit<User 'id'>,type CreateParams,Exclude auto fields
+Update params,Partial<T> & { id: string },Partial<User> & { id: string },type UpdateParams,ID required
+Enum type,type Status = 'active' | 'inactive',type UserStatus = 'active' | 'inactive' | 'pending',type Status,Union types
+API response,{ code: number; message: string; data: T },"{ code: 200, message: 'Success', data: {...} }",type ApiResponse<T>,Standard wrapper
+Pagination,{ page: number; pageSize: number; total: number },"{ page: 1, pageSize: 20, total: 100 }",type Pagination,Pagination info

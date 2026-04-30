@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.Integration;
@@ -8,6 +8,7 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
@@ -16,7 +17,6 @@ using System.IO;
 using System.Net.Http;
 using Item.Common.Lib.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Domain.Shared.Exceptions;
 using SqlSugar;
 using FlowFlex.Application.Services.OW.Extensions;
 
@@ -40,6 +40,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOperatorContextService _operatorContextService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IFileImportTaskService _fileImportTaskService;
+        private readonly ISqlSugarClient _sqlSugarClient;
 
         public OnboardingFileService(
             IOnboardingFileRepository onboardingFileRepository,
@@ -54,7 +55,8 @@ namespace FlowFlex.Application.Services.OW
             UserContext userContext,
             IOperatorContextService operatorContextService,
             IHttpClientFactory httpClientFactory,
-            IFileImportTaskService fileImportTaskService)
+            IFileImportTaskService fileImportTaskService,
+            ISqlSugarClient sqlSugarClient)
         {
             _onboardingFileRepository = onboardingFileRepository;
 
@@ -69,6 +71,7 @@ namespace FlowFlex.Application.Services.OW
             _operatorContextService = operatorContextService;
             _httpClientFactory = httpClientFactory;
             _fileImportTaskService = fileImportTaskService;
+            _sqlSugarClient = sqlSugarClient;
         }
 
         /// <summary>
@@ -102,11 +105,10 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 // Stage completion log functionality removed
-                // Debug logging handled by structured logging
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Failed to log onboarding file change for OnboardingId: {OnboardingId}, FileName: {FileName}", onboardingId, fileName);
             }
         }
 
@@ -117,9 +119,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
                 // Upload file to attachment system
-                // Debug logging handled by structured logging
                 var attachmentDto = new AttachmentDto
                 {
                     FileData = input.FormFile,
@@ -129,13 +129,12 @@ namespace FlowFlex.Application.Services.OW
                 // Use override tenant ID if specified (for background import tasks)
                 var tenantId = !string.IsNullOrEmpty(input.OverrideTenantId) 
                     ? input.OverrideTenantId 
-                    : _userContext.TenantId;
+                    : TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
                 var attachment = await _attachmentService.CreateAttachmentAsync(
-                    attachmentDto, tenantId, CancellationToken.None);
-                // Debug logging handled by structured logging
+                    attachmentDto, tenantId, default);
+
                 // Create OnboardingFile record with minimal setup
-                // Debug logging handled by structured logging
                 var onboardingFile = new OnboardingFile
                 {
                     OnboardingId = input.OnboardingId,
@@ -161,7 +160,7 @@ namespace FlowFlex.Application.Services.OW
                     IsExternalImport = input.IsExternalImport,
                     Source = input.Source
                 };
-                // Debug logging handled by structured logging
+
                 // Initialize create information
                 onboardingFile.InitCreateInfo(_userContext);
                 
@@ -180,9 +179,8 @@ namespace FlowFlex.Application.Services.OW
                     onboardingFile.CreateUserId = uploaderId;
                     onboardingFile.ModifyUserId = uploaderId;
                 }
-                // Debug logging handled by structured logging
+
                 // Use simplified database insert
-                // Debug logging handled by structured logging
                 bool insertResult = await InsertOnboardingFileSimplified(onboardingFile);
 
                 if (!insertResult)
@@ -230,17 +228,15 @@ namespace FlowFlex.Application.Services.OW
                     // Don't throw exception as main upload operation succeeded
                 }
 
-                // Debug logging handled by structured logging
                 // Convert to output DTO
                 var result = _mapper.Map<OnboardingFileOutputDto>(onboardingFile);
-                result.FileSizeFormatted = FormatFileSize(onboardingFile.FileSize);
-                result.DownloadUrl = $"/ow/onboarding-files/v1.0/{onboardingFile.Id}/download";
-                // Debug logging handled by structured logging
+                EnrichFileOutputDto(result);
+
                 return result;
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Error uploading file for OnboardingId: {OnboardingId}", input.OnboardingId);
                 throw;
             }
         }
@@ -252,43 +248,21 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
                 // Generate ID if not set
                 if (onboardingFile.Id == 0)
                 {
                     onboardingFile.InitNewId();
-                    // Debug logging handled by structured logging
                 }
 
-                // Use SqlSugar direct insert without complex filter backup/restore
-                var db = _onboardingFileRepository.GetType()
-                    .GetField("db", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.GetValue(_onboardingFileRepository) as ISqlSugarClient;
-
-                if (db == null)
-                {
-                    // Debug logging handled by structured logging
-                    return await _onboardingFileRepository.InsertAsync(onboardingFile);
-                }
-                // Debug logging handled by structured logging
-                var result = await db.Insertable(onboardingFile).ExecuteCommandAsync();
-                // Debug logging handled by structured logging
+                // Use injected ISqlSugarClient for direct insert without complex filter backup/restore
+                var result = await _sqlSugarClient.Insertable(onboardingFile).ExecuteCommandAsync();
                 return result > 0;
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
-                // Last resort: try the original repository method
-                try
-                {
-                    // Debug logging handled by structured logging
-                    return await _onboardingFileRepository.InsertAsync(onboardingFile);
-                }
-                catch (Exception fallbackEx)
-                {
-                    // Debug logging handled by structured logging
-                    throw;
-                }
+                _logger.LogWarning(ex, "Direct insert failed for onboarding file, falling back to repository insert");
+                // Fallback: try the original repository method
+                return await _onboardingFileRepository.InsertAsync(onboardingFile);
             }
         }
 
@@ -328,26 +302,18 @@ namespace FlowFlex.Application.Services.OW
                 // Check if onboarding has SystemId, sync external attachments and mark deleted files
                 await SyncExternalImportFilesAsync(onboardingId, files);
 
-                // Re-fetch files after sync to get updated status
-                files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboardingId, stageId);
-                if (!string.IsNullOrEmpty(category))
-                {
-                    files = files.Where(f => f.Category == category).ToList();
-                }
+                // Filter out files that were marked as deleted/invalid during sync (no need to re-query DB)
+                files = files.Where(f => f.IsValid).ToList();
 
                 var results = _mapper.Map<List<OnboardingFileOutputDto>>(files);
 
-                foreach (var result in results)
-                {
-                    result.FileSizeFormatted = FormatFileSize(result.FileSize);
-                    result.DownloadUrl = $"/ow/onboarding-files/v1.0/{result.Id}/download";
-                }
+                EnrichFileOutputDtos(results);
 
                 return results;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting files for Onboarding {onboardingId}");
+                _logger.LogError(ex, "Error getting files for Onboarding {OnboardingId}", onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get files: {ex.Message}");
             }
         }
@@ -470,7 +436,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error downloading file {fileId}");
+                _logger.LogError(ex, "Error downloading file {FileId}", fileId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"File download failed: {ex.Message}");
             }
         }
@@ -485,11 +451,11 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
                 }
 
-                return await _attachmentService.GetAttachmentUrlAsync(onboardingFile.AttachmentId, CancellationToken.None);
+                return await _attachmentService.GetAttachmentUrlAsync(onboardingFile.AttachmentId, default);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file URL {fileId}");
+                _logger.LogError(ex, "Error getting file URL {FileId}", fileId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get file URL: {ex.Message}");
             }
         }
@@ -532,12 +498,12 @@ namespace FlowFlex.Application.Services.OW
                     $"File '{onboardingFile.OriginalFileName}' deleted"
                 );
 
-                _logger.LogInformation($"File deleted successfully: {fileId}");
+                _logger.LogInformation("File deleted successfully: {FileId}", fileId);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deleting file {fileId}");
+                _logger.LogError(ex, "Error deleting file {FileId}", fileId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"File deletion failed: {ex.Message}");
             }
         }
@@ -636,14 +602,13 @@ namespace FlowFlex.Application.Services.OW
                 );
 
                 var result = _mapper.Map<OnboardingFileOutputDto>(onboardingFile);
-                result.FileSizeFormatted = FormatFileSize(onboardingFile.FileSize);
-                result.DownloadUrl = $"/ow/onboarding-files/v1.0/{onboardingFile.Id}/download";
+                EnrichFileOutputDto(result);
 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error updating file {fileId}");
+                _logger.LogError(ex, "Error updating file {FileId}", fileId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"File update failed: {ex.Message}");
             }
         }
@@ -680,17 +645,13 @@ namespace FlowFlex.Application.Services.OW
                 statistics.RecentFiles = _mapper.Map<List<OnboardingFileOutputDto>>(
                     files.OrderByDescending(f => f.UploadedDate).Take(5).ToList());
 
-                foreach (var recentFile in statistics.RecentFiles)
-                {
-                    recentFile.FileSizeFormatted = FormatFileSize(recentFile.FileSize);
-                    recentFile.DownloadUrl = $"/ow/onboarding-files/v1.0/{recentFile.Id}/download";
-                }
+                EnrichFileOutputDtos(statistics.RecentFiles);
 
                 return statistics;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file statistics for Onboarding {onboardingId}");
+                _logger.LogError(ex, "Error getting file statistics for Onboarding {OnboardingId}", onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get file statistics: {ex.Message}");
             }
         }
@@ -706,14 +667,13 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var result = _mapper.Map<OnboardingFileOutputDto>(onboardingFile);
-                result.FileSizeFormatted = FormatFileSize(onboardingFile.FileSize);
-                result.DownloadUrl = $"/ow/onboarding-files/v1.0/{onboardingFile.Id}/download";
+                EnrichFileOutputDto(result);
 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file by ID {fileId}");
+                _logger.LogError(ex, "Error getting file by ID {FileId}", fileId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get file: {ex.Message}");
             }
         }
@@ -725,17 +685,13 @@ namespace FlowFlex.Application.Services.OW
                 var files = await _onboardingFileRepository.GetFilesByStageAsync(stageId);
                 var results = _mapper.Map<List<OnboardingFileOutputDto>>(files);
 
-                foreach (var result in results)
-                {
-                    result.FileSizeFormatted = FormatFileSize(result.FileSize);
-                    result.DownloadUrl = $"/ow/onboarding-files/v1.0/{result.Id}/download";
-                }
+                EnrichFileOutputDtos(results);
 
                 return results;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting files by stage {stageId}");
+                _logger.LogError(ex, "Error getting files by stage {StageId}", stageId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get files by stage: {ex.Message}");
             }
         }
@@ -747,17 +703,13 @@ namespace FlowFlex.Application.Services.OW
                 var files = await _onboardingFileRepository.GetFilesByCategoryAsync(onboardingId, category);
                 var results = _mapper.Map<List<OnboardingFileOutputDto>>(files);
 
-                foreach (var result in results)
-                {
-                    result.FileSizeFormatted = FormatFileSize(result.FileSize);
-                    result.DownloadUrl = $"/ow/onboarding-files/v1.0/{result.Id}/download";
-                }
+                EnrichFileOutputDtos(results);
 
                 return results;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting files by category {category} for Onboarding {onboardingId}");
+                _logger.LogError(ex, "Error getting files by category {Category} for Onboarding {OnboardingId}", category, onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get files by category: {ex.Message}");
             }
         }
@@ -769,17 +721,13 @@ namespace FlowFlex.Application.Services.OW
                 var files = await _onboardingFileRepository.GetRequiredFilesAsync(onboardingId);
                 var results = _mapper.Map<List<OnboardingFileOutputDto>>(files);
 
-                foreach (var result in results)
-                {
-                    result.FileSizeFormatted = FormatFileSize(result.FileSize);
-                    result.DownloadUrl = $"/ow/onboarding-files/v1.0/{result.Id}/download";
-                }
+                EnrichFileOutputDtos(results);
 
                 return results;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting required files for Onboarding {onboardingId}");
+                _logger.LogError(ex, "Error getting required files for Onboarding {OnboardingId}", onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get required files: {ex.Message}");
             }
         }
@@ -797,6 +745,26 @@ namespace FlowFlex.Application.Services.OW
             int i = (int)Math.Floor(Math.Log(bytes) / Math.Log(1024));
 
             return Math.Round(bytes / Math.Pow(1024, i), 2) + " " + sizes[i];
+        }
+
+        /// <summary>
+        /// Enrich file output DTOs with formatted file size and download URL
+        /// </summary>
+        private void EnrichFileOutputDtos(List<OnboardingFileOutputDto> dtos)
+        {
+            foreach (var dto in dtos)
+            {
+                EnrichFileOutputDto(dto);
+            }
+        }
+
+        /// <summary>
+        /// Enrich a single file output DTO with formatted file size and download URL
+        /// </summary>
+        private void EnrichFileOutputDto(OnboardingFileOutputDto dto)
+        {
+            dto.FileSizeFormatted = FormatFileSize(dto.FileSize);
+            dto.DownloadUrl = $"/ow/onboarding-files/v1.0/{dto.Id}/download";
         }
 
         /// <summary>
@@ -839,6 +807,17 @@ namespace FlowFlex.Application.Services.OW
                     if (string.IsNullOrEmpty(progressItem.FileName))
                     {
                         progressItem.FileName = ExtractFileNameFromUrl(fileItem.DownloadLink);
+                    }
+
+                    // Validate URL to prevent SSRF attacks
+                    if (!UrlValidationHelper.IsSafeUrl(fileItem.DownloadLink))
+                    {
+                        progressItem.Status = "Failed";
+                        progressItem.ErrorMessage = "Invalid or blocked URL: internal network addresses are not allowed";
+                        progressItem.ProgressPercentage = 0;
+                        result.FailedCount++;
+                        _logger.LogWarning("Blocked SSRF attempt: {Url}", fileItem.DownloadLink);
+                        continue;
                     }
 
                     _logger.LogInformation("Starting download: {FileName} from {Url}", progressItem.FileName, fileItem.DownloadLink);

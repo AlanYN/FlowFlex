@@ -185,10 +185,11 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 await db.Ado.CommitTranAsync();
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await db.Ado.RollbackTranAsync();
-                throw;
+                // Log is not available in repository, re-throw with context
+                throw new InvalidOperationException($"BatchSaveOrUpdate failed: {ex.Message}", ex);
             }
         }
 

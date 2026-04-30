@@ -1,6 +1,5 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.Action;
@@ -14,7 +13,7 @@ using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Domain.Shared.Enums;
 using Microsoft.Extensions.Logging;
@@ -41,9 +40,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationService> _logger;
-
-        // AES encryption key (should be moved to configuration in production)
-        private const string ENCRYPTION_KEY = "FlowFlex2024IntegrationKey123456"; // 32 bytes for AES-256
+        private readonly IEncryptionService _encryptionService;
 
         public IntegrationService(
             IIntegrationRepository integrationRepository,
@@ -57,7 +54,8 @@ namespace FlowFlex.Application.Services.Integration
             IHttpClientFactory httpClientFactory,
             IMapper mapper,
             UserContext userContext,
-            ILogger<IntegrationService> logger)
+            ILogger<IntegrationService> logger,
+            IEncryptionService encryptionService)
         {
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
@@ -71,6 +69,7 @@ namespace FlowFlex.Application.Services.Integration
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         public async Task<long> CreateAsync(IntegrationInputDto input)
@@ -93,11 +92,11 @@ namespace FlowFlex.Application.Services.Integration
             
             // Initialize create information
             entity.InitCreateInfo(_userContext);
-            entity.TenantId = _userContext.TenantId;
+            entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
             
-            _logger.LogInformation($"Created integration: {input.Name} (ID: {id})");
+            _logger.LogInformation("Created integration: {Name} (ID: {Id})", input.Name, id);
             
             return id;
         }
@@ -144,7 +143,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Updated integration: {input.Name} (ID: {id})");
+            _logger.LogInformation("Updated integration: {Name} (ID: {Id})", input.Name, id);
             
             return result;
         }
@@ -163,7 +162,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Deleted integration: {entity.Name} (ID: {id})");
+            _logger.LogInformation("Deleted integration: {Name} (ID: {Id})", entity.Name, id);
             
             return result;
         }
@@ -179,37 +178,16 @@ namespace FlowFlex.Application.Services.Integration
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
             
-            // Decrypt credentials
+            // Decrypt credentials using encryption service
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
-                try
-                {
-                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
-                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
-                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
-                    {
-                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
-                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
-                        dto.Credentials = new Dictionary<string, string>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
-                        : entity.EncryptedCredentials ?? "";
-                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
-                    dto.Credentials = new Dictionary<string, string>();
-                }
+                dto.Credentials = DecryptCredentials(entity.EncryptedCredentials);
+                _logger.LogDebug("Decrypted credentials for integration {IntegrationId}, found {Count} credential keys", 
+                    id, dto.Credentials.Count);
             }
             else
             {
-                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                _logger.LogDebug("Integration {IntegrationId} has no encrypted credentials", id);
                 dto.Credentials = new Dictionary<string, string>();
             }
             
@@ -227,37 +205,16 @@ namespace FlowFlex.Application.Services.Integration
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
             
-            // Decrypt credentials for details view
+            // Decrypt credentials for details view using encryption service
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
-                try
-                {
-                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
-                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
-                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
-                    {
-                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
-                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
-                        dto.Credentials = new Dictionary<string, string>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
-                        : entity.EncryptedCredentials ?? "";
-                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
-                    dto.Credentials = new Dictionary<string, string>();
-                }
+                dto.Credentials = DecryptCredentials(entity.EncryptedCredentials);
+                _logger.LogDebug("Decrypted credentials for integration {IntegrationId}, found {Count} credential keys", 
+                    id, dto.Credentials.Count);
             }
             else
             {
-                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                _logger.LogDebug("Integration {IntegrationId} has no encrypted credentials", id);
                 dto.Credentials = new Dictionary<string, string>();
             }
 
@@ -428,7 +385,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to get field mappings through action mapping for integration {id}");
+                _logger.LogWarning(ex, "Failed to get field mappings through action mapping for integration {IntegrationId}", id);
                 dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
                 dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
             }
@@ -459,7 +416,7 @@ namespace FlowFlex.Application.Services.Integration
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, $"Failed to extract outbound mappings from action config for action {actionId}");
+                            _logger.LogWarning(ex, "Failed to extract outbound mappings from action config for action {ActionId}", actionId);
                         }
                     }
 
@@ -486,7 +443,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to extract outbound mappings from action configs for integration {id}");
+                _logger.LogWarning(ex, "Failed to extract outbound mappings from action configs for integration {IntegrationId}", id);
             }
             
             // Populate LastDaysSeconds with real execution data
@@ -569,7 +526,7 @@ namespace FlowFlex.Application.Services.Integration
                 // Decrypt credentials
                 var credentials = DecryptCredentials(entity.EncryptedCredentials);
                 
-                _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id}), AuthMethod: {entity.AuthMethod}, EndpointUrl: {entity.EndpointUrl}");
+                _logger.LogInformation("Testing connection for integration: {Name} (ID: {Id}), AuthMethod: {AuthMethod}, EndpointUrl: {EndpointUrl}", entity.Name, id, entity.AuthMethod, entity.EndpointUrl);
                 
                 // Perform actual HTTP connection test
                 var (success, errorMessage) = await PerformConnectionTestAsync(entity.EndpointUrl, entity.AuthMethod, credentials);
@@ -580,7 +537,7 @@ namespace FlowFlex.Application.Services.Integration
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Connected;
                     entity.ErrorMessage = null;
                     entity.LastSyncDate = DateTimeOffset.UtcNow;
-                    _logger.LogInformation($"Connection test succeeded for integration: {entity.Name} (ID: {id})");
+                    _logger.LogInformation("Connection test succeeded for integration: {Name} (ID: {Id})", entity.Name, id);
                     
                     entity.InitModifyInfo(_userContext);
                     await _integrationRepository.UpdateAsync(entity);
@@ -596,7 +553,7 @@ namespace FlowFlex.Application.Services.Integration
                     // Update status to Error if test fails
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                     entity.ErrorMessage = errorMessage;
-                    _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
+                    _logger.LogWarning("Connection test failed for integration: {Name} (ID: {Id}), Error: {ErrorMessage}", entity.Name, id, errorMessage);
                 
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
@@ -610,7 +567,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Connection test failed for integration: {entity.Name} (ID: {id})");
+                _logger.LogError(ex, "Connection test failed for integration: {Name} (ID: {Id})", entity.Name, id);
                 
                 // Update status to Error if test fails
                 entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
@@ -728,12 +685,12 @@ namespace FlowFlex.Application.Services.Integration
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 request.Headers.Add("User-Agent", "FlowFlex-Integration/1.0");
 
-                _logger.LogDebug($"Sending {request.Method} request to {endpointUrl} with AuthMethod: {authMethod}");
+                _logger.LogDebug("Sending {Method} request to {EndpointUrl} with AuthMethod: {AuthMethod}", request.Method, endpointUrl, authMethod);
 
                 var response = await httpClient.SendAsync(request);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                _logger.LogDebug($"Response status: {response.StatusCode}, Content length: {responseContent.Length}");
+                _logger.LogDebug("Response status: {StatusCode}, Content length: {ContentLength}", response.StatusCode, responseContent.Length);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -774,7 +731,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _integrationRepository.UpdateAsync(entity);
             
-            _logger.LogInformation($"Updated integration status: {entity.Name} (ID: {id}) to {status}");
+            _logger.LogInformation("Updated integration status: {Name} (ID: {Id}) to {Status}", entity.Name, id, status);
             
             return result;
         }
@@ -882,7 +839,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to parse actionConfig for action {action.Id}: {action.ActionConfig}");
+                _logger.LogWarning(ex, "Failed to parse actionConfig for action {ActionId}: {ActionConfig}", action.Id, action.ActionConfig);
             }
 
             return mappings;
@@ -904,7 +861,7 @@ namespace FlowFlex.Application.Services.Integration
         /// <returns>Dictionary with date as key (yyyy-MM-dd) and call count as value</returns>
         private async Task<Dictionary<string, string>> GetLastDaysSecondsAsync(long integrationId)
         {
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
             var result = new Dictionary<string, string>();
             var startDate = today.AddDays(-29);
 
@@ -961,7 +918,7 @@ namespace FlowFlex.Application.Services.Integration
                 return result;
             }
 
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
 
             try
             {
@@ -1027,7 +984,7 @@ namespace FlowFlex.Application.Services.Integration
         private Dictionary<string, string> GetEmptyLastDaysSeconds()
         {
             var result = new Dictionary<string, string>();
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
 
             for (int i = 29; i >= 0; i--)
             {
@@ -1042,45 +999,21 @@ namespace FlowFlex.Application.Services.Integration
         private string EncryptCredentials(Dictionary<string, string> credentials)
         {
             var json = JsonConvert.SerializeObject(credentials);
-            var encrypted = EncryptString(json, ENCRYPTION_KEY);
-            return encrypted;
+            return _encryptionService.Encrypt(json);
         }
 
         private Dictionary<string, string> DecryptCredentials(string encryptedCredentials)
         {
-            var json = DecryptString(encryptedCredentials, ENCRYPTION_KEY);
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
-        }
-
-        private string EncryptString(string plainText, string key)
-        {
-            using var aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(key);
-            aes.IV = new byte[16]; // Use zero IV for simplicity (should use random IV in production)
-
-            using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-            using var ms = new MemoryStream();
-            using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
-            using (var sw = new StreamWriter(cs))
+            try
             {
-                sw.Write(plainText);
+                var json = _encryptionService.Decrypt(encryptedCredentials);
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
             }
-            
-            return Convert.ToBase64String(ms.ToArray());
-        }
-
-        private string DecryptString(string cipherText, string key)
-        {
-            using var aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(key);
-            aes.IV = new byte[16]; // Use zero IV for simplicity (should use random IV in production)
-
-            using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-            using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
-            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-            using var sr = new StreamReader(cs);
-            
-            return sr.ReadToEnd();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to decrypt credentials");
+                return new Dictionary<string, string>();
+            }
         }
 
         #endregion
@@ -1212,7 +1145,7 @@ namespace FlowFlex.Application.Services.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to populate ConfiguredEntityTypeNames for integration {dto.Id}");
+                _logger.LogWarning(ex, "Failed to populate ConfiguredEntityTypeNames for integration {IntegrationId}", dto.Id);
                 dto.ConfiguredEntityTypeNames = new List<string>();
                 dto.ConfiguredEntityTypes = 0;
             }

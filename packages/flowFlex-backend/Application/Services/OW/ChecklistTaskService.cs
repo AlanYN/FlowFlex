@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
@@ -11,7 +11,6 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -21,7 +20,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace FlowFlex.Application.Service.OW;
+namespace FlowFlex.Application.Services.OW;
 
 /// <summary>
 /// ChecklistTask service implementation

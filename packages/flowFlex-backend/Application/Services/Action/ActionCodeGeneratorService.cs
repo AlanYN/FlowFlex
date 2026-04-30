@@ -2,14 +2,21 @@
 using Infrastructure.CodeGenerator;
 using Item.Redis;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Action
 {
     public class ActionCodeGeneratorService : CodeGeneratorAbstract, IActionCodeGeneratorService
     {
-        public ActionCodeGeneratorService(IRedisService redisService,
-            IConfiguration configuration) : base(redisService, configuration)
-        { }
+        private readonly ILogger<ActionCodeGeneratorService> _logger;
+
+        public ActionCodeGeneratorService(
+            IRedisService redisService,
+            IConfiguration configuration,
+            ILogger<ActionCodeGeneratorService> logger) : base(redisService, configuration)
+        {
+            _logger = logger;
+        }
 
         protected override string CodeSeparator => "-";
 

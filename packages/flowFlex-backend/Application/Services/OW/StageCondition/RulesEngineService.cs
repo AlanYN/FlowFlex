@@ -6,11 +6,12 @@ using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Helpers;
-using FlowFlex.Application.Service.OW.StageCondition;
+using FlowFlex.Application.Services.OW.StageCondition;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ using RulesEngine.Models;
 using SqlSugar;
 using RulesEngineWorkflow = RulesEngine.Models.Workflow;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// RulesEngine evaluation service implementation
@@ -143,9 +144,10 @@ namespace FlowFlex.Application.Service.OW
                     };
                 }
 
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var onboarding = await _db.Queryable<Onboarding>()
                     .Where(o => o.CaseCode == caseCode && o.IsValid)
-                    .Where(o => o.TenantId == _userContext.TenantId)
+                    .Where(o => o.TenantId == tenantId)
                     .FirstAsync();
 
                 if (onboarding == null)
@@ -183,9 +185,10 @@ namespace FlowFlex.Application.Service.OW
             {
                 var dbResult = await _db.Ado.UseTranAsync(async () =>
                 {
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
-                        .Where(o => o.TenantId == _userContext.TenantId)
+                        .Where(o => o.TenantId == tenantId)
                         .With(SqlWith.UpdLock)
                         .FirstAsync();
 
@@ -280,8 +283,8 @@ namespace FlowFlex.Application.Service.OW
                         OnboardingId = onboardingId,
                         StageId = stageId,
                         ConditionId = condition.Id,
-                        TenantId = _userContext.TenantId,
-                        UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
+                        TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                        UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0
                     };
 
                     if (isConditionMet && actionExecutor != null)
@@ -328,9 +331,10 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task<Onboarding> AcquireLockAndValidateAsync(long onboardingId, long stageId)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var onboarding = await _db.Queryable<Onboarding>()
                 .Where(o => o.Id == onboardingId && o.IsValid)
-                .Where(o => o.TenantId == _userContext.TenantId)
+                .Where(o => o.TenantId == tenantId)
                 .With(SqlWith.UpdLock)
                 .FirstAsync();
 
@@ -451,7 +455,10 @@ namespace FlowFlex.Application.Service.OW
                     return jObject["logic"]?.ToString();
                 }
             }
-            catch { }
+            catch (Newtonsoft.Json.JsonException)
+            {
+                // Not valid JSON, return null
+            }
             return null;
         }
 
@@ -608,9 +615,10 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task<Domain.Entities.OW.StageCondition> GetConditionByStageIdAsync(long stageId)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             return await _db.Queryable<Domain.Entities.OW.StageCondition>()
                 .Where(c => c.StageId == stageId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
         }
 

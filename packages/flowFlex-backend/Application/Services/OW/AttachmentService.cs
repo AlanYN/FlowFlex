@@ -242,7 +242,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var attachment = await GetAttachmentByIdAsync(id, CancellationToken.None);
+                var attachment = await GetAttachmentByIdAsync(id, default);
 
                 // Try to get real file from file storage
                 try
@@ -348,7 +348,7 @@ namespace FlowFlex.Application.Services.OW
                     throw new FileNotFoundException($"Local file not found: {relativePath}", fullPath);
                 }
 
-                // Open file stream
+                // Open file stream - caller is responsible for disposing
                 var stream = new FileStream(
                     fullPath,
                     FileMode.Open,
@@ -366,6 +366,16 @@ namespace FlowFlex.Application.Services.OW
             catch (FileNotFoundException)
             {
                 throw;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Access denied reading local file: {AccessUrl}", accessUrl);
+                throw new FileNotFoundException($"Access denied to local file: {accessUrl}", ex);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "IO error reading local file: {AccessUrl}", accessUrl);
+                throw new FileNotFoundException($"IO error reading local file: {accessUrl}", ex);
             }
             catch (Exception ex)
             {

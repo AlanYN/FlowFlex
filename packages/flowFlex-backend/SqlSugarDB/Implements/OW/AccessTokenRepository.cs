@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.SqlSugarDB.Context;
+using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -11,8 +12,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class AccessTokenRepository : OwBaseRepository<AccessToken>, IAccessTokenRepository, IScopedService
     {
-        public AccessTokenRepository(ISqlSugarContext context) : base(context)
+        private readonly ILogger<AccessTokenRepository> _logger;
+
+        public AccessTokenRepository(ISqlSugarContext context, ILogger<AccessTokenRepository> logger) : base(context)
         {
+            _logger = logger;
         }
 
         /// <summary>
@@ -31,9 +35,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             }
             catch (Exception ex)
             {
-                // Log the specific error for debugging
-                Console.WriteLine($"Error creating access token: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "Error creating access token");
                 throw;
             }
         }
@@ -52,12 +54,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     // Create table using SqlSugar code first
                     _db.CodeFirst.SetStringDefaultLength(200).InitTables<AccessToken>();
-                    Console.WriteLine("AccessToken table created successfully using CodeFirst");
+                    _logger.LogInformation("AccessToken table created successfully using CodeFirst");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error ensuring AccessToken table exists: {ex.Message}");
+                _logger.LogWarning(ex, "Error ensuring AccessToken table exists");
                 // Don't throw here, let the insert try anyway
             }
         }

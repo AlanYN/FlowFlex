@@ -136,9 +136,6 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             try
             {
-                // Debug logging handled by structured logging
-                // Debug logging handled by structured logging)}...");
-
                 int result;
 
                 // Check parameter type, use corresponding method if it's SugarParameter array
@@ -150,26 +147,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 {
                     result = await base.db.Ado.ExecuteCommandAsync(sql, parameters);
                 }
-                // Debug logging handled by structured logging
                 return result > 0;
             }
             catch (Exception ex)
             {
                 // Log detailed error information, but don't let the program crash
-                // Debug logging handled by structured logging
-                // Debug logging handled by structured logging.Name}");
+                _logger.LogError(ex, "Failed to execute insert with JSONB SQL");
 
                 // Safely access StackTrace, avoid null reference exception
                 if (!string.IsNullOrEmpty(ex.StackTrace))
                 {
-                    // Debug logging handled by structured logging
                 }
 
                 // If there's an inner exception, also log it
                 if (ex.InnerException != null)
                 {
-                    // Debug logging handled by structured logging
-                    // Debug logging handled by structured logging.Name}");
                 }
 
                 // Return false instead of throwing exception, let caller decide how to handle

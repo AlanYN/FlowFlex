@@ -1,0 +1,35 @@
+Category,Icon Name,Iconify ID,Use Case
+Actions,Plus,lucide:plus,Add/Create
+Actions,Edit,lucide:edit,Edit
+Actions,Trash,lucide:trash,Delete
+Actions,Save,lucide:save,Save
+Actions,Close,lucide:x,Close/Cancel
+Actions,Check,lucide:check,Confirm/Success
+Actions,Copy,lucide:copy,Copy
+Actions,Download,lucide:download,Download
+Actions,Upload,lucide:upload,Upload
+Actions,Refresh,lucide:refresh-cw,Refresh
+Navigation,Home,lucide:home,Home
+Navigation,Back,lucide:arrow-left,Back
+Navigation,Forward,lucide:arrow-right,Forward
+Navigation,Expand,lucide:chevron-down,Expand
+Navigation,Collapse,lucide:chevron-up,Collapse
+Navigation,Menu,lucide:menu,Menu
+Navigation,More,lucide:more-vertical,More options
+Status,Success,lucide:check-circle,Success
+Status,Error,lucide:x-circle,Error
+Status,Warning,lucide:alert-triangle,Warning
+Status,Info,lucide:info,Information
+Status,Loading,lucide:loader-2,Loading (with animate-spin)
+User,User,lucide:user,User
+User,Users,lucide:users,Users/Team
+User,Add User,lucide:user-plus,Add user
+User,Login,lucide:log-in,Login
+User,Logout,lucide:log-out,Logout
+User,Settings,lucide:settings,Settings
+Content,File,lucide:file,File
+Content,Folder,lucide:folder,Folder
+Content,Image,lucide:image,Image
+Content,Document,lucide:file-text,Document
+Content,Search,lucide:search,Search
+Content,Filter,lucide:filter,Filter

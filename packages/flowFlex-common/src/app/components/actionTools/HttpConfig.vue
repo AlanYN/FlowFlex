@@ -1803,19 +1803,26 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 						}
 					});
 				}
-			} else if (chunkType === 'complete' && chunkActionData) {
-				// 直接从响应中提取HTTP配置
-				const httpConfig = extractHttpConfigFromActionPlan(chunkActionData);
+			} else if (chunkType === 'complete') {
+				// Try to extract HTTP config from actionData or content
+				let httpConfig = null;
+				if (chunkActionData) {
+					httpConfig = extractHttpConfigFromActionPlan(chunkActionData);
+				}
+				if (!httpConfig && chunkContent) {
+					httpConfig = extractHttpConfigFromContent(chunkContent);
+				}
 
-				// 更新最终消息
+				// Update final message
 				const lastMessageIndex = aiChatMessages.value.length - 1;
 				if (lastMessageIndex >= 0) {
 					aiChatMessages.value[lastMessageIndex].httpConfig = httpConfig;
-					aiChatMessages.value[lastMessageIndex].content =
-						'🚀 Generating HTTP configuration...\n\n✅ HTTP configuration generated successfully!';
+					aiChatMessages.value[lastMessageIndex].content = httpConfig
+						? '🚀 Generating HTTP configuration...\n\n✅ HTTP configuration generated successfully!'
+						: '🚀 Generating HTTP configuration...\n\n⚠️ Could not extract configuration from AI response.';
 				}
 
-				// 最终滚动到底部
+				// Scroll to bottom
 				nextTick(() => {
 					if (chatMessagesRef.value) {
 						chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
@@ -1946,27 +1953,34 @@ const streamGenerateHttpConfigDirect = async (
 										const parsed = JSON.parse(data);
 
 										// 检查并应用HTTP配置 (仅在HTTP配置生成流程中)
-										if (parsed.type === 'complete' && parsed.actionData) {
-											// 在流式处理完成时自动应用配置
-											const httpConfig = extractHttpConfigFromActionPlan(
-												parsed.actionData
-											);
+										if (parsed.type === 'complete') {
+											let httpConfig = null;
+
+											if (parsed.actionData) {
+												// Try to extract from structured actionData first
+												httpConfig = extractHttpConfigFromActionPlan(
+													parsed.actionData
+												);
+											}
+
+											// If no actionData or extraction failed, try parsing from content
+											if (!httpConfig && parsed.content) {
+												httpConfig = extractHttpConfigFromContent(
+													parsed.content
+												);
+											}
+
 											if (httpConfig) {
 												try {
 													await applyGeneratedConfig(httpConfig);
 												} catch (error) {
-													// 不要阻止流继续处理，只记录错误
+													// Don't block stream processing, just log
 												}
-											} else {
-												// 如果无法提取有效的HTTP配置，给出说明和建议
+											} else if (parsed.actionData) {
 												showConfigurationSuggestions(parsed.actionData);
+											} else {
+												showNoConfigurationDataSuggestions();
 											}
-										} else if (
-											parsed.type === 'complete' &&
-											!parsed.actionData
-										) {
-											// 如果完成但没有actionData，也给出建议
-											showNoConfigurationDataSuggestions();
 										}
 
 										onChunk(parsed);
@@ -2111,6 +2125,53 @@ const parseCurlCommand = (input: string) => {
 	}
 
 	return config;
+};
+
+const extractHttpConfigFromContent = (content: string): any => {
+	if (!content || typeof content !== 'string') return null;
+
+	try {
+		// Try to extract JSON from markdown code fence
+		const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+		const jsonStr = fenceMatch ? fenceMatch[1].trim() : content.trim();
+
+		// Find the outermost JSON object
+		const braceStart = jsonStr.indexOf('{');
+		const braceEnd = jsonStr.lastIndexOf('}');
+		if (braceStart < 0 || braceEnd <= braceStart) return null;
+
+		const parsed = JSON.parse(jsonStr.substring(braceStart, braceEnd + 1));
+
+		// Validate it looks like an HTTP config (must have url or method)
+		if (parsed.url || parsed.method) {
+			const config: any = {
+				method: (parsed.method || 'GET').toUpperCase(),
+				url: parsed.url || '',
+				headers: parsed.headers || {},
+				bodyType: parsed.body ? 'json' : 'none',
+				body:
+					typeof parsed.body === 'string'
+						? parsed.body
+						: parsed.body
+						? JSON.stringify(parsed.body)
+						: '',
+			};
+
+			if (parsed.queryParameters && Object.keys(parsed.queryParameters).length > 0) {
+				config.queryParameters = parsed.queryParameters;
+			}
+
+			if (!config.actionName && config.url) {
+				config.actionName = generateActionName(config.url, config.method);
+			}
+
+			return config;
+		}
+
+		return null;
+	} catch {
+		return null;
+	}
 };
 
 const extractHttpConfigFromActionPlan = (actionPlan: any) => {

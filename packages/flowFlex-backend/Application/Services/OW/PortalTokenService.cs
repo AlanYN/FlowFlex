@@ -13,6 +13,7 @@ using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -256,29 +257,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private static string GetClientIpAddress(HttpContext? httpContext)
         {
-            if (httpContext == null) return string.Empty;
-
-            var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-
-            // Check for forwarded IP (when behind proxy/load balancer)
-            if (httpContext.Request.Headers.ContainsKey("X-Forwarded-For"))
-            {
-                var forwardedIp = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(forwardedIp))
-                {
-                    ipAddress = forwardedIp.Split(',')[0].Trim();
-                }
-            }
-            else if (httpContext.Request.Headers.ContainsKey("X-Real-IP"))
-            {
-                var realIp = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(realIp))
-                {
-                    ipAddress = realIp;
-                }
-            }
-
-            return ipAddress ?? string.Empty;
+            return httpContext.GetClientIpAddress();
         }
     }
 }

@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -49,7 +50,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (!string.IsNullOrEmpty(afterData))
                 {
                     // Extract all fields from afterData and display them
-                    var fieldDetails = GetCreateFieldDetailsAsync(afterData);
+                    var fieldDetails = await GetCreateFieldDetailsAsync(afterData);
                     if (!string.IsNullOrEmpty(fieldDetails))
                     {
                         operationDescription = $"Case '{onboardingName}' has been created by {GetOperatorDisplayName()}. {fieldDetails}";
@@ -98,7 +99,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Get field details for create operation - display all fields
         /// </summary>
-        private string GetCreateFieldDetailsAsync(string afterData)
+        private async Task<string> GetCreateFieldDetailsAsync(string afterData)
         {
             try
             {
@@ -133,7 +134,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
 
                     var fieldName = GetFriendlyFieldName(kvp.Key);
-                    var fieldValue = GetDisplayValueForCreate(kvp.Value, kvp.Key);
+                    var fieldValue = await GetDisplayValueForCreateAsync(kvp.Value, kvp.Key);
                     // Skip empty values (including empty arrays)
                     if (!string.IsNullOrEmpty(fieldValue))
                     {
@@ -157,7 +158,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Get display value for create operation with special handling for arrays and enums
         /// </summary>
-        private string GetDisplayValueForCreate(object value, string fieldName)
+        private async Task<string> GetDisplayValueForCreateAsync(object value, string fieldName)
         {
             if (value == null) return "null";
 
@@ -197,8 +198,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             try
                             {
-                                var tenantId = _userContext?.TenantId ?? "999";
-                                var teamNameMap = _userService.GetTeamNamesByIdsAsync(items, tenantId).GetAwaiter().GetResult();
+                                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                                var teamNameMap = await _userService.GetTeamNamesByIdsAsync(items, tenantId);
                                 if (teamNameMap != null && teamNameMap.Any())
                                 {
                                     var teamNames = items.Select(id =>
@@ -220,7 +221,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             try
                             {
-                                var userNames = GetUserNamesByIdsAsync(items).GetAwaiter().GetResult();
+                                var userNames = await GetUserNamesByIdsAsync(items);
                                 if (userNames.Any())
                                 {
                                     return string.Join(", ", userNames);
@@ -643,7 +644,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             try
             {
-                var tenantId = _userContext?.TenantId ?? "999";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
                     .Select(id => long.Parse(id))
                     .ToList();

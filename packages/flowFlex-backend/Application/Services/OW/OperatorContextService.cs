@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
@@ -13,21 +14,26 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<OperatorContextService> _logger;
 
-        public OperatorContextService(UserContext userContext, IHttpContextAccessor httpContextAccessor)
+        public OperatorContextService(
+            UserContext userContext, 
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<OperatorContextService> logger)
         {
             _userContext = userContext;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public string GetOperatorDisplayName()
         {
-            Console.WriteLine($"[OperatorContextService] GetOperatorDisplayName called");
-            Console.WriteLine($"[OperatorContextService] UserContext.FirstName: '{_userContext?.FirstName ?? "null"}'");
-            Console.WriteLine($"[OperatorContextService] UserContext.LastName: '{_userContext?.LastName ?? "null"}'");
-            Console.WriteLine($"[OperatorContextService] UserContext.UserName: '{_userContext?.UserName ?? "null"}'");
-            Console.WriteLine($"[OperatorContextService] UserContext.Email: '{_userContext?.Email ?? "null"}'");
-            Console.WriteLine($"[OperatorContextService] UserContext.UserId: '{_userContext?.UserId ?? "null"}'");
+            _logger.LogDebug("GetOperatorDisplayName called - FirstName: {FirstName}, LastName: {LastName}, UserName: {UserName}, Email: {Email}, UserId: {UserId}",
+                _userContext?.FirstName ?? "null",
+                _userContext?.LastName ?? "null",
+                _userContext?.UserName ?? "null",
+                _userContext?.Email ?? "null",
+                _userContext?.UserId ?? "null");
 
             // Priority 1: FirstName + LastName
             if (!string.IsNullOrWhiteSpace(_userContext?.FirstName) || !string.IsNullOrWhiteSpace(_userContext?.LastName))
@@ -38,7 +44,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.IsNullOrWhiteSpace(fullName))
                 {
-                    Console.WriteLine($"[OperatorContextService] Returning FirstName + LastName: '{fullName}'");
+                    _logger.LogDebug("Returning FirstName + LastName: {FullName}", fullName);
                     return fullName;
                 }
             }
@@ -46,14 +52,14 @@ namespace FlowFlex.Application.Services.OW
             // Priority 2: UserName
             if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
             {
-                Console.WriteLine($"[OperatorContextService] Returning UserName: '{_userContext.UserName}'");
+                _logger.LogDebug("Returning UserName: {UserName}", _userContext.UserName);
                 return _userContext.UserName;
             }
 
             // Priority 3: Email
             if (!string.IsNullOrWhiteSpace(_userContext?.Email))
             {
-                Console.WriteLine($"[OperatorContextService] Returning Email: '{_userContext.Email}'");
+                _logger.LogDebug("Returning Email: {Email}", _userContext.Email);
                 return _userContext.Email;
             }
 
@@ -97,11 +103,11 @@ namespace FlowFlex.Application.Services.OW
             // Fallback: use UserId if available
             if (!string.IsNullOrWhiteSpace(_userContext?.UserId))
             {
-                Console.WriteLine($"[OperatorContextService] Using UserId as fallback: 'User_{_userContext.UserId}'");
+                _logger.LogDebug("Using UserId as fallback: User_{UserId}", _userContext.UserId);
                 return $"User_{_userContext.UserId}";
             }
 
-            Console.WriteLine($"[OperatorContextService] No user info found, returning 'System'");
+            _logger.LogDebug("No user info found, returning 'System'");
             return "System";
         }
 

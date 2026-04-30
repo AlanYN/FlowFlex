@@ -1,11 +1,11 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW;
@@ -22,6 +22,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
+    private readonly ILogger<ChecklistTaskNoteService> _logger;
 
     public ChecklistTaskNoteService(
         IChecklistTaskNoteRepository noteRepository,
@@ -30,7 +31,8 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
-        IOperatorContextService operatorContextService)
+        IOperatorContextService operatorContextService,
+        ILogger<ChecklistTaskNoteService> logger)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
@@ -39,6 +41,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
+        _logger = logger;
     }
 
     /// <summary>

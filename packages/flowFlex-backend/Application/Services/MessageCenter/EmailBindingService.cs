@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.EmailBinding;
 using FlowFlex.Application.Contracts.IServices;
@@ -8,7 +8,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Constants;
-using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.MessageCenter;
@@ -58,7 +58,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public Task<AuthorizeUrlDto> GetAuthorizationUrlAsync()
     {
         var userId = GetCurrentUserId();
-        var tenantId = _userContext.TenantId ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
         // Generate state for CSRF protection
         var state = Guid.NewGuid().ToString("N");
@@ -815,14 +815,14 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         try
         {
             var httpClient = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.SendAsync(request);
+            using var response = await httpClient.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var json = System.Text.Json.JsonDocument.Parse(content);
+                using var json = System.Text.Json.JsonDocument.Parse(content);
                 
                 // Try mail first, then userPrincipalName
                 if (json.RootElement.TryGetProperty("mail", out var mailElement) && 

@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.AI;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,14 +17,14 @@ namespace FlowFlex.WebApi.Controllers.AI
     [Authorize]
     public class AIController : Controllers.ControllerBase
     {
-        private readonly IAIService _aiService;
+        private readonly IAIActionService _actionService;
         private readonly ILogger<AIController> _logger;
 
         public AIController(
-            IAIService aiService,
+            IAIActionService actionService,
             ILogger<AIController> logger)
         {
-            _aiService = aiService;
+            _actionService = actionService;
             _logger = logger;
         }
 
@@ -74,7 +75,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             try
             {
-                await foreach (var result in _aiService.StreamAnalyzeActionAsync(input))
+                await foreach (var result in _actionService.StreamAnalyzeActionAsync(input))
                 {
                     var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
                     await Response.WriteAsync($"data: {jsonData}\n\n");
@@ -150,7 +151,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
             try
             {
-                await foreach (var result in _aiService.StreamCreateActionAsync(input))
+                await foreach (var result in _actionService.StreamCreateActionAsync(input))
                 {
                     var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
                     await Response.WriteAsync($"data: {jsonData}\n\n");
@@ -203,7 +204,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 _logger.LogInformation("Analyzing conversation for action insights, SessionId: {SessionId}", input.SessionId);
 
-                var result = await _aiService.AnalyzeActionAsync(input);
+                var result = await _actionService.AnalyzeActionAsync(input);
 
                 if (result.Success)
                 {
@@ -246,7 +247,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 _logger.LogInformation("Creating action plan based on input");
 
-                var result = await _aiService.CreateActionAsync(input);
+                var result = await _actionService.CreateActionAsync(input);
 
                 if (result.Success)
                 {
@@ -288,7 +289,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 _logger.LogInformation("Analyzing conversation and creating action plan, SessionId: {SessionId}", input.SessionId);
 
                 // Step 1: Analyze the conversation
-                var analysisResult = await _aiService.AnalyzeActionAsync(input);
+                var analysisResult = await _actionService.AnalyzeActionAsync(input);
 
                 if (!analysisResult.Success)
                 {
@@ -309,7 +310,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                     ModelName = input.ModelName
                 };
 
-                var creationResult = await _aiService.CreateActionAsync(creationInput);
+                var creationResult = await _actionService.CreateActionAsync(creationInput);
 
                 if (creationResult.Success)
                 {
@@ -349,7 +350,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 Response.Headers.Append("Connection", "keep-alive");
                 Response.Headers.Append("Access-Control-Allow-Origin", "*");
 
-                await foreach (var result in _aiService.StreamGenerateHttpConfigAsync(input))
+                await foreach (var result in _actionService.StreamGenerateHttpConfigAsync(input))
                 {
                     var json = JsonSerializer.Serialize(result, new JsonSerializerOptions
                     {

@@ -9,7 +9,7 @@ namespace FlowFlex.Infrastructure.Services;
 /// <summary>
 /// Thread-safe background task queue implementation
 /// </summary>
-public class BackgroundTaskQueue : IBackgroundTaskQueue, ISingletonService
+public class BackgroundTaskQueue : IBackgroundTaskQueue, ISingletonService, IDisposable
 {
     private readonly ConcurrentQueue<Func<CancellationToken, Task>> _workItems = new();
     private readonly SemaphoreSlim _signal = new(0);
@@ -28,5 +28,10 @@ public class BackgroundTaskQueue : IBackgroundTaskQueue, ISingletonService
         await _signal.WaitAsync(cancellationToken);
         _workItems.TryDequeue(out var workItem);
         return workItem;
+    }
+
+    public void Dispose()
+    {
+        _signal.Dispose();
     }
 }

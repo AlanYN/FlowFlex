@@ -5,7 +5,7 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Service.OW;
+using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;

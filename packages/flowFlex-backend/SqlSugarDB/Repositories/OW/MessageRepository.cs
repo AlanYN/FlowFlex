@@ -53,9 +53,6 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
         // Label filter will be applied in memory after fetching results
         // Note: Due to SqlSugar's limited JSONB support, label filtering is done in memory
         var filterByLabel = !string.IsNullOrEmpty(label);
-        
-        // DEBUG: Log label filter status
-        Console.WriteLine($"[MessageRepository] Label filter: {label}, filterByLabel: {filterByLabel}");
 
         // Apply message type filter
         if (!string.IsNullOrEmpty(messageType))
@@ -125,8 +122,8 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
 
     private ISugarQueryable<Message> ApplySorting(ISugarQueryable<Message> query, string sortField, string sortDirection)
     {
-        var isAsc = sortDirection.ToLower() == "asc";
-        return sortField.ToLower() switch
+        var isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+        return (sortField ?? "").ToLowerInvariant() switch
         {
             "sentdate" => isAsc ? query.OrderBy(x => x.SentDate) : query.OrderByDescending(x => x.SentDate),
             "subject" => isAsc ? query.OrderBy(x => x.Subject) : query.OrderByDescending(x => x.Subject),

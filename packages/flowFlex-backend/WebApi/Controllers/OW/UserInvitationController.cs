@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW;
 using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 using FlowFlex.WebApi.Model.Response;
+using FlowFlex.WebApi.Filters;
 using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -166,6 +167,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Verification response</returns>
         [HttpPost("verify-access-short/{shortUrlId}")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "verify-portal")]
         [ProducesResponseType<SuccessResponse<PortalAccessVerificationResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> VerifyPortalAccessByShortUrlAsync(string shortUrlId, [FromBody] PortalAccessVerificationByShortUrlRequestDto request)

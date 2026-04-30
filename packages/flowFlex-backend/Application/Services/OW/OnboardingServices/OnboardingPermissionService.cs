@@ -14,7 +14,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding permission operations
     /// Centralizes all permission-related logic for onboarding module
     /// </summary>
-    public class OnboardingPermissionService : IOnboardingPermissionService
+    public class OnboardingPermissionService : IOnboardingPermissionService, IScopedService
     {
         private readonly IPermissionService _permissionService;
         private readonly CasePermissionService _casePermissionService;

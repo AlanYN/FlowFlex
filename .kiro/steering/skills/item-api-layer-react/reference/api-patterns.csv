@@ -1,0 +1,10 @@
+Pattern,Method,URL Template,Request Type,Response Type,Example
+List with pagination,GET,${apiProName}/api/${apiVersion}/features,ListParams,ListResponse,"{ page: 1, pageSize: 20 }"
+Get by ID,GET,${apiProName}/api/${apiVersion}/features/:id,void,DetailResponse,featureApi.getById('123')
+Create,POST,${apiProName}/api/${apiVersion}/features,CreateParams,CreateResponse,featureApi.create(data)
+Update,PUT,${apiProName}/api/${apiVersion}/features/:id,UpdateParams,UpdateResponse,featureApi.update(id, data)
+Delete,DELETE,${apiProName}/api/${apiVersion}/features/:id,void,void,featureApi.delete(id)
+Batch delete,DELETE,${apiProName}/api/${apiVersion}/features,{ ids: string[] },void,featureApi.batchDelete(ids)
+Search,GET,${apiProName}/api/${apiVersion}/features/search,SearchParams,ListResponse,"{ keyword: 'test' }"
+Export,GET,${apiProName}/api/${apiVersion}/features/export,ExportParams,Blob,featureApi.export(params)
+Import,POST,${apiProName}/api/${apiVersion}/features/import,FormData,ImportResponse,featureApi.import(file)

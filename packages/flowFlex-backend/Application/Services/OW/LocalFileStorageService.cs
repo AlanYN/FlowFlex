@@ -87,12 +87,12 @@ namespace FlowFlex.Application.Services.OW
                     FileHash = fileHash
                 };
 
-                _logger.LogInformation($"File saved successfully: {relativePath}");
+                _logger.LogInformation("File saved successfully: {RelativePath}", relativePath);
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error saving file: {file.FileName}");
+                _logger.LogError(ex, "Error saving file: {FileName}", file.FileName);
                 return new FileStorageResult
                 {
                     Success = false,
@@ -130,7 +130,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file: {filePath}");
+                _logger.LogError(ex, "Error getting file: {FilePath}", filePath);
                 throw;
             }
         }
@@ -149,7 +149,7 @@ namespace FlowFlex.Application.Services.OW
                     // is generally not recommended for such quick operations
                     // However, for consistency, we keep this as async
                     fileInfo.Delete();
-                    _logger.LogInformation($"File deleted: {filePath}");
+                    _logger.LogInformation("File deleted: {FilePath}", filePath);
                     return true;
                 }
 
@@ -157,7 +157,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deleting file: {filePath}");
+                _logger.LogError(ex, "Error deleting file: {FilePath}", filePath);
                 return false;
             }
         }
@@ -239,7 +239,7 @@ namespace FlowFlex.Application.Services.OW
                     return 0;
                 }
 
-                var cutoffTime = DateTime.UtcNow.AddHours(-_options.TempFileRetentionHours);
+                var cutoffTime = DateTimeOffset.UtcNow.AddHours(-_options.TempFileRetentionHours);
                 var files = Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories);
                 var deletedCount = 0;
 
@@ -255,12 +255,12 @@ namespace FlowFlex.Application.Services.OW
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, $"Failed to delete temp file: {file}");
+                            _logger.LogWarning(ex, "Failed to delete temp file: {File}", file);
                         }
                     }
                 }
 
-                _logger.LogInformation($"Cleaned up {deletedCount} temporary files");
+                _logger.LogInformation("Cleaned up {DeletedCount} temporary files", deletedCount);
                 return deletedCount;
             }
             catch (Exception ex)
@@ -293,7 +293,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (_options.GroupByDate)
             {
-                var now = DateTime.UtcNow;
+                var now = DateTimeOffset.UtcNow;
                 pathParts.Add(now.Year.ToString());
                 pathParts.Add(now.Month.ToString("D2"));
                 pathParts.Add(now.Day.ToString("D2"));

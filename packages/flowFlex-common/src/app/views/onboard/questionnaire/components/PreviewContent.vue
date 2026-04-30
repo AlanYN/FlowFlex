@@ -155,7 +155,10 @@
 							<h3 class="text-lg font-medium section-title truncate">
 								{{ section.name }}
 							</h3>
-							<p v-if="section.description" class="section-description mt-1 truncate">
+							<p
+								v-if="section.description"
+								class="section-description mt-1 whitespace-pre-wrap"
+							>
 								{{ section.description }}
 							</p>
 						</div>
@@ -200,7 +203,7 @@
 						<!-- 问题描述 -->
 						<p
 							v-if="item.description"
-							class="text-sm question-description pl-6 truncate"
+							class="text-sm question-description pl-6 whitespace-pre-wrap"
 						>
 							{{ item.description }}
 						</p>

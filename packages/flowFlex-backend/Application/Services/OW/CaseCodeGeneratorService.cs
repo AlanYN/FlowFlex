@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.OW;
 using Item.Redis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SqlSugar;
 
 namespace FlowFlex.Application.Services.OW
@@ -20,6 +21,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ISqlSugarClient _db;
+        private readonly ILogger<CaseCodeGeneratorService> _logger;
 
         // Configuration constants
         private const string CodePrefix = "C";          // Fixed prefix
@@ -30,12 +32,14 @@ namespace FlowFlex.Application.Services.OW
             IRedisService redisService,
             IConfiguration configuration,
             IHttpContextAccessor httpContextAccessor,
-            ISqlSugarClient db)
+            ISqlSugarClient db,
+            ILogger<CaseCodeGeneratorService> logger)
         {
             _redisService = redisService ?? throw new ArgumentNullException(nameof(redisService));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _db = db ?? throw new ArgumentNullException(nameof(db));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -96,10 +100,11 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // If sync fails, continue with Redis counter
                 // This ensures the service doesn't break if database is unavailable
+                _logger.LogWarning(ex, "Failed to sync case code counter from database, continuing with Redis counter");
             }
         }
 

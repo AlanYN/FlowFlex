@@ -1,10 +1,12 @@
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Item.Redis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 using System.Text.Json;
 
 namespace FlowFlex.Infrastructure.Services
@@ -18,10 +20,11 @@ namespace FlowFlex.Infrastructure.Services
         private readonly ILogger<RedisCacheService> _logger;
         private readonly UserContext _userContext;
         private readonly CacheOptions _cacheOptions;
+        private readonly IConnectionMultiplexer _connectionMultiplexer;
 
-        // Cache statistics (in-memory counters)
-        private static long _hitCount = 0;
-        private static long _missCount = 0;
+        // Cache statistics (per-instance counters for tenant isolation)
+        private long _hitCount = 0;
+        private long _missCount = 0;
 
         // JSON serialization options
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -35,12 +38,14 @@ namespace FlowFlex.Infrastructure.Services
             IRedisService redisService,
             ILogger<RedisCacheService> logger,
             UserContext userContext,
-            IOptions<CacheOptions> cacheOptions)
+            IOptions<CacheOptions> cacheOptions,
+            IConnectionMultiplexer connectionMultiplexer = null)
         {
             _redisService = redisService ?? throw new ArgumentNullException(nameof(redisService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _cacheOptions = cacheOptions?.Value ?? throw new ArgumentNullException(nameof(cacheOptions));
+            _connectionMultiplexer = connectionMultiplexer;
         }
 
         public async Task<T> GetAsync<T>(string key) where T : class
@@ -187,19 +192,47 @@ namespace FlowFlex.Infrastructure.Services
 
             try
             {
-                // Since IRedisService doesn't have KeysAsync, we'll use a simpler approach
-                // This is a limitation of the current IRedisService interface
                 var tenantPattern = BuildTenantKey(pattern);
-                _logger.LogWarning("Pattern-based cache removal not fully supported with current IRedisService. Pattern: {Pattern}", pattern);
 
-                // For now, we'll just log the attempt
-                // In a full implementation, you would need to extend IRedisService to support pattern operations
-                await Task.CompletedTask;
+                // Exact key removal (no wildcard)
+                if (!pattern.Contains('*') && !pattern.Contains('?'))
+                {
+                    await _redisService.KeyDelAsync(tenantPattern);
+                    _logger.LogDebug("Removed exact cache key via pattern: {Pattern}", pattern);
+                    return;
+                }
+
+                // Wildcard pattern removal using SCAN + DEL via StackExchange.Redis
+                if (_connectionMultiplexer == null)
+                {
+                    _logger.LogWarning(
+                        "Wildcard pattern-based cache removal requires IConnectionMultiplexer. " +
+                        "Pattern: {Pattern}. Falling back to no-op.", pattern);
+                    return;
+                }
+
+                var server = _connectionMultiplexer.GetServers().FirstOrDefault();
+                if (server == null)
+                {
+                    _logger.LogWarning("No Redis server endpoint found for pattern removal: {Pattern}", pattern);
+                    return;
+                }
+
+                var removedCount = 0;
+                var redisPattern = new RedisValue(tenantPattern);
+
+                await foreach (var key in server.KeysAsync(pattern: tenantPattern, pageSize: 100))
+                {
+                    var db = _connectionMultiplexer.GetDatabase();
+                    await db.KeyDeleteAsync(key);
+                    removedCount++;
+                }
+
+                _logger.LogDebug("Removed {Count} cache keys matching pattern: {Pattern}", removedCount, pattern);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Redis cache pattern removal failed for pattern: {Pattern}, continuing without removal", pattern);
-                // Don't throw for Redis errors, just log and continue
             }
         }
 
@@ -251,7 +284,7 @@ namespace FlowFlex.Infrastructure.Services
         /// </summary>
         private string BuildTenantKey(string key)
         {
-            var tenantId = _userContext?.TenantId?.ToLowerInvariant() ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext).ToLowerInvariant();
             return $"cache:{tenantId}:{key}";
         }
 

@@ -102,8 +102,9 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isTools = null; // Ignore isTools when isSystemTools is true
             }
 
-            // If pageSize is not provided, return all data (use int.MaxValue)
-            var effectivePageSize = pageSize ?? int.MaxValue;
+            // If pageSize is not provided, use a reasonable default limit
+            const int MaxPageSize = 1000;
+            var effectivePageSize = pageSize ?? MaxPageSize;
 
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,

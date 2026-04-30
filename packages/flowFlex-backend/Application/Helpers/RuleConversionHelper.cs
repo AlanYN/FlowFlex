@@ -417,7 +417,10 @@ namespace FlowFlex.Application.Helpers
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract task ID from field path: {FieldPath}", fieldPath);
+            }
             return 0;
         }
 
@@ -437,7 +440,10 @@ namespace FlowFlex.Application.Helpers
                     return (questionnaireId, questionId);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract questionnaire/question ID from field path: {FieldPath}", fieldPath);
+            }
             return (0, 0);
         }
 
@@ -461,36 +467,12 @@ namespace FlowFlex.Application.Helpers
                     return fieldId2;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract field ID from field path: {FieldPath}", fieldPath);
+            }
             return 0;
         }
 
-        /// <summary>
-        /// Extract field/question/task ID from field path (for display)
-        /// </summary>
-        public string ExtractFieldIdFromPath(string fieldPath)
-        {
-            if (string.IsNullOrEmpty(fieldPath))
-            {
-                return "unknown";
-            }
-
-            var matches = System.Text.RegularExpressions.Regex.Matches(fieldPath, @"\[""(\d+)""\]");
-            if (matches.Count > 0)
-            {
-                var lastMatch = matches[matches.Count - 1];
-                var id = lastMatch.Groups[1].Value;
-                return id.Length > 8 ? id.Substring(id.Length - 8) : id;
-            }
-
-            var dotMatch = System.Text.RegularExpressions.Regex.Match(fieldPath, @"\.(\d+)(?:\.|$)");
-            if (dotMatch.Success)
-            {
-                var id = dotMatch.Groups[1].Value;
-                return id.Length > 8 ? id.Substring(id.Length - 8) : id;
-            }
-
-            return "unknown";
-        }
     }
 }

@@ -261,10 +261,10 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             ISugarQueryable<ActionExecution, ActionTriggerMapping, ActionDefinition> query,
             JsonQueryCondition condition)
         {
-            var fieldName = condition.FieldName.ToLower();
+            var fieldName = (condition.FieldName ?? "").ToLowerInvariant();
             var jsonPath = condition.JsonPath;
             var value = condition.Value;
-            var operatorType = condition.Operator.ToLower();
+            var operatorType = (condition.Operator ?? "").ToLowerInvariant();
 
             var jsonPathExpression = BuildJsonPathExpression(jsonPath);
 

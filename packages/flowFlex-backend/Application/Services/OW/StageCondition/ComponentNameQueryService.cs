@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using SqlSugar;
 
-namespace FlowFlex.Application.Service.OW.StageCondition
+namespace FlowFlex.Application.Services.OW.StageCondition
 {
     /// <summary>
     /// Service for querying component names (tasks, questions, fields) for rule display

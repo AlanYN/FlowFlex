@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,6 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using MessageType = FlowFlex.Domain.Shared.Enums.MessageType;
 
@@ -230,9 +229,10 @@ public class MessageService : IMessageService, IScopedService
                 await _messageRepository.UpdateAsync(message);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see preview
+            // Log but don't fail - user can still see preview
+            _logger.LogDebug(ex, "Failed to fetch full email body for message {MessageId}", message.Id);
         }
     }
 
@@ -278,9 +278,10 @@ public class MessageService : IMessageService, IScopedService
                 await _messageRepository.UpdateAsync(message);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see the email with broken images
+            // Log but don't fail - user can still see the email with broken images
+            _logger.LogDebug(ex, "Failed to process cid references for message {MessageId}", message.Id);
         }
     }
 
@@ -319,9 +320,10 @@ public class MessageService : IMessageService, IScopedService
                 message.ExternalMessageId!,
                 message.Id);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see the email without attachments
+            // Log but don't fail - user can still see the email without attachments
+            _logger.LogDebug(ex, "Failed to sync attachments for message {MessageId}", message.Id);
         }
     }
 

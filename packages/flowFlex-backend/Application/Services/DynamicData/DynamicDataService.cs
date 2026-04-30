@@ -1,10 +1,10 @@
-using FlowFlex.Application.Contracts.IServices.DynamicData;
+﻿using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
-using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -280,6 +280,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         };
     }
 
+    /// <summary>
+    /// Generate Excel file using EPPlus
+    /// Note: The returned Stream must be disposed by the caller
+    /// </summary>
+    /// <returns>A MemoryStream containing the Excel content. Caller is responsible for disposing.</returns>
     private static Stream GenerateExcelWithEPPlus(List<PropertyExportDto> data)
     {
         using var package = new ExcelPackage();
@@ -314,9 +319,17 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         worksheet.Cells.AutoFitColumns();
 
         var stream = new MemoryStream();
-        package.SaveAs(stream);
-        stream.Position = 0;
-        return stream;
+        try
+        {
+            package.SaveAs(stream);
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 
     public async Task<DefineFieldDto?> GetPropertyByIdAsync(long propertyId)
@@ -346,8 +359,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         var entity = MapToDefineField(defineFieldDto);
         entity.ModuleId = DefaultModuleId;
-        entity.TenantId = _userContext.TenantId ?? "default";
-        entity.AppCode = _userContext.AppCode ?? "default";
+        entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        entity.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         entity.CreateDate = DateTimeOffset.UtcNow;
         entity.CreateBy = _userContext.UserName ?? "SYSTEM";
         entity.CreateUserId = userId;
@@ -486,26 +499,26 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     if (File.Exists(normalizedPath))
                     {
                         jsonPath = normalizedPath;
-                        _logger.LogInformation($"Found static-field.json at: {jsonPath}");
+                        _logger.LogInformation("Found static-field.json at: {JsonPath}", jsonPath);
                         break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug($"Error checking path {path}: {ex.Message}");
+                    _logger.LogDebug("Error checking path {Path}: {ErrorMessage}", path, ex.Message);
                 }
             }
 
             if (string.IsNullOrEmpty(jsonPath) || !File.Exists(jsonPath))
             {
-                _logger.LogWarning($"Static field JSON file not found");
+                _logger.LogWarning("Static field JSON file not found");
                 return false;
             }
 
             var jsonContent = await File.ReadAllTextAsync(jsonPath);
             if (string.IsNullOrWhiteSpace(jsonContent))
             {
-                _logger.LogWarning($"static-field.json file is empty");
+                _logger.LogWarning("static-field.json file is empty");
                 return false;
             }
 
@@ -518,7 +531,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                 return false;
             }
 
-            _logger.LogInformation($"Found {staticFields.FormFields.Count} fields in static-field.json");
+            _logger.LogInformation("Found {FieldCount} fields in static-field.json", staticFields.FormFields.Count);
 
             // Check if system fields already initialized
             var existingFields = await _defineFieldRepository.GetAllAsync();
@@ -544,8 +557,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     IsSystemDefine = false,
                     IsDefault = category == "Basic Info",
                     Fields = Array.Empty<long>(),
-                    TenantId = _userContext.TenantId ?? "default",
-                    AppCode = _userContext.AppCode ?? "default",
+                    TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,
@@ -588,8 +601,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     AllowEdit = true,
                     AllowEditItem = true,
                     Sort = fieldSortOrder++,
-                    TenantId = _userContext.TenantId ?? "default",
-                    AppCode = _userContext.AppCode ?? "default",
+                    TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,
@@ -615,7 +628,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                 await _fieldGroupRepository.UpdateGroupFieldsAsync(kvp.Key, kvp.Value.ToArray());
             }
 
-            _logger.LogInformation($"Initialized {staticFields.FormFields.Count} default properties");
+            _logger.LogInformation("Initialized {FieldCount} default properties", staticFields.FormFields.Count);
             return true;
         }
         catch (Exception ex)

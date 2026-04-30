@@ -1,6 +1,7 @@
 using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
@@ -26,25 +27,34 @@ public class DataValueRepository : BaseRepository<DataValue>, IDataValueReposito
 
     public async Task<List<DataValue>> GetByBusinessIdAsync(long businessId)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         return await db.Queryable<DataValue>()
             .Where(x => x.BusinessId == businessId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ToListAsync();
     }
 
     public async Task<List<DataValue>> GetByBusinessIdsAsync(List<long> businessIds)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         return await db.Queryable<DataValue>()
             .Where(x => businessIds.Contains(x.BusinessId) && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ToListAsync();
     }
 
     public async Task<DataValue?> GetByBusinessIdAndFieldNameAsync(long businessId, string fieldName)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         return await db.Queryable<DataValue>()
             .Where(x => x.BusinessId == businessId && x.FieldName == fieldName && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
     }
 
@@ -60,8 +70,8 @@ public class DataValueRepository : BaseRepository<DataValue>, IDataValueReposito
             {
                 dataValue.InitNewId();
             }
-            dataValue.TenantId = _userContext.TenantId ?? "default";
-            dataValue.AppCode = _userContext.AppCode ?? "default";
+            dataValue.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            dataValue.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         }
 
         await db.Insertable(dataValues).ExecuteCommandAsync();
@@ -77,19 +87,25 @@ public class DataValueRepository : BaseRepository<DataValue>, IDataValueReposito
 
     public async Task DeleteByBusinessIdAsync(long businessId)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         await db.Updateable<DataValue>()
             .SetColumns(x => x.IsValid == false)
             .Where(x => x.BusinessId == businessId)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ExecuteCommandAsync();
     }
 
     public async Task DeleteByBusinessIdsAsync(List<long> businessIds)
     {
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+        
         await db.Updateable<DataValue>()
             .SetColumns(x => x.IsValid == false)
             .Where(x => businessIds.Contains(x.BusinessId))
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .ExecuteCommandAsync();
     }
 }

@@ -20,7 +20,7 @@ namespace FlowFlex.Application.Services.OW
     /// Stages Progress Sync Service
     /// Handles synchronization of onboarding stages progress when workflow stages are modified
     /// </summary>
-    public class StagesProgressSyncService : IStagesProgressSyncService
+    public class StagesProgressSyncService : IStagesProgressSyncService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
@@ -599,7 +599,7 @@ namespace FlowFlex.Application.Services.OW
             var duplicateGroups = currentProgress
                 .Where(p => p.StageId > 0)
                 .GroupBy(p => p.StageId)
-                .Where(g => g.Count() > 1)
+                .Where(g => g.Skip(1).Any())
                 .ToList();
 
             if (duplicateGroups.Any())
@@ -775,44 +775,6 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogError(ex, "Failed to safely update onboarding with JSONB for onboarding {OnboardingId}", onboarding.Id);
                 throw;
-            }
-        }
-
-        /// <summary>
-        /// Debug method to check onboarding stages progress data
-        /// </summary>
-        public async Task<string> DebugOnboardingStagesProgressAsync(long onboardingId)
-        {
-            try
-            {
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
-                if (onboarding == null)
-                {
-                    return $"Onboarding {onboardingId} not found";
-                }
-
-                var result = $"Onboarding {onboardingId} Debug Info:\n";
-                result += $"StagesProgressJson: {onboarding.StagesProgressJson}\n";
-                result += $"StagesProgressJson IsNull: {string.IsNullOrEmpty(onboarding.StagesProgressJson)}\n";
-
-                var currentProgress = LoadStagesProgressFromJson(onboarding);
-                result += $"Loaded Progress Count: {currentProgress.Count}\n";
-
-                for (int i = 0; i < currentProgress.Count; i++)
-                {
-                    var p = currentProgress[i];
-                    result += $"Progress[{i}]: StageId={p.StageId}, Status={p.Status}, IsCompleted={p.IsCompleted}, " +
-                             $"StartTime={p.StartTime}, CompletionTime={p.CompletionTime}, CompletedBy={p.CompletedBy}\n";
-                }
-
-                var invalidEntries = currentProgress.Where(p => p.StageId <= 0).ToList();
-                result += $"Invalid Entries Count: {invalidEntries.Count}\n";
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                return $"Error debugging onboarding {onboardingId}: {ex.Message}";
             }
         }
 
@@ -1024,8 +986,8 @@ namespace FlowFlex.Application.Services.OW
                         StageId = stage.Id,
                         Status = isCompleted ? "Completed" : "Pending",
                         IsCompleted = isCompleted,
-                        StartTime = isCompleted ? DateTime.UtcNow.AddDays(-1) : null,
-                        CompletionTime = isCompleted ? DateTime.UtcNow : null,
+                        StartTime = isCompleted ? DateTimeOffset.UtcNow.AddDays(-1) : null,
+                        CompletionTime = isCompleted ? DateTimeOffset.UtcNow : null,
                         CompletedById = isCompleted ? (long?)999999999 : null, // Special ID for recovery system
                         CompletedBy = isCompleted ? "Emergency Recovery System" : null,
                         Notes = isCompleted ? "Stage completion preserved during emergency recovery" : null,
@@ -1087,7 +1049,7 @@ namespace FlowFlex.Application.Services.OW
                 // Check for duplicate stage IDs
                 var duplicateStageIds = progress
                     .GroupBy(p => p.StageId)
-                    .Where(g => g.Count() > 1)
+                    .Where(g => g.Skip(1).Any())
                     .Select(g => g.Key)
                     .ToList();
 

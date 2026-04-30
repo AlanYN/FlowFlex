@@ -40,12 +40,14 @@ namespace FlowFlex.Application.Services.MessageCenter
 
         private string GetRequestOrigin()
         {
+            var fallback = _emailOptions.FallbackBaseUrl ?? "https://workflow.item.com";
+
             try
             {
                 var context = _httpContextAccessor.HttpContext;
                 if (context == null)
                 {
-                    return "https://crm-staging.item.com";
+                    return fallback;
                 }
 
                 var request = context.Request;
@@ -59,23 +61,12 @@ namespace FlowFlex.Application.Services.MessageCenter
                 var forwardedHost = request.Headers["X-Forwarded-Host"].ToString();
                 var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.Value;
 
-                //// Include forwarded port if provided and not already present in host
-                //var forwardedPort = request.Headers["X-Forwarded-Port"].ToString();
-                //if (!string.IsNullOrWhiteSpace(forwardedPort) && host != null && !host.Contains(":"))
-                //{
-                //    var isDefaultPort = (scheme == "https" && forwardedPort == "443") || (scheme == "http" && forwardedPort == "80");
-                //    if (!isDefaultPort)
-                //    {
-                //        host = $"{host}:{forwardedPort}";
-                //    }
-                //}
-
                 var origin = $"{scheme}://{host}".TrimEnd('/');
-                return string.IsNullOrWhiteSpace(origin) ? "https://crm-staging.item.com" : origin;
+                return string.IsNullOrWhiteSpace(origin) ? fallback : origin;
             }
             catch
             {
-                return "https://crm-staging.item.com";
+                return fallback;
             }
         }
 
@@ -316,7 +307,7 @@ namespace FlowFlex.Application.Services.MessageCenter
                 _logger.LogInformation("Preparing to send email: To={To}, Subject={Subject}, SmtpServer={SmtpServer}, Port={Port}",
                     to, subject, _emailOptions.SmtpServer, _emailOptions.SmtpPort);
 
-                var message = new MailMessage
+                using var message = new MailMessage
                 {
                     From = new MailAddress(_emailOptions.FromEmail, _emailOptions.FromName),
                     Subject = subject,

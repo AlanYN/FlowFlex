@@ -275,21 +275,6 @@ namespace FlowFlex.Application.Helpers.OW
             return "system@example.com";
         }
 
-        /// <summary>
-        /// Get current user ID as long from UserContext
-        /// </summary>
-        /// <param name="userContext">User context instance</param>
-        /// <returns>User ID as long, or null if not available or invalid</returns>
-        public static long? GetCurrentUserIdLong(UserContext? userContext)
-        {
-            var userId = userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
-            {
-                return null;
-            }
-            return userIdLong;
-        }
-
         #endregion
 
         #region JSON Parsing Methods

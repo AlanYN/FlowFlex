@@ -158,54 +158,6 @@ namespace FlowFlex.Application.Contracts.IServices
         IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigAsync(AIHttpConfigGenerationInput input);
     }
 
-    /// <summary>
-    /// MCP (Memory, Context, Processing) service interface
-    /// </summary>
-    public interface IMCPService : IScopedService
-    {
-        /// <summary>
-        /// Store context information for future reference
-        /// </summary>
-        /// <param name="contextId">Context identifier</param>
-        /// <param name="content">Context content</param>
-        /// <param name="metadata">Additional metadata</param>
-        Task StoreContextAsync(string contextId, string content, Dictionary<string, object> metadata = null);
-
-        /// <summary>
-        /// Retrieve context information
-        /// </summary>
-        /// <param name="contextId">Context identifier</param>
-        /// <returns>Context content</returns>
-        Task<MCPContextResult> GetContextAsync(string contextId);
-
-        /// <summary>
-        /// Search contexts by semantic similarity
-        /// </summary>
-        /// <param name="query">Search query</param>
-        /// <param name="limit">Maximum results</param>
-        /// <returns>Similar contexts</returns>
-        Task<List<MCPContextResult>> SearchContextsAsync(string query, int limit = 10);
-
-        /// <summary>
-        /// Create knowledge graph entity
-        /// </summary>
-        /// <param name="entity">Entity data</param>
-        Task CreateEntityAsync(MCPEntity entity);
-
-        /// <summary>
-        /// Create relationship between entities
-        /// </summary>
-        /// <param name="relationship">Relationship data</param>
-        Task CreateRelationshipAsync(MCPRelationship relationship);
-
-        /// <summary>
-        /// Query knowledge graph
-        /// </summary>
-        /// <param name="query">Graph query</param>
-        /// <returns>Query results</returns>
-        Task<MCPGraphQueryResult> QueryGraphAsync(string query);
-    }
-
     #region AI DTOs
 
     public class AIWorkflowGenerationInput
@@ -427,45 +379,6 @@ namespace FlowFlex.Application.Contracts.IServices
         public Dictionary<string, object> Metadata { get; set; } = new();
     }
 
-    #endregion
-
-    #region MCP DTOs
-
-    public class MCPContextResult
-    {
-        public string ContextId { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
-        public Dictionary<string, object> Metadata { get; set; } = new();
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-        public double RelevanceScore { get; set; }
-    }
-
-    public class MCPEntity
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Type { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public Dictionary<string, object> Properties { get; set; } = new();
-        public List<string> Tags { get; set; } = new();
-    }
-
-    public class MCPRelationship
-    {
-        public string Id { get; set; } = string.Empty;
-        public string FromEntityId { get; set; } = string.Empty;
-        public string ToEntityId { get; set; } = string.Empty;
-        public string RelationType { get; set; } = string.Empty;
-        public Dictionary<string, object> Properties { get; set; } = new();
-    }
-
-    public class MCPGraphQueryResult
-    {
-        public bool Success { get; set; }
-        public List<MCPEntity> Entities { get; set; } = new();
-        public List<MCPRelationship> Relationships { get; set; } = new();
-        public Dictionary<string, object> Metadata { get; set; } = new();
-    }
 
     /// <summary>
     /// AI workflow modification input

@@ -427,7 +427,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // Failed to find matching option, will use default behavior
+                    _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to find matching option");
+                }
             }
 
             // If answer is "other" or option is Other type, try to extract custom value from responseText
@@ -461,7 +465,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             optionLabel = matchedOption.label?.ToString();
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            // Failed to get option label from dynamic object
+                            _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to get option label");
+                        }
                     }
 
                     isOtherOption = IsOtherOption(matchedOption);
@@ -473,7 +481,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         optionLabel = matchedOption.label?.ToString();
                         isOtherOption = IsOtherOption(matchedOption);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        // Failed to extract option label from matched option
+                        _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to extract option label");
+                    }
                 }
             }
 
@@ -1240,7 +1252,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return fileNames.Count > 0 ? $"Files: {string.Join(", ", fileNames)}" : "Files uploaded";
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to extract file names from enumerable");
+                    }
                     return "Files uploaded";
                 }
 
@@ -1253,7 +1268,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var files = JsonSerializer.Deserialize<JsonElement>(answerStr);
                     return FormatFileAnswerFromJsonElement(files);
                 }
-                catch { }
+                catch (JsonException)
+                {
+                    // Not valid JSON, fall through to return raw string
+                }
 
                 return $"File: {answerStr}";
             }
@@ -1342,13 +1360,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return fileName.GetString();
                         }
                     }
-                    catch { }
+                    catch (JsonException)
+                    {
+                        // Not valid JSON, fall through to return raw string
+                    }
                 }
 
                 return itemStr;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to format file answer");
                 return item.ToString();
             }
         }
@@ -2040,7 +2062,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return labelStr.Contains("other") || labelStr.Contains("custom") || labelStr.Contains("specify");
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return false
+            }
 
             return false;
         }
@@ -2058,7 +2083,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return options.EnumerateArray().Select(x => JsonSerializer.Deserialize<dynamic>(x.GetRawText())).ToList();
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return empty list
+            }
             return new List<dynamic>();
         }
 
@@ -2075,7 +2103,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return columns.EnumerateArray().Select(x => JsonSerializer.Deserialize<dynamic>(x.GetRawText())).ToList();
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return empty list
+            }
             return new List<dynamic>();
         }
 
@@ -2092,7 +2123,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return rows.EnumerateArray().Select(x => JsonSerializer.Deserialize<dynamic>(x.GetRawText())).ToList();
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return empty list
+            }
             return new List<dynamic>();
         }
 
@@ -2117,7 +2151,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         return scaleMax.GetInt32();
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return default
+            }
 
             return 5; // Default rating max
         }
@@ -2143,7 +2180,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         return scaleMax.GetInt32();
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON structure, return default
+            }
 
             return 10; // Default linear scale max
         }

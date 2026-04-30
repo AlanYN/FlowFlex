@@ -140,7 +140,7 @@ namespace FlowFlex.WebApi.Middlewares
             // Dangerous file types
             var dangerousExtensions = new[]
             {
-                ".exe", ".bat", ".cmd", ".com", ".scr", ".pif",
+                ".exe", ".bat", ".cmd", ".scr", ".pif",
                 ".js", ".vbs", ".ps1", ".sh", ".php", ".asp", ".aspx"
             };
 

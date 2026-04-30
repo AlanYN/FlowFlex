@@ -6,6 +6,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for managing onboarding stage progress operations
     /// Handles stage progress initialization, updates, validation, and serialization
     /// </summary>
-    public class OnboardingStageProgressService : IOnboardingStageProgressService
+    public class OnboardingStageProgressService : IOnboardingStageProgressService, IScopedService
     {
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
@@ -225,6 +226,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         /// <summary>
         /// Core implementation for loading stages progress from JSON
+        /// Uses JsonParsingHelper for consistent double-serialized JSON handling
         /// </summary>
         private void LoadStagesProgressFromJsonInternal(Domain.Entities.OW.Onboarding entity, bool fixStageOrder)
         {
@@ -232,16 +234,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    var jsonString = entity.StagesProgressJson.Trim();
-
-                    // Handle double-serialized JSON
-                    if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                    {
-                        jsonString = JsonSerializer.Deserialize<string>(jsonString, JsonOptions) ?? "[]";
-                    }
-
-                    entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                        jsonString, JsonOptions) ?? new List<OnboardingStageProgress>();
+                    // Use JsonParsingHelper for consistent parsing with automatic unwrapping
+                    entity.StagesProgress = JsonParsingHelper.ParseStagesProgress(entity.StagesProgressJson, _logger);
 
                     // Only fix stage order when needed and requested
                     if (fixStageOrder && NeedsStageOrderFix(entity.StagesProgress))
@@ -618,41 +612,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public List<string> ParseDefaultAssignee(string defaultAssigneeJson)
         {
-            if (string.IsNullOrWhiteSpace(defaultAssigneeJson))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-
-                var jsonString = defaultAssigneeJson.Trim();
-                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                {
-                    jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
-                }
-
-                if (jsonString.StartsWith("["))
-                {
-                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, options);
-                    return result ?? new List<string>();
-                }
-
-                if (!string.IsNullOrWhiteSpace(jsonString))
-                {
-                    return new List<string> { jsonString };
-                }
-
-                return new List<string>();
-            }
-            catch (JsonException)
-            {
-                return new List<string>();
-            }
+            // Use JsonParsingHelper for consistent parsing
+            return JsonParsingHelper.ParseStringArray(defaultAssigneeJson);
         }
 
         /// <inheritdoc />
@@ -860,6 +821,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             try
             {
+                // Use parameterized query to prevent SQL injection
                 var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
                 await db.Ado.ExecuteCommandAsync(progressSql, new
                 {
@@ -871,16 +833,20 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 _logger.LogWarning(ex, "Failed to update stages_progress_json with parameterized query for onboarding {OnboardingId}", entity.Id);
                 
-                // Try alternative approach with direct SQL
+                // Try alternative parameterized approach with SugarParameter
                 try
                 {
-                    var escapedJson = entity.StagesProgressJson.Replace("'", "''");
-                    var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
-                    await db.Ado.ExecuteCommandAsync(directSql);
+                    var parameters = new List<SugarParameter>
+                    {
+                        new SugarParameter("@json", entity.StagesProgressJson),
+                        new SugarParameter("@id", entity.Id)
+                    };
+                    var safeSql = "UPDATE ff_onboarding SET stages_progress_json = @json::jsonb WHERE id = @id";
+                    await db.Ado.ExecuteCommandAsync(safeSql, parameters);
                 }
-                catch (Exception directEx)
+                catch (Exception paramEx)
                 {
-                    _logger.LogError(directEx, "Both parameterized and direct JSONB update failed for onboarding {OnboardingId}", entity.Id);
+                    _logger.LogError(paramEx, "Parameterized JSONB update failed for onboarding {OnboardingId}", entity.Id);
                 }
             }
         }
@@ -1152,7 +1118,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 try
                 {
-                    var tenantId = _userContext?.TenantId ?? "default";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList(), tenantId);
                     userNameMap = users
                         .GroupBy(u => u.Id)

@@ -80,9 +80,9 @@ builder.Services.Configure<KestrelServerOptions>(options =>
 
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.ValueLengthLimit = int.MaxValue;
+    options.ValueLengthLimit = 10 * 1024 * 1024; // 10MB for form values
     options.MultipartBodyLengthLimit = 52428800; // 50MB
-    options.MultipartHeadersLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = 32 * 1024; // 32KB for headers
 });
 
 // Add services to the container.
@@ -134,7 +134,6 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskCompletionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
 
-    config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
 }, assemblies);
 
@@ -489,6 +488,10 @@ var app = builder.Build();
 // Configure global logger for performance improvement (replace Console.WriteLine)
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 FlowFlex.Infrastructure.Extensions.LoggingExtensions.SetLogger(logger);
+
+// Initialize StageMapProfile logger for JSON parsing error logging
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+FlowFlex.Application.Maps.StageMapProfile.SetLogger(loggerFactory);
 
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())

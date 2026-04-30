@@ -11,7 +11,9 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
 {
@@ -119,8 +121,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     OperationTime = currentUtcTime, // Store as UTC in database
                     IpAddress = GetClientIpAddress(),
                     UserAgent = GetUserAgent(),
-                    TenantId = customTenantId ?? _userContext.TenantId,
-                    AppCode = _userContext.AppCode
+                    TenantId = customTenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext)
                 };
 
                 // Initialize unique snowflake ID
@@ -135,7 +137,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.CreateUserId = customOperatorId.Value;
                     operationLog.ModifyUserId = customOperatorId.Value;
                     operationLog.TenantId = customTenantId ?? "default";
-                    operationLog.AppCode = _userContext?.AppCode ?? "default";
+                    operationLog.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                     operationLog.CreateDate = currentUtcTime;
                     operationLog.ModifyDate = currentUtcTime;
                     operationLog.IsValid = true;
@@ -321,15 +323,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetClientIpAddress()
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext != null)
-            {
-                var request = httpContext.Request;
-                return request.Headers.ContainsKey("X-Forwarded-For")
-                    ? request.Headers["X-Forwarded-For"].ToString()
-                    : httpContext.Connection.RemoteIpAddress?.ToString();
-            }
-            return null;
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         /// <summary>
@@ -337,8 +331,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetUserAgent()
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            return httpContext?.Request.Headers["User-Agent"].ToString();
+            return _httpContextAccessor.GetUserAgent();
         }
 
         /// <summary>
@@ -377,30 +370,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogWarning(ex, "Failed to invalidate caches for {BusinessModule} {BusinessId}",
                     businessModule, businessId);
-            }
-        }
-
-        /// <summary>
-        /// Check if there's meaningful change between before and after data
-        /// </summary>
-        protected virtual bool HasMeaningfulValueChange(string beforeData, string afterData)
-        {
-            if (string.IsNullOrEmpty(beforeData) && string.IsNullOrEmpty(afterData))
-                return false;
-
-            if (string.IsNullOrEmpty(beforeData) || string.IsNullOrEmpty(afterData))
-                return true;
-
-            try
-            {
-                var beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
-                var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
-
-                return !beforeJson.SequenceEqual(afterJson);
-            }
-            catch
-            {
-                return beforeData != afterData;
             }
         }
 
@@ -475,33 +444,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string[] sizes = { "Bytes", "KB", "MB", "GB", "TB" };
             int i = (int)Math.Floor(Math.Log(bytes) / Math.Log(1024));
             return Math.Round(bytes / Math.Pow(1024, i), 2) + " " + sizes[i];
-        }
-
-        /// <summary>
-        /// Get relative time display in US time format
-        /// </summary>
-        protected virtual string GetRelativeTimeDisplay(DateTimeOffset dateTime)
-        {
-            // Convert UTC time to US Eastern Time (ET)
-            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            var easternTime = TimeZoneInfo.ConvertTime(dateTime, easternZone);
-            var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, easternZone);
-            var timeSpan = now - easternTime;
-
-            if (timeSpan.TotalMinutes < 1)
-                return "Just now";
-            if (timeSpan.TotalMinutes < 60)
-                return $"{(int)timeSpan.TotalMinutes} minutes ago";
-            if (timeSpan.TotalHours < 24)
-                return $"{(int)timeSpan.TotalHours} hours ago";
-            if (timeSpan.TotalDays < 7)
-                return $"{(int)timeSpan.TotalDays} days ago";
-            if (timeSpan.TotalDays < 30)
-                return $"{(int)(timeSpan.TotalDays / 7)} weeks ago";
-            if (timeSpan.TotalDays < 365)
-                return $"{(int)(timeSpan.TotalDays / 30)} months ago";
-
-            return $"{(int)(timeSpan.TotalDays / 365)} years ago";
         }
 
         /// <summary>
@@ -1131,7 +1073,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 {
                                     if (_userService != null && !teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        var tenantId = _userContext?.TenantId ?? "999";
+                                        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                                         var teamNameMap = await _userService.GetTeamNamesByIdsAsync(
                                             new List<string> { teamValue }, tenantId);
                                         if (teamNameMap != null && teamNameMap.TryGetValue(teamValue, out var teamName) &&
@@ -1273,7 +1215,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
                          afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement)))
                     {
-                        var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                        var defaultAssigneeSummary = await GetDefaultAssigneeSummaryAsync(defaultAssigneeElement);
                         if (!string.IsNullOrEmpty(defaultAssigneeSummary))
                         {
                             details.Add($"default assignee: {defaultAssigneeSummary}");
@@ -1469,7 +1411,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 if (_userService != null)
                                 {
-                                    var tenantId = _userContext?.TenantId ?? "999";
+                                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                                     var teamIds = new List<string>();
 
                                     // Get before team ID
@@ -2726,7 +2668,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         if (_userService != null)
                         {
-                            var tenantId = _userContext?.TenantId ?? "999";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                             var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
 
                             if (teamNameMap != null && teamNameMap.Any())
@@ -2759,83 +2701,40 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get summary of teams for display in creation logs (synchronous version - for backward compatibility)
+        /// Get summary of default assignees for display in creation logs (async version)
         /// </summary>
-        protected virtual string GetTeamsSummary(JsonElement teamsElement)
+        protected virtual async Task<string> GetDefaultAssigneeSummaryAsync(JsonElement assigneeElement)
         {
             try
             {
-                if (teamsElement.ValueKind != JsonValueKind.Array)
-                {
-                    return string.Empty;
-                }
+                var userIds = new List<string>();
 
-                var teamIds = new List<string>();
-                foreach (var teamIdElement in teamsElement.EnumerateArray())
+                // Handle different JSON value kinds
+                if (assigneeElement.ValueKind == JsonValueKind.Array)
                 {
-                    var teamId = teamIdElement.GetString();
-                    if (!string.IsNullOrEmpty(teamId))
+                    // Direct array
+                    foreach (var userIdElement in assigneeElement.EnumerateArray())
                     {
-                        teamIds.Add(teamId);
-                    }
-                }
-
-                if (teamIds.Any())
-                {
-                    // Try to get team names if UserService is available
-                    try
-                    {
-                        var tenantId = _userContext?.TenantId ?? "999";
-                        var teamNameMap = _userService?.GetTeamNamesByIdsAsync(teamIds, tenantId).GetAwaiter().GetResult();
-
-                        if (teamNameMap != null && teamNameMap.Any())
+                        var userId = userIdElement.GetString();
+                        if (!string.IsNullOrEmpty(userId))
                         {
-                            var teamNames = teamIds
-                                .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name)
-                                    ? name
-                                    : id)
-                                .ToList();
-                            return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                            userIds.Add(userId);
                         }
                     }
-                    catch
-                    {
-                        // If team name lookup fails, use IDs
-                    }
-
-                    // Fallback to IDs if team names are not available
-                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
                 }
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get teams summary");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Get summary of default assignees for display in creation logs
-        /// </summary>
-        protected virtual string GetDefaultAssigneeSummary(JsonElement assigneeElement)
-        {
-            try
-            {
-                if (assigneeElement.ValueKind != JsonValueKind.Array)
+                else if (assigneeElement.ValueKind == JsonValueKind.String)
+                {
+                    // String that contains JSON array (double-encoded)
+                    var usersJson = assigneeElement.GetString();
+                    if (!string.IsNullOrEmpty(usersJson))
+                    {
+                        var parsedUsers = ParseUserList(usersJson);
+                        userIds.AddRange(parsedUsers);
+                    }
+                }
+                else if (assigneeElement.ValueKind == JsonValueKind.Null)
                 {
                     return string.Empty;
-                }
-
-                var userIds = new List<string>();
-                foreach (var userIdElement in assigneeElement.EnumerateArray())
-                {
-                    var userId = userIdElement.GetString();
-                    if (!string.IsNullOrEmpty(userId))
-                    {
-                        userIds.Add(userId);
-                    }
                 }
 
                 if (userIds.Any())
@@ -2843,14 +2742,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // Try to get user names if UserService is available
                     try
                     {
-                        var tenantId = _userContext?.TenantId ?? "999";
+                        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                         var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
                             .Select(id => long.Parse(id))
                             .ToList();
 
                         if (userIdsLong.Any() && _userService != null)
                         {
-                            var users = _userService.GetUsersByIdsAsync(userIdsLong, tenantId).GetAwaiter().GetResult();
+                            var users = await _userService.GetUsersByIdsAsync(userIdsLong, tenantId);
 
                             if (users != null && users.Any())
                             {
@@ -2873,8 +2772,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to get user names for default assignees");
-                        // If user name lookup fails, use IDs
+                        _logger.LogDebug(ex, "Failed to get user names for default assignees, using IDs as fallback");
                     }
 
                     // Fallback to IDs if user names are not available
@@ -3130,7 +3028,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         try
                         {
                             // Get tenant ID from UserContext (works in background tasks)
-                            var tenantId = _userContext?.TenantId ?? "999";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                             _logger.LogDebug("Using TenantId: {TenantId} for fetching user names", tenantId);
 
                             // Fixed: Properly await async operation instead of blocking
@@ -4695,6 +4593,67 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Parse user list from JSON string (handles double-encoded JSON)
+        /// </summary>
+        protected virtual List<string> ParseUserList(string usersJson)
+        {
+            if (string.IsNullOrWhiteSpace(usersJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmedData = usersJson.Trim();
+
+                // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
+                // First, try to deserialize as a JSON string to get the actual JSON array string
+                if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
+                {
+                    try
+                    {
+                        var unescapedJson = JsonSerializer.Deserialize<string>(trimmedData);
+                        if (!string.IsNullOrWhiteSpace(unescapedJson))
+                        {
+                            trimmedData = unescapedJson;
+                            _logger.LogDebug("Unescaped double-encoded user JSON: {UnescapedJson}", trimmedData);
+                        }
+                    }
+                    catch
+                    {
+                        // If deserialization fails, continue with original data
+                        _logger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
+                    }
+                }
+
+                // Try to parse as JSON array
+                if (trimmedData.StartsWith("["))
+                {
+                    var users = JsonSerializer.Deserialize<List<string>>(trimmedData);
+                    if (users != null)
+                    {
+                        _logger.LogDebug("Successfully parsed {Count} users from JSON array", users.Count);
+                        return users.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                    }
+                }
+
+                // Fallback: treat as comma-separated string
+                var userList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(u => u.Trim())
+                    .Where(u => !string.IsNullOrEmpty(u))
+                    .ToList();
+
+                _logger.LogDebug("Parsed {Count} users from comma-separated string", userList.Count);
+                return userList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse user list: {UsersJson}", usersJson);
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
         /// Get team changes description (async version with team name resolution)
         /// </summary>
         protected virtual async Task<string> GetTeamChangesAsync(List<string> beforeTeams, List<string> afterTeams, string permissionType)
@@ -4716,7 +4675,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     // Get tenant ID from UserContext (works in background tasks)
-                    var tenantId = _userContext?.TenantId ?? "999";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     _logger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
 
                     teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);

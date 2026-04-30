@@ -41,8 +41,13 @@ namespace FlowFlex.Application.Contracts.Options
         public string Password { get; set; }
 
         /// <summary>
-        /// 验证码有效期（分钟）
+        /// Verification code expiry in minutes
         /// </summary>
         public int VerificationCodeExpiryMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// Fallback base URL when request origin cannot be determined
+        /// </summary>
+        public string FallbackBaseUrl { get; set; } = "https://workflow.item.com";
     }
 }

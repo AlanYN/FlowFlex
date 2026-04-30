@@ -2,6 +2,7 @@ using AutoMapper;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Models;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
@@ -19,6 +20,32 @@ namespace FlowFlex.Application.Maps
             NumberHandling = JsonNumberHandling.AllowReadingFromString,
             PropertyNameCaseInsensitive = true
         };
+        
+        // Static logger for mapping profile - initialized via SetLogger method
+        // AutoMapper Profiles are instantiated during DI container build, so constructor injection is not possible.
+        // Using volatile to ensure thread-safe reads after SetLogger is called from Program.cs.
+        private static volatile ILogger _logger;
+        
+        /// <summary>
+        /// Set the logger instance for this profile (call during application startup)
+        /// </summary>
+        public static void SetLogger(ILoggerFactory loggerFactory)
+        {
+            _logger = loggerFactory?.CreateLogger<StageMapProfile>();
+        }
+        
+        private static void LogWarning(Exception ex, string message)
+        {
+            var logger = _logger;
+            if (logger != null)
+            {
+                logger.LogWarning(ex, "{Message}", message);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[StageMapProfile] {message}: {ex.Message}");
+            }
+        }
         public StageMapProfile()
         {
             // Entity to OutputDto mapping
@@ -239,8 +266,10 @@ namespace FlowFlex.Application.Maps
                 
                 return components;
             }
-            catch
+            catch (Exception ex)
             {
+                // JSON parsing failed, log warning and return empty list
+                LogWarning(ex, "Failed to parse ComponentsJson, returning empty list");
                 return new List<StageComponent>();
             }
         }
@@ -417,9 +446,10 @@ namespace FlowFlex.Application.Maps
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Continue to fallback
+                    // Log and continue to fallback
+                    LogWarning(ex, "Failed to parse nested JSON assignee data, trying fallback");
                 }
 
                 // Fallback for backward compatibility with comma-separated format
@@ -433,55 +463,6 @@ namespace FlowFlex.Application.Maps
 
                 return new List<string>();
             }
-        }
-
-        /// <summary>
-        /// Convert List of assignee IDs to JSON string for database storage (legacy method)
-        /// </summary>
-        private static string ConvertAssigneeListToString(List<string> assigneeList)
-        {
-            if (assigneeList == null || !assigneeList.Any())
-                return null;
-
-            try
-            {
-                // Use JSON serialization to preserve all data without truncation
-                return JsonSerializer.Serialize(assigneeList, _jsonOptions);
-            }
-            catch (Exception)
-            {
-                // Fallback to comma-separated format if JSON serialization fails
-                return string.Join(",", assigneeList);
-            }
-        }
-
-        /// <summary>
-        /// Convert JSON string or comma-separated string to List of assignee IDs (legacy method)
-        /// </summary>
-        private static List<string> ConvertAssigneeStringToList(string assigneeString)
-        {
-            if (string.IsNullOrWhiteSpace(assigneeString))
-                return new List<string>();
-
-            // Try to deserialize as JSON first
-            if (assigneeString.TrimStart().StartsWith("["))
-            {
-                try
-                {
-                    var jsonResult = JsonSerializer.Deserialize<List<string>>(assigneeString, _jsonOptions);
-                    return jsonResult ?? new List<string>();
-                }
-                catch (JsonException)
-                {
-                    // If JSON parsing fails, fall back to comma-separated parsing
-                }
-            }
-
-            // Fallback to comma-separated format for backward compatibility
-            return assigneeString.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                .Select(s => s.Trim())
-                                .Where(s => !string.IsNullOrWhiteSpace(s))
-                                .ToList();
         }
 
         /// <summary>
@@ -518,8 +499,9 @@ namespace FlowFlex.Application.Maps
 
                 return new List<string>();
             }
-            catch
+            catch (Exception ex)
             {
+                LogWarning(ex, "Failed to deserialize team list JSON");
                 return new List<string>();
             }
         }

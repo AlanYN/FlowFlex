@@ -1,0 +1,12 @@
+Rule,Do,Don't,Reason
+API Version,Use ${globSetting.apiVersion},Hardcode 'v1',Flexibility for version changes
+API Prefix,Use ${globSetting.apiProName},Hardcode '/api',Environment-specific prefix
+Type Location,src/types/ with namespace,src/app/apis/model/,Centralized type management
+Type Import,import type { User } from '#/user',import { User } from '@/apis/model',Path alias consistency
+Error Handling,Use errorMessageMode option,Ignore API errors,Consistent user feedback
+Token,Let interceptor handle auth,Manually set Authorization header,Interceptor manages token lifecycle
+Loading State,Use ref<boolean> loading,Ignore loading states,Consistent UX
+Response Transform,Use isTransformResponse: false for raw data,Always transform,Some endpoints return non-standard format
+Cancel Token,Use ignoreCancelToken: true for non-duplicate requests,Let all requests cancel,Prevent unintended cancellations
+Upload,Use defHttp.uploadFile for FormData,Use defHttp.post with FormData manually,Correct content-type handling
+Console,Remove debug logs,Leave console.log in code,Production cleanliness

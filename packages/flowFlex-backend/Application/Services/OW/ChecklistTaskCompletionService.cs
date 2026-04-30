@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -6,7 +6,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
-using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using Microsoft.Extensions.Logging;
@@ -73,11 +73,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     }
 
     /// <summary>
-    /// Get all task completions
+    /// Get all task completions with tenant isolation
     /// </summary>
     public async Task<List<ChecklistTaskCompletionOutputDto>> GetAllTaskCompletionsAsync()
     {
-        var completions = await _completionRepository.GetListAsync();
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var completions = await _completionRepository.GetListAsync(c => c.TenantId == tenantId);
         return _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
     }
 
@@ -319,7 +320,6 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         try
         {
             var tenantId = GetTenantId();
-            // Debug logging handled by structured logging
             // Get stage information from completion.StageId (user-specified stage)
             // This ensures we log the correct stage where the task was completed
             Stage currentStage = null;
@@ -328,11 +328,6 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             if (stageIdToUse.HasValue)
             {
                 currentStage = await _stageRepository.GetByIdAsync(stageIdToUse.Value);
-                // Debug logging handled by structured logging
-            }
-            else
-            {
-                // Debug logging handled by structured logging
             }
 
             var logData = new
@@ -357,7 +352,6 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             };
 
             var serializedLogData = System.Text.Json.JsonSerializer.Serialize(logData);
-            // Debug logging handled by structured logging
             // Stage completion log functionality removed
 
             // 2. Also log to ff_operation_change_log table (new functionality)
@@ -419,23 +413,21 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                 );
 
-                // Debug logging handled by structured logging}");
             }
             catch (Exception operationLogEx)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(operationLogEx, "Failed to log operation change for task {TaskId} on onboarding {OnboardingId}", task.Id, onboarding.Id);
                 // Don't affect main business flow, continue execution
             }
         }
         catch (Exception ex)
         {
-            // Debug logging handled by structured logging
+            _logger.LogError(ex, "Failed to log task completion for task {TaskId} on onboarding {OnboardingId}", task.Id, onboarding.Id);
             // Log to system log, but don't affect main business flow
             // If needed, more detailed error handling logic can be added here
             try
             {
                 // Consider logging failed logs to backup storage or sending alerts
-                // Debug logging handled by structured logging
             }
             catch
             {
@@ -453,19 +445,17 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         {
             // Stage completion log functionality removed
             var tenantId = GetTenantId();
-            // Debug logging handled by structured logging
             for (int i = 0; i < inputs.Count && i < completions.Count; i++)
             {
                 var input = inputs[i];
                 var completion = completions[i];
-                // Debug logging handled by structured logging
                 // Get onboarding and task information
                 var onboarding = await _onboardingRepository.GetByIdAsync(input.OnboardingId);
                 var task = await _taskRepository.GetByIdAsync(input.TaskId);
 
                 if (onboarding == null || task == null)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning("Skipping batch log for input index {Index}: onboarding or task not found. OnboardingId: {OnboardingId}, TaskId: {TaskId}", i, input.OnboardingId, input.TaskId);
                     continue;
                 }
 
@@ -496,7 +486,6 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 };
 
                 // Stage completion log functionality removed
-                // Debug logging handled by structured logging
                 // Also log to ff_operation_change_log table
                 try
                 {
@@ -559,11 +548,10 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                         extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                     );
 
-                    // Debug logging handled by structured logging}");
                 }
                 catch (Exception operationLogEx)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning(operationLogEx, "Failed to log batch operation change for task {TaskId} on onboarding {OnboardingId}", task.Id, onboarding.Id);
                     // Does not affect main business flow, continue execution
                 }
             }
@@ -572,11 +560,10 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         }
         catch (Exception ex)
         {
-            // Debug logging handled by structured logging
+            _logger.LogError(ex, "Failed to log batch task completions");
             // Log to system log, but does not affect main business flow
             try
             {
-                // Debug logging handled by structured logging
             }
             catch
             {
@@ -590,42 +577,31 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         var context = _httpContextAccessor.HttpContext;
         if (context == null)
         {
-            // Debug logging handled by structured logging
             // Try to get from UserContext
             if (!string.IsNullOrEmpty(_userContext?.TenantId))
             {
-                // Debug logging handled by structured logging
                 return _userContext.TenantId;
             }
-            // Debug logging handled by structured logging
             return "default";
         }
 
         // Try to get TenantId from request headers
         var tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
-        // Debug logging handled by structured logging
         if (string.IsNullOrEmpty(tenantId))
         {
             tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-            // Debug logging handled by structured logging
         }
 
         // Try to get from UserContext
         if (string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(_userContext?.TenantId))
         {
             tenantId = _userContext.TenantId;
-            // Debug logging handled by structured logging
         }
 
         // If still empty, use default value
         if (string.IsNullOrEmpty(tenantId))
         {
             tenantId = "default";
-            // Debug logging handled by structured logging
-        }
-        else
-        {
-            // Debug logging handled by structured logging
         }
 
         return tenantId;

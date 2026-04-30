@@ -184,7 +184,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             if (match.Success)
             {
                 var paramString = match.Groups[1].Value.Trim();
-                _logger.LogDebug($"Captured parameters: {paramString}");
+                _logger.LogDebug("Captured parameters: {ParamString}", paramString);
 
                 if (!string.IsNullOrEmpty(paramString))
                 {
@@ -207,14 +207,14 @@ namespace FlowFlex.Application.Services.Action.Executors
                         if (!string.IsNullOrEmpty(cleanParam))
                         {
                             parameters.Add(cleanParam);
-                            _logger.LogDebug($"Added parameter: {cleanParam}");
+                            _logger.LogDebug("Added parameter: {CleanParam}", cleanParam);
                         }
                     }
                 }
             }
             else
             {
-                _logger.LogWarning($"Failed to match main function in source code: {sourceCode}");
+                _logger.LogWarning("Failed to match main function in source code: {SourceCode}", sourceCode);
             }
 
             return parameters;
@@ -308,7 +308,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug($"Failed to extract property '{propertyName}' from JToken: {ex.Message}");
+                    _logger.LogDebug("Failed to extract property {PropertyName} from JToken: {ErrorMessage}", propertyName, ex.Message);
                     return null;
                 }
             }

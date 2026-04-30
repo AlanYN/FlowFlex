@@ -11,6 +11,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Extensions;
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding query and export operations
     /// Extracted from OnboardingService to reduce complexity
     /// </summary>
-    public class OnboardingQueryService : IOnboardingQueryService
+    public class OnboardingQueryService : IOnboardingQueryService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;
@@ -75,8 +76,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public async Task<PageModelDto<OnboardingOutputDto>> QueryAsync(OnboardingQueryRequest request)
         {
             var stopwatch = Stopwatch.StartNew();
-            var tenantId = _userContext?.TenantId ?? "default";
-            var appCode = _userContext?.AppCode ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
             try
             {
                 _logger.LogDebug("QueryAsync started - TenantId: {TenantId}, AppCode: {AppCode}", tenantId, appCode);
@@ -87,14 +88,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Basic filter conditions
                 whereExpressions.Add(x => x.IsValid == true);
                 
-                // Apply tenant isolation
+                // Apply tenant isolation (case-insensitive via database collation)
                 if (!string.IsNullOrEmpty(tenantId))
                 {
-                    whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
+                    whereExpressions.Add(x => x.TenantId == tenantId);
                 }
                 if (!string.IsNullOrEmpty(appCode))
                 {
-                    whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
+                    whereExpressions.Add(x => x.AppCode == appCode);
                 }
 
                 // Apply filter conditions
@@ -479,23 +480,26 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         {
                             _stageProgressService.LoadStagesProgressFromJsonReadOnly(entity);
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
+                            _logger.LogDebug(ex, "[OnboardingQueryService] Failed to load stages progress for entity {EntityId}", entity.Id);
                             entity.StagesProgress = new List<OnboardingStageProgress>();
                         }
                     });
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "[OnboardingQueryService] Parallel loading failed, falling back to sequential");
                 foreach (var entity in entities)
                 {
                     try
                     {
                         _stageProgressService.LoadStagesProgressFromJsonReadOnly(entity);
                     }
-                    catch (Exception)
+                    catch (Exception innerEx)
                     {
+                        _logger.LogDebug(innerEx, "[OnboardingQueryService] Failed to load stages progress for entity {EntityId}", entity.Id);
                         entity.StagesProgress = new List<OnboardingStageProgress>();
                     }
                 }
@@ -806,8 +810,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             if (pageSize < 1) pageSize = 20;
             if (pageSize > 100) pageSize = 100;
 
-            var tenantId = _userContext?.TenantId ?? "default";
-            var appCode = _userContext?.AppCode ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
             try
             {
@@ -989,6 +993,19 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         public async Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query)
         {
+            // Enforce export limit to prevent memory exhaustion
+            const int MaxExportRows = 10000;
+            if (query.AllData)
+            {
+                query.AllData = false;
+                query.PageIndex = 1;
+                query.PageSize = MaxExportRows;
+            }
+            else if (query.PageSize > MaxExportRows)
+            {
+                query.PageSize = MaxExportRows;
+            }
+
             // Get data using existing query method
             var result = await QueryAsync(query);
             var data = result.Data;
@@ -1040,6 +1057,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
         }
 
+        /// <summary>
+        /// Generate Excel file using EPPlus
+        /// Note: The returned Stream must be disposed by the caller
+        /// </summary>
+        /// <returns>A MemoryStream containing the Excel content. Caller is responsible for disposing.</returns>
         private Stream GenerateExcelWithEPPlus(List<OnboardingExportDto> data)
         {
             using var package = new ExcelPackage();
@@ -1078,9 +1100,17 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             worksheet.Cells.AutoFitColumns();
 
             var stream = new MemoryStream();
-            package.SaveAs(stream);
-            stream.Position = 0;
-            return stream;
+            try
+            {
+                package.SaveAs(stream);
+                stream.Position = 0;
+                return stream;
+            }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
         }
 
         #endregion

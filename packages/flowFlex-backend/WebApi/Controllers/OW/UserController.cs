@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.WebApi.Controllers;
 using FlowFlex.WebApi.Model.Response;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.Linq;
@@ -38,6 +39,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>User DTO</returns>
         [HttpPost("register")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 5, windowSeconds: 60, keyPrefix: "register")]
         [ProducesResponseType<SuccessResponse<UserDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
@@ -53,6 +55,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Whether sending was successful</returns>
         [HttpPost("send-verification-code")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 3, windowSeconds: 60, keyPrefix: "send-code")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> SendVerificationCode([FromBody] SendVerificationCodeRequestDto request)
@@ -83,6 +86,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response</returns>
         [HttpPost("login")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "login")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
@@ -98,6 +102,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response</returns>
         [HttpPost("login-with-code")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "login-code")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> LoginWithCode([FromBody] LoginWithCodeRequestDto request)
@@ -165,21 +170,6 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Create test user (for testing environment only)
-        /// </summary>
-        /// <param name="email">Email</param>
-        /// <param name="password">Password</param>
-        /// <returns>User DTO</returns>
-        [HttpPost("create-test-user")]
-        [AllowAnonymous]
-        [ProducesResponseType<SuccessResponse<UserDto>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ErrorResponse), 400)]
-        public async Task<IActionResult> CreateTestUser([FromQuery] string email, [FromQuery] string password)
-        {
-            var user = await _userService.CreateTestUserAsync(email, password);
-            return Success(user);
-        }
-
         /// <summary>
         /// Refresh access token
         /// </summary>
@@ -187,6 +177,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response with new token</returns>
         [HttpPost("refresh-access-token")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 20, windowSeconds: 60, keyPrefix: "refresh-token")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]
@@ -240,18 +231,20 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Parse JWT token and return detailed information
+        /// Requires authentication to prevent token enumeration attacks
         /// </summary>
         /// <param name="request">Parse token request</param>
         /// <returns>JWT Token information</returns>
         [HttpPost("parse-jwt-token")]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
         public IActionResult ParseJwtToken([FromBody] ParseTokenRequestDto request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Token))
             {
-                // 尝试从Authorization Header获取token
+                // Try to get token from Authorization Header
                 var authHeader = Request.Headers["Authorization"].FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer "))
                 {
@@ -269,13 +262,15 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Parse JWT token from query parameter
+        /// Requires authentication to prevent token enumeration attacks
         /// </summary>
         /// <param name="token">JWT Token</param>
         /// <returns>JWT Token information</returns>
         [HttpGet("parse-jwt-token")]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
         public IActionResult ParseJwtTokenFromQuery([FromQuery] string token)
         {
             if (string.IsNullOrWhiteSpace(token))
@@ -294,6 +289,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response with system token</returns>
         [HttpPost("third-party-login")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "third-party-login")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]

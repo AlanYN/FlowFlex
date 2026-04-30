@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,8 +12,8 @@ using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Text.Json;
 using Newtonsoft.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -32,7 +32,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Infrastructure.Services;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     public class WorkflowService : IWorkflowService, IScopedService
     {
@@ -305,7 +305,7 @@ namespace FlowFlex.Application.Service.OW
 
             if (updateResult)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow update operation if there were actual changes (via background queue)
@@ -469,7 +469,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful deletion
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow delete operation (fire-and-forget via background queue)
@@ -513,7 +513,6 @@ namespace FlowFlex.Application.Service.OW
         public async Task<List<WorkflowOutputDto>> GetListAsync()
         {
             // Temporarily disable expired workflow processing to avoid concurrent database operations
-            // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
 
             // Apply permission filtering - filter out workflows user cannot view
@@ -549,14 +548,12 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"ow:workflow:all:{tenantId}";
 
                 // Get directly from database, temporarily skip cache to avoid Redis stream reading issues
-                // Debug logging handled by structured logging
                 // Temporarily disable expired workflow processing to avoid concurrent database operations
-                // Debug logging handled by structured logging
                 // Get from database using optimized query
                 var list = await _workflowRepository.GetAllOptimizedAsync();
                 if (list == null)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning("GetAllAsync returned null workflow list from repository");
                     return new List<WorkflowOutputDto>();
                 }
 
@@ -568,7 +565,7 @@ namespace FlowFlex.Application.Service.OW
                 var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
                 {
-                    // Debug logging handled by structured logging
+                    _logger.LogWarning("AutoMapper returned null when mapping workflow list");
                     return new List<WorkflowOutputDto>();
                 }
 
@@ -580,13 +577,12 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
                 return result;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Error getting all workflows, elapsed {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
                 // Provide more detailed error information
                 var errorMessage = ex.InnerException != null
                     ? $"{ex.Message} -> {ex.InnerException.Message}"
@@ -598,10 +594,12 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
         {
-            // Step 1: Get all workflows matching the query criteria (without pagination)
+            // Step 1: Get workflows with a reasonable limit for permission filtering
+            // Use a larger page size to allow for permission filtering, but not int.MaxValue
+            const int MaxWorkflowsForFiltering = 1000;
             var (allItems, _) = await _workflowRepository.QueryPagedAsync(
                 1, // pageIndex
-                int.MaxValue, // pageSize - get all items
+                MaxWorkflowsForFiltering, // pageSize - reasonable limit to avoid memory issues
                 query.Name,
                 query.IsActive,
                 query.IsDefault,
@@ -770,7 +768,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful activation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow activation
@@ -818,7 +816,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful deactivation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow deactivation
@@ -973,7 +971,7 @@ namespace FlowFlex.Application.Service.OW
                         await _cacheService.RemoveAsync(cacheKey);
 
                         // Log record
-                        // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
+                        _logger.LogInformation("Workflow {WorkflowId} has been set to inactive due to expiration. EndDate: {EndDate}", workflow.Id, workflow.EndDate);
                     }
                 }
 
@@ -1029,7 +1027,9 @@ namespace FlowFlex.Application.Service.OW
 
             if (search.IsAll)
             {
-                workflows = await _workflowRepository.GetListAsync();
+                // Use tenant-isolated query
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                workflows = await _workflowRepository.GetListAsync(w => w.TenantId == tenantId && w.IsValid);
             }
             else if (search.Ids?.Any() == true)
             {
@@ -1169,7 +1169,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful version creation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
             }
 
@@ -1539,83 +1539,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private async Task ValidateTeamSelectionsAsync(List<string> viewTeams, List<string> operateTeams)
         {
-            // Nothing to validate
-            var needsValidation = (viewTeams != null && viewTeams.Any()) || (operateTeams != null && operateTeams.Any());
-            if (!needsValidation)
-            {
-                return;
-            }
-
-            HashSet<string> allTeamIds;
-            try
-            {
-                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
-            }
-            catch (Exception ex)
-            {
-                // Log and do not block main flow if IDM service is temporarily unavailable
-                _logger.LogWarning(ex, "Failed to fetch team tree for validation. Skipping team ID validation.");
-                return;
-            }
-
-            // Add "Other" as a valid special team ID (for users without team assignment)
-            allTeamIds.Add("Other");
-
-            var invalidIds = new List<string>();
-
-            if (viewTeams != null && viewTeams.Any())
-            {
-                invalidIds.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
-            }
-
-            if (operateTeams != null && operateTeams.Any())
-            {
-                invalidIds.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
-            }
-
-            // Deduplicate
-            invalidIds = invalidIds.Distinct(StringComparer.Ordinal).ToList();
-
-            if (invalidIds.Any())
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError,
-                    $"The following team IDs do not exist: {string.Join(", ", invalidIds)}");
-            }
-        }
-
-        /// <summary>
-        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
-        /// </summary>
-        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
-        {
-            var tree = await _userService.GetUserTreeAsync();
-            var ids = new HashSet<string>(StringComparer.Ordinal);
-            if (tree == null || !tree.Any())
-            {
-                return ids;
-            }
-
-            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
-            {
-                foreach (var node in nodes)
-                {
-                    if (node == null) continue;
-                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
-                        {
-                            ids.Add(node.Id);
-                        }
-                    }
-                    if (node.Children != null && node.Children.Any())
-                    {
-                        Traverse(node.Children);
-                    }
-                }
-            }
-
-            Traverse(tree);
-            return ids;
+            await _userService.ValidateTeamSelectionsAsync(viewTeams, operateTeams);
         }
     }
 }

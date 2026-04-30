@@ -79,7 +79,7 @@ namespace FlowFlex.Application.Services.OW
                             relativePath,
                             memoryStream,
                             overrideExisting: true,
-                            CancellationToken.None);
+                            cancellationToken: default);
                     }
                 }
 
@@ -98,12 +98,12 @@ namespace FlowFlex.Application.Services.OW
                     FileHash = fileHash
                 };
 
-                _logger.LogInformation($"File saved successfully to cloud storage: {relativePath}");
+                _logger.LogInformation("File saved successfully to cloud storage: {RelativePath}", relativePath);
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error saving file to cloud storage: {file.FileName}");
+                _logger.LogError(ex, "Error saving file to cloud storage: {FileName}", file.FileName);
                 
                 // Provide more specific error messages for common OSS errors
                 string errorMessage = ex.Message;
@@ -142,19 +142,19 @@ namespace FlowFlex.Application.Services.OW
                 // Extract file path from URL if it's a full OSS URL
                 string actualFilePath = ExtractFilePathFromUrl(filePath);
                 
-                _logger.LogDebug($"Attempting to get file from cloud storage. Original: {filePath}, Extracted path: {actualFilePath}");
+                _logger.LogDebug("Attempting to get file from cloud storage. Original: {FilePath}, Extracted path: {ActualFilePath}", filePath, actualFilePath);
                 
                 // Try to get the file
                 var stream = await _blobContainer.GetAsync(actualFilePath);
                 var fileName = Path.GetFileName(actualFilePath);
                 var contentType = MimeTypeHelper.GetMimeTypeFromFileName(fileName);
 
-                _logger.LogInformation($"Successfully retrieved file from cloud storage: {actualFilePath}");
+                _logger.LogInformation("Successfully retrieved file from cloud storage: {ActualFilePath}", actualFilePath);
                 return (stream, fileName, contentType);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file from cloud storage. Original path: {filePath}, Extracted path: {ExtractFilePathFromUrl(filePath)}");
+                _logger.LogError(ex, "Error getting file from cloud storage. Original path: {FilePath}, Extracted path: {ExtractedPath}", filePath, ExtractFilePathFromUrl(filePath));
                 
                 // Provide more helpful error message
                 if (ex.Message.Contains("Could not find", StringComparison.OrdinalIgnoreCase))
@@ -201,15 +201,15 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(profileName) && path.StartsWith(profileName + "/", StringComparison.OrdinalIgnoreCase))
                 {
                     path = path.Substring(profileName.Length + 1);
-                    _logger.LogDebug($"Removed ProfileName prefix '{profileName}' from path");
+                    _logger.LogDebug("Removed ProfileName prefix '{ProfileName}' from path", profileName);
                 }
                 
-                _logger.LogDebug($"Extracted file path '{path}' from URL '{filePathOrUrl}'");
+                _logger.LogDebug("Extracted file path '{Path}' from URL '{FilePathOrUrl}'", path, filePathOrUrl);
                 return path;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to parse URL '{filePathOrUrl}', using as-is");
+                _logger.LogWarning(ex, "Failed to parse URL '{FilePathOrUrl}', using as-is", filePathOrUrl);
                 // If URL parsing fails, try to extract path manually
                 // Remove protocol and domain, keep only path
                 var path = filePathOrUrl;
@@ -254,7 +254,7 @@ namespace FlowFlex.Application.Services.OW
                 var exists = await FileExistsAsync(filePath);
                 if (exists)
                 {
-                    _logger.LogWarning($"DeleteFileAsync called for {filePath}, but IBlobContainer may not support deletion directly");
+                    _logger.LogWarning("DeleteFileAsync called for {FilePath}, but IBlobContainer may not support deletion directly", filePath);
                     // TODO: Implement deletion using underlying SDK if needed
                     return false;
                 }
@@ -263,7 +263,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deleting file from cloud storage: {filePath}");
+                _logger.LogError(ex, "Error deleting file from cloud storage: {FilePath}", filePath);
                 return false;
             }
         }
@@ -309,7 +309,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file URL: {filePath}");
+                _logger.LogError(ex, "Error getting file URL: {FilePath}", filePath);
                 return filePath;
             }
         }
@@ -429,7 +429,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (_options.GroupByDate)
             {
-                var now = DateTime.UtcNow;
+                var now = DateTimeOffset.UtcNow;
                 pathParts.Add(now.Year.ToString());
                 pathParts.Add(now.Month.ToString("D2"));
                 pathParts.Add(now.Day.ToString("D2"));

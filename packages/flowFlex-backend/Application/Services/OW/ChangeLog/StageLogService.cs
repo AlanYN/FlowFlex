@@ -9,6 +9,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
@@ -117,14 +118,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
                             afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
                         {
-                            viewTeamsSummary = GetTeamsSummary(viewTeamsElement);
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
                         }
 
                         string operateTeamsSummary = null;
                         if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
                             afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
                         {
-                            operateTeamsSummary = GetTeamsSummary(operateTeamsElement);
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
                         }
 
                         // Combine view permission mode and teams information
@@ -191,7 +192,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
                             afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement))
                         {
-                            var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                            var defaultAssigneeSummary = await GetDefaultAssigneeSummaryAsync(defaultAssigneeElement);
                             if (!string.IsNullOrEmpty(defaultAssigneeSummary))
                             {
                                 details.Add($"default assignee: {defaultAssigneeSummary}");
@@ -2022,7 +2023,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     // Get tenant ID from UserContext (works in background tasks)
-                    var tenantId = _userContext?.TenantId ?? "999";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     _stageLogger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
 
                     teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);

@@ -162,25 +162,27 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
         }
 
         // Apply sorting
-        switch (sortField.ToLower())
+        var sortFieldLower = (sortField ?? "").ToLowerInvariant();
+        var isAscending = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+        switch (sortFieldLower)
         {
             case "title":
-                query = sortDirection.ToLower() == "asc"
+                query = isAscending
                     ? query.OrderBy(x => x.Title)
                     : query.OrderByDescending(x => x.Title);
                 break;
             case "priority":
-                query = sortDirection.ToLower() == "asc"
+                query = isAscending
                     ? query.OrderBy(x => x.Priority)
                     : query.OrderByDescending(x => x.Priority);
                 break;
             case "notetype":
-                query = sortDirection.ToLower() == "asc"
+                query = isAscending
                     ? query.OrderBy(x => x.NoteType)
                     : query.OrderByDescending(x => x.NoteType);
                 break;
             default: // CreateDate
-                query = sortDirection.ToLower() == "asc"
+                query = isAscending
                     ? query.OrderBy(x => x.CreateDate)
                     : query.OrderByDescending(x => x.CreateDate);
                 break;
@@ -280,7 +282,7 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
     {
         var query = db.Queryable<InternalNote>()
             .Where(x => x.IsValid &&
-                       (x.Title.ToLower().Contains(keyword.ToLower()) || x.Content.ToLower().Contains(keyword.ToLower())));
+                       (x.Title.Contains(keyword) || x.Content.Contains(keyword)));
 
         if (onboardingId.HasValue)
         {

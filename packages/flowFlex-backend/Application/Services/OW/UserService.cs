@@ -323,7 +323,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
-                _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
+                _logger.LogWarning("Verification code mismatch for user {Email}", request.Email);
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 
@@ -425,7 +425,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (user.EmailVerificationCode.Trim() != request.VerificationCode.Trim())
             {
-                _logger.LogWarning($"Verification code mismatch for user {request.Email}. Expected: '{user.EmailVerificationCode}', Received: '{request.VerificationCode}'");
+                _logger.LogWarning("Verification code mismatch for user {Email}", request.Email);
                 throw new CRMException(System.Net.HttpStatusCode.OK, "Verification code is incorrect");
             }
 
@@ -1644,8 +1644,9 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Get all users (without pagination for tree structure)
-                var (users, _) = await _userRepository.GetPagedAsync(1, int.MaxValue);
+                // Get users with reasonable limit for tree structure to avoid memory issues
+                const int MaxUsersForTree = 2000;
+                var (users, _) = await _userRepository.GetPagedAsync(1, MaxUsersForTree);
 
                 // Ensure all users have teams
                 await EnsureUsersHaveTeams(users);
@@ -2228,6 +2229,80 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
             return count;
+        }
+
+        /// <inheritdoc />
+        public async Task<HashSet<string>> GetAllTeamIdsAsync()
+        {
+            var tree = await GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
+        }
+
+        /// <inheritdoc />
+        public async Task ValidateTeamSelectionsAsync(List<string> viewTeams, List<string> operateTeams)
+        {
+            var needsValidation = (viewTeams != null && viewTeams.Any()) || (operateTeams != null && operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch team tree for validation. Skipping team ID validation.");
+                return;
+            }
+
+            // Add "Other" as a valid special team ID (for users without team assignment)
+            allTeamIds.Add("Other");
+
+            var invalidIds = new List<string>();
+            if (viewTeams != null && viewTeams.Any())
+            {
+                invalidIds.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+            if (operateTeams != null && operateTeams.Any())
+            {
+                invalidIds.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+            invalidIds = invalidIds.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalidIds.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalidIds)}");
+            }
         }
     }
 }

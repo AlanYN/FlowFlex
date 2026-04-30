@@ -10,9 +10,11 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
+using FlowFlex.Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +27,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding helper and utility methods
     /// Handles: Event publishing, JSON parsing, component processing, utility methods
     /// </summary>
-    public class OnboardingHelperService : IOnboardingHelperService
+    public class OnboardingHelperService : IOnboardingHelperService, IScopedService
     {
         #region Fields
 
@@ -600,27 +602,13 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public string GetClientIpAddress()
         {
-            var httpContext = _httpContextAccessor?.HttpContext;
-            if (httpContext == null) return string.Empty;
-
-            var ipAddress = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-            }
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-            }
-
-            return ipAddress ?? string.Empty;
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         /// <inheritdoc />
         public string GetUserAgent()
         {
-            var httpContext = _httpContextAccessor?.HttpContext;
-            return httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+            return _httpContextAccessor.GetUserAgent();
         }
 
         /// <inheritdoc />
@@ -1207,7 +1195,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     SentDate = null, // Leave empty - will be set when invitation is actually sent
                     TokenExpiry = null, // No expiry
                     SendCount = 0, // Not sent via email
-                    TenantId = onboarding.TenantId ?? _userContext.TenantId ?? "default",
+                    TenantId = onboarding.TenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
                     Notes = "Auto-created default invitation (no email sent)"
                 };
 
@@ -1220,8 +1208,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Generate invitation URL (using default base URL)
                 invitation.InvitationUrl = GenerateShortInvitationUrl(
                     invitation.ShortUrlId,
-                    onboarding.TenantId ?? _userContext.TenantId ?? "default",
-                    onboarding.AppCode ?? _userContext.AppCode ?? "default");
+                    onboarding.TenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    onboarding.AppCode ?? TenantContextHelper.GetAppCodeOrDefault(_userContext));
 
                 // Initialize create info
                 invitation.InitCreateInfo(_userContext);
@@ -1342,8 +1330,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <returns>Generated invitation URL</returns>
         private string GenerateShortInvitationUrl(string shortUrlId, string tenantId, string appCode, string? baseUrl = null)
         {
-            // Use provided base URL or fall back to a default one
-            var effectiveBaseUrl = baseUrl ?? "https://portal.flowflex.com"; // Default base URL
+            // Use provided base URL or fall back to a configured default
+            var effectiveBaseUrl = baseUrl ?? "https://workflow.item.com"; // Configured via GlobalConfigOptions.PortalBaseUrl
 
             // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
             return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";

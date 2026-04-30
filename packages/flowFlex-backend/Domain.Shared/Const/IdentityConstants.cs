@@ -2,10 +2,6 @@ using System.Collections.Generic;
 
 namespace FlowFlex.Domain.Shared.Const;
 
-public static class IdentityConstants
-{
-}
-
 public static class AuthSchemes
 {
     public const string ApiKey = "wfe.apikey";

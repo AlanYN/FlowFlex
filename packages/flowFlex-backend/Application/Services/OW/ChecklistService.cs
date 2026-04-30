@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
@@ -7,7 +7,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Linq.Expressions;
 using SqlSugar;
 using System.Diagnostics;
@@ -27,7 +27,7 @@ using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Repository.Action;
 
-namespace FlowFlex.Application.Service.OW;
+namespace FlowFlex.Application.Services.OW;
 
 /// <summary>
 /// Checklist service implementation
@@ -292,9 +292,11 @@ public class ChecklistService : IChecklistService, IScopedService
                     {
                         await _mappingService.NotifyChecklistNameChangeAsync(id, input.Name);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Error already logged by BackgroundTaskService
+                        // Log additional context for debugging
+                        _logger.LogDebug(ex, "[ChecklistService] Checklist name sync failed for id {ChecklistId}", id);
                         // Don't throw to avoid breaking the background task
                     }
                 });
@@ -591,7 +593,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
     /// <summary>
     /// Export checklist to PDF
+    /// Note: The returned Stream must be disposed by the caller
     /// </summary>
+    /// <returns>A MemoryStream containing the PDF content. Caller is responsible for disposing.</returns>
     public async Task<Stream> ExportToPdfAsync(long id)
     {
         var checklist = await _checklistRepository.GetByIdAsync(id);
@@ -604,12 +608,20 @@ public class ChecklistService : IChecklistService, IScopedService
         // This is a placeholder implementation
         var content = GeneratePdfContent(checklist);
         var stream = new MemoryStream();
-        var writer = new StreamWriter(stream);
-        await writer.WriteAsync(content);
-        await writer.FlushAsync();
-        stream.Position = 0;
-
-        return stream;
+        try
+        {
+            var writer = new StreamWriter(stream, leaveOpen: true);
+            await writer.WriteAsync(content);
+            await writer.FlushAsync();
+            await writer.DisposeAsync();
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
     }
 
     /// <summary>
@@ -892,7 +904,7 @@ ASSIGNMENTS:
             _logger.LogDebug("Fetching team names for {Count} unique team IDs", teamIds.Count);
 
             // Get tenant ID from UserContext
-            var tenantId = _userContext?.TenantId ?? "999";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             // Fetch team names from IDM
             var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);

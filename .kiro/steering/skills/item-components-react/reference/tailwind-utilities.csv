@@ -1,0 +1,21 @@
+Category,Class,Purpose,Example,Notes
+Spacing,p-{n},Padding,"p-4, p-6, px-4, py-2",Use 4px increments
+Spacing,m-{n},Margin,"m-4, mx-auto, -mt-2",Negative values supported
+Spacing,gap-{n},Gap in flex/grid,"gap-4, gap-x-2",For flex/grid layouts
+Layout,flex,Flexbox,"flex items-center justify-between",Common pattern
+Layout,grid,Grid,"grid grid-cols-3 gap-4",Responsive grids
+Layout,container,Container,container mx-auto px-4,Max-width container
+Sizing,w-{n},Width,"w-full, w-1/2, w-64",Full/fractional/fixed
+Sizing,h-{n},Height,"h-screen, h-full, h-64",Screen/full/fixed
+Typography,text-{size},Font size,"text-sm, text-base, text-lg",Responsive sizes
+Typography,font-{weight},Font weight,"font-normal, font-medium, font-bold",Satoshi weights
+Colors,bg-{color},Background,"bg-white, bg-primary",Use design tokens
+Colors,text-{color},Text color,"text-gray-900, text-primary",Dark mode support
+Colors,border-{color},Border color,"border-gray-200, border-primary",Subtle borders
+Dark Mode,dark:,Dark mode variant,"dark:bg-gray-900, dark:text-white",Always include
+Responsive,{breakpoint}:,Responsive,"md:flex, lg:grid-cols-4",Mobile-first
+Effects,shadow-{size},Box shadow,"shadow-sm, shadow-md, shadow-lg",Elevation
+Effects,rounded-{size},Border radius,"rounded, rounded-lg, rounded-full",Corners
+Effects,opacity-{n},Opacity,"opacity-50, opacity-100",0-100 scale
+Transitions,transition,Transition,transition duration-200 ease-in-out,Smooth animations
+Hover,hover:,Hover state,"hover:bg-gray-100, hover:scale-105",Interactive feedback

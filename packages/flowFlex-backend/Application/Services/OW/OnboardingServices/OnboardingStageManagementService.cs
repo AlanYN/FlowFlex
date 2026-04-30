@@ -3,6 +3,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Helpers.OW;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -11,6 +12,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -19,7 +21,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for managing onboarding stage operations
     /// Handles: MoveToNextStage, MoveToStage, CompleteCurrentStage, stage validation
     /// </summary>
-    public class OnboardingStageManagementService : IOnboardingStageManagementService
+    public class OnboardingStageManagementService : IOnboardingStageManagementService, IScopedService
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
@@ -34,6 +36,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IEmailService _emailService;
         private readonly IUserService _userService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly EmailOptions _emailOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStageManagementService> _logger;
 
@@ -51,6 +54,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IEmailService emailService,
             IUserService userService,
             IHttpContextAccessor httpContextAccessor,
+            IOptions<EmailOptions> emailOptions,
             UserContext userContext,
             ILogger<OnboardingStageManagementService> logger)
         {
@@ -67,6 +71,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _httpContextAccessor = httpContextAccessor;
+            _emailOptions = emailOptions.Value;
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -310,6 +315,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
 
+            // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
+            // This ensures external API errors (CRM/IAM) block the stage completion
+            // Execute for ALL stages including the last one (Case Complete scenario)
+            bool conditionActionExecuted = false;
+            conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+
+            // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
+
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
@@ -354,13 +367,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 // Log stage completion
                 await LogStageCompletionAsync(entity, stageToComplete, totalStages, completedCount, allStagesCompleted, input.CompletionNotes);
-
-                // Evaluate and execute stage conditions
-                bool conditionActionExecuted = false;
-                if (!allStagesCompleted)
-                {
-                    conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
-                }
 
                 // Auto-advance to next stage if no condition action was executed
                 if (!allStagesCompleted && !conditionActionExecuted)
@@ -411,6 +417,22 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
                         onboardingId, stageId, result.ActionResults?.Count ?? 0);
 
+                    // Check for TriggerAction business errors and propagate to caller
+                    if (result.ActionResults != null)
+                    {
+                        var failedActions = result.ActionResults
+                            .Where(a => !a.Success && !string.IsNullOrEmpty(a.ErrorMessage) && a.ActionType == "TriggerAction")
+                            .ToList();
+
+                        if (failedActions.Any())
+                        {
+                            var errorMessages = string.Join("; ", failedActions.Select(a => a.ErrorMessage));
+                            _logger.LogWarning("TriggerAction business errors detected for OnboardingId={OnboardingId}: {Errors}",
+                                onboardingId, errorMessages);
+                            throw new CRMException(errorMessages, ErrorCodeEnum.BusinessError);
+                        }
+                    }
+
                     if (result.ActionResults != null && result.ActionResults.Any(a => a.Success))
                     {
                         return true;
@@ -428,6 +450,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 }
 
                 return false;
+            }
+            catch (CRMException)
+            {
+                // Re-throw CRMException (business errors) to propagate to frontend
+                throw;
             }
             catch (Exception ex)
             {
@@ -483,6 +510,61 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     entity.CurrentStageOrder = nextIncompleteStage.Order;
                     entity.CurrentStageStartTime = GetNormalizedUtcNow();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Rollback stage completion when TriggerAction fails with business error.
+        /// Reverts the stage progress back to non-completed state so user can fix the issue and retry.
+        /// </summary>
+        private async Task RollbackStageCompletionAsync(Onboarding entity, Stage completedStage, List<Stage> orderedStages)
+        {
+            try
+            {
+                // Re-fetch entity to get latest state
+                entity = await _onboardingRepository.GetByIdAsync(entity.Id);
+                if (entity == null) return;
+
+                // Ensure stages progress is initialized
+                await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+
+                // Find the stage progress for the completed stage and revert it
+                var stageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == completedStage.Id);
+                if (stageProgress != null)
+                {
+                    stageProgress.IsCompleted = false;
+                    stageProgress.Status = "InProgress";
+                    stageProgress.CompletionTime = null;
+                    stageProgress.CompletedBy = null;
+                }
+
+                // Recalculate completion rate
+                var previousRate = entity.CompletionRate;
+                var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                entity.CompletionRate = newRate;
+
+                // Revert status if it was set to Completed
+                if (entity.Status == "Completed")
+                {
+                    entity.Status = "Active";
+                    entity.ActualCompletionDate = null;
+                }
+
+                // Reset current stage to the failed stage
+                entity.CurrentStageId = completedStage.Id;
+                entity.CurrentStageOrder = completedStage.Order;
+
+                UpdateStageTrackingInfo(entity);
+                await SaveOnboardingChangesAsync(entity);
+
+                _logger.LogInformation("Rolled back stage completion for OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                    entity.Id, completedStage.Id, completedStage.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rollback stage completion for OnboardingId={OnboardingId}, StageId={StageId}",
+                    entity.Id, completedStage.Id);
+                // Don't throw - the original CRMException should still propagate
             }
         }
 
@@ -739,7 +821,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 _logger.LogWarning(ex, "Failed to build case URL from request context");
             }
 
-            var fallbackUrl = $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
+            var fallbackBaseUrl = _emailOptions.FallbackBaseUrl ?? "https://workflow.item.com";
+            var fallbackUrl = $"{fallbackBaseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
             if (!string.IsNullOrWhiteSpace(tenantId))
             {
                 fallbackUrl += $"&tenantId={Uri.EscapeDataString(tenantId)}";

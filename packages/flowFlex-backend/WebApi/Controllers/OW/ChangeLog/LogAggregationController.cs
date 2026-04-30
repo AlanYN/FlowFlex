@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using Item.Internal.StandardApi.Response;
@@ -16,6 +17,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
     [ApiController]
     [Route("ow/logs/aggregation/v{version:apiVersion}")]
     [Display(Name = "Log Aggregation & Analytics")]
+    [Authorize]
     public class LogAggregationController : Controllers.ControllerBase
     {
         private readonly ILogAggregationService _logAggregationService;

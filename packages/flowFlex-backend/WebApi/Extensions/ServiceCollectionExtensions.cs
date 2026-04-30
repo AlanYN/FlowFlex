@@ -1,44 +1,21 @@
-using Hangfire;
-using Hangfire.PostgreSql;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices;
-using FlowFlex.Application.Service.OW;
-using FlowFlex.Application.Services.OW;
-using FlowFlex.Application.Services.MessageCenter;
-using FlowFlex.Domain;
-using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Domain.Repository.OW;
-using FlowFlex.Domain.Shared.Const;
-using FlowFlex.SqlSugarDB.Implements.OW;
-using FlowFlex.SqlSugarDB.Repositories.OW;
-using FlowFlex.Application.Contracts;
-using FlowFlex.Domain.Shared.Models;
-using RulesEngine.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Reflection;
-using FlowFlex.Infrastructure;
-using SqlSugar;
-using MediatR;
-// using FlowFlex.Infrastructure.Services; // This namespace does not exist
-using Microsoft.Extensions.DependencyInjection;
-using Scrutor;
-using Item.Redis;
-using Microsoft.Extensions.Configuration;
-using FlowFlex.SqlSugarDB.Context;
-using Microsoft.AspNetCore.Http;
-using FlowFlex.Domain.Entities;
-using FlowFlex.Domain.Entities.Base;
-using FlowFlex.Domain.Shared;
-using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Application.Contracts.IServices;
-using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
-using Item.ThirdParty;
-using Application.Services.AI;
-using Item.BlobProvider.Extensions;
-using FlowFlex.Application.Contracts.Options;
-using FlowFlex.Application.Contracts.Dtos;
-using FlowFlex.Application.Services.OW;
 using Application.Contracts.Options;
+using Application.Services.AI;
+using FlowFlex.Application.Contracts;
+using FlowFlex.Application.Services.AI;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Services.OW;
+using FlowFlex.Domain.Entities.Base;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.SqlSugarDB.Context;
+using FlowFlex.SqlSugarDB.Implements.OW;
+using Item.BlobProvider.Extensions;
+using Item.ThirdParty;
+using SqlSugar;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.WebApi.Extensions
 {
@@ -47,8 +24,11 @@ namespace FlowFlex.WebApi.Extensions
         public static IServiceCollection AddService(this IServiceCollection services, IConfiguration configuration)
         {
             // Read connection string from configuration file
-            var connectionString = configuration["Database:ConnectionString"]
-                ?? "Host=localhost;Port=5432;Database=flowflex;Username=flowflex;Password=123456;";
+            var connectionString = configuration["Database:ConnectionString"];
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("Database:ConnectionString is not configured. Please set it in appsettings.json or environment variables.");
+            }
 
             // Read database configuration
             var configId = configuration["Database:ConfigId"] ?? "FlowFlex";
@@ -122,10 +102,12 @@ namespace FlowFlex.WebApi.Extensions
                     {
                         if (configuration.GetValue<bool>("Database:EnableSqlLogging", false))
                         {
-                            Console.WriteLine($"[SQL] {sql}");
+                            // SQL logging is controlled by configuration
+                            // Use structured logging in production via Serilog or similar
+                            System.Diagnostics.Debug.WriteLine($"[SQL] {sql}");
                             if (pars?.Any() == true)
                             {
-                                Console.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
+                                System.Diagnostics.Debug.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
                             }
                         }
                         var finalSql = UtilMethods.GetSqlString(DbType.PostgreSQL, sql, pars);
@@ -133,7 +115,8 @@ namespace FlowFlex.WebApi.Extensions
 
                     provider.Aop.OnError = (exp) =>
                     {
-                        Console.WriteLine($"[SQL Error] {exp.Message}");
+                        // SQL errors should be logged via structured logging
+                        System.Diagnostics.Debug.WriteLine($"[SQL Error] {exp.Message}");
                     };
 
                     provider.Aop.DataExecuting = (oldValue, entityInfo) =>
@@ -170,7 +153,7 @@ namespace FlowFlex.WebApi.Extensions
                                           (!string.IsNullOrEmpty(userContext.UserName) ? userContext.UserName :
                                           (!string.IsNullOrEmpty(userContext.Email) ? userContext.Email : "SYSTEM"));
                             var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
-                            var tenantId = userContext.TenantId ?? "default";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(userContext);
 
                             if (entityInfo.EntityColumnInfo.PropertyInfo.PropertyType == typeof(DateTimeOffset?))
                             {
@@ -266,7 +249,7 @@ namespace FlowFlex.WebApi.Extensions
                         catch (Exception ex)
                         {
                             // Log other errors but don't interrupt operations
-                            Console.WriteLine($"[AOP Warning] Failed to set audit fields: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[AOP Warning] Failed to set audit fields: {ex.Message}");
                         }
                     };
 
@@ -324,8 +307,7 @@ namespace FlowFlex.WebApi.Extensions
                         }
 
                         // Determine final values with priority: headers > JWT claims > AppContext > defaults
-                        // 修改优先级顺序，使header优先级高于JWT token
-                        var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
+                        var userId = userIdHeader ?? userIdClaim?.Value ?? "0";
                         var email = emailClaim?.Value ?? string.Empty;
                         var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
                         var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "default";
@@ -345,11 +327,11 @@ namespace FlowFlex.WebApi.Extensions
                         };
                     }
 
-                    // Default values for test environment or when no HTTP context
+                    // Default values for background tasks or when no HTTP context
                     return new UserContext
                     {
-                        UserId = "1",
-                        UserName = "TestUser",
+                        UserId = "0",
+                        UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",
                         AppCode = "default"
@@ -360,7 +342,7 @@ namespace FlowFlex.WebApi.Extensions
                     // Service provider was disposed during shutdown, return safe default
                     return new UserContext
                     {
-                        UserId = "1",
+                        UserId = "0",
                         UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",
@@ -370,10 +352,10 @@ namespace FlowFlex.WebApi.Extensions
                 catch (Exception ex)
                 {
                     // Any other error, log and return safe default
-                    Console.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
                     return new UserContext
                     {
-                        UserId = "1",
+                        UserId = "0",
                         UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",
@@ -392,6 +374,10 @@ namespace FlowFlex.WebApi.Extensions
             services.AddScoped<IAIModelConfigRepository, AIModelConfigRepository>();
             services.AddScoped<IAIModelConfigService, AIModelConfigService>();
             services.AddScoped<FlowFlex.Domain.Repository.OW.IAIPromptHistoryRepository, FlowFlex.SqlSugarDB.Repositories.OW.AIPromptHistoryRepository>();
+
+            // Register fine-grained AI services via Application layer extension method
+            // (avoids System.Action namespace conflict with AI.Action namespace)
+            services.AddFineGrainedAIServices();
 
             // Register distributed cache service
             services.AddScoped<IDistributedCacheService, FlowFlex.Infrastructure.Services.RedisCacheService>();

@@ -1,11 +1,10 @@
-using AutoMapper;
+﻿using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 
@@ -67,7 +66,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var id = await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(entity);
 
-            _logger.LogInformation($"Created inbound field mapping: {input.ExternalFieldName} (ID: {id})");
+            _logger.LogInformation("Created inbound field mapping: {ExternalFieldName} (ID: {Id})", input.ExternalFieldName, id);
 
             return id;
         }
@@ -103,7 +102,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _fieldMappingRepository.UpdateAsync(entity);
 
-            _logger.LogInformation($"Updated inbound field mapping: {input.ExternalFieldName} (ID: {id})");
+            _logger.LogInformation("Updated inbound field mapping: {ExternalFieldName} (ID: {Id})", input.ExternalFieldName, id);
 
             return result;
         }
@@ -122,7 +121,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var result = await _fieldMappingRepository.UpdateAsync(entity);
 
-            _logger.LogInformation($"Deleted inbound field mapping: {entity.ExternalFieldName} (ID: {id})");
+            _logger.LogInformation("Deleted inbound field mapping: {ExternalFieldName} (ID: {Id})", entity.ExternalFieldName, id);
 
             return result;
         }
@@ -171,7 +170,7 @@ namespace FlowFlex.Application.Services.Integration
                     await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(entity);
                 }
 
-                _logger.LogInformation($"Batch created {inputs.Count} inbound field mappings for Action {actionId}");
+                _logger.LogInformation("Batch created {Count} inbound field mappings for Action {ActionId}", inputs.Count, actionId);
 
                 return true;
             }

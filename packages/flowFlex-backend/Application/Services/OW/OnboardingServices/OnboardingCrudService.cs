@@ -13,6 +13,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
@@ -27,7 +28,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     /// Service for onboarding CRUD operations
     /// Handles: Create, Update, Delete, GetById
     /// </summary>
-    public class OnboardingCrudService : IOnboardingCrudService
+    public class OnboardingCrudService : IOnboardingCrudService, IScopedService
     {
         #region Fields
 
@@ -308,7 +309,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 if (entityWithoutFilter != null)
                 {
-                    if (entityWithoutFilter.TenantId != _userContext.TenantId)
+                    if (entityWithoutFilter.TenantId != TenantContextHelper.GetTenantIdOrDefault(_userContext))
                     {
                         throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found or access denied. Record belongs to different tenant.");
                     }
@@ -797,8 +798,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         {
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
             {
-                try { await ClearOnboardingQueryCacheAsync(); }
-                catch (Exception ex) { _logger.LogWarning(ex, "Failed to clear query cache after create"); }
+                try 
+                { 
+                    await ClearOnboardingQueryCacheAsync(); 
+                }
+                catch (Exception ex) 
+                { 
+                    _logger.LogWarning(ex, "Failed to clear query cache after create for onboarding {OnboardingId}", insertedId); 
+                }
             });
 
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -806,7 +813,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 try
                 {
                     var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
-                    if (insertedEntity == null) return;
+                    if (insertedEntity == null) 
+                    {
+                        _logger.LogWarning("Onboarding {OnboardingId} not found for logging", insertedId);
+                        return;
+                    }
 
                     string workflowName = null;
                     try
@@ -814,7 +825,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         var workflow = await _workflowRepository.GetByIdAsync(insertedEntity.WorkflowId);
                         workflowName = workflow?.Name;
                     }
-                    catch { /* Ignore */ }
+                    catch (Exception workflowEx)
+                    {
+                        _logger.LogDebug(workflowEx, "Failed to get workflow name for onboarding {OnboardingId}", insertedId);
+                    }
 
                     var afterData = JsonSerializer.Serialize(new
                     {
