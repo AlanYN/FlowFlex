@@ -167,6 +167,14 @@ export async function createDynamicRoutes(router: Router) {
 
 		if (isPortalPath) {
 			console.log('[Router Guard] Skipping dynamic routes for Portal page');
+			// Load phone area data for Portal pages (needed for phone input components)
+			const appEnumStore = appEnum();
+			if (
+				(!appEnumStore.getPhoneArea || appEnumStore.getPhoneArea.length <= 0) &&
+				(getTokenobj()?.accessToken?.token || localStorage.getItem('portal_access_token'))
+			) {
+				await appEnumStore.setPhineAreaEnum();
+			}
 			return;
 		}
 
