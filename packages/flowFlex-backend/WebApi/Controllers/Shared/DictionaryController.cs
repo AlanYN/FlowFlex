@@ -1,5 +1,6 @@
 using System.Net;
 using FlowFlex.Application.Contracts.Dtos.Shared;
+using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Repository.Shared;
 using Item.Internal.StandardApi.Response;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,7 @@ namespace FlowFlex.WebApi.Controllers.Shared;
 [Route("shared/v{version:apiVersion}/dictionary")]
 [Asp.Versioning.ApiVersion("1.0")]
 [Authorize]
+[PortalAccess]
 public class DictionaryController : Controllers.ControllerBase
 {
     private readonly IPhoneNumberPrefixRepository _phoneNumberPrefixRepository;
