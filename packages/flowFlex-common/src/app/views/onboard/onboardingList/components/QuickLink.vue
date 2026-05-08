@@ -52,6 +52,7 @@ import { Icon } from '@iconify/vue';
 import { IQuickLink } from '#/integration';
 import { StageComponentData } from '#/onboard';
 import { getQuickLink } from '@/apis/integration';
+import { getStaticFieldValuesByOnboarding } from '@/apis/ow/onboarding';
 import {
 	RedirectType,
 	ValueSource,
@@ -76,6 +77,8 @@ const userStore = useUserStore();
 
 const isLoading = ref(false);
 const quickLinks = ref<IQuickLink[]>([]);
+// Stage 字段值缓存，key 为 fieldName，value 为字段值
+const stageFieldValues = ref<Record<string, string>>({});
 
 /**
  * 获取描述信息
@@ -132,6 +135,10 @@ function resolveParameterValue(
 			if (valueDetail === PageParameterDetail.OrderNumber) {
 				// 从路由查询参数获取 orderNumber
 				return (route.query.orderNumber as string) || '';
+			}
+			// 从 Stage 字段值中查找（支持自定义字段）
+			if (valueDetail && stageFieldValues.value[valueDetail] !== undefined) {
+				return stageFieldValues.value[valueDetail];
 			}
 			return '';
 
@@ -250,6 +257,41 @@ async function loadQuickLinks() {
 	}
 }
 
+/**
+ * 加载当前 Onboarding 的 Stage 字段值
+ * 用于 Quick Link URL 参数中 PageParameter 类型的值解析
+ */
+async function loadStageFieldValues() {
+	if (!props.onboardingId) return;
+
+	try {
+		const response = await getStaticFieldValuesByOnboarding(props.onboardingId);
+		if (response.code === '200' && response.data && Array.isArray(response.data)) {
+			const values: Record<string, string> = {};
+			response.data.forEach((field: any) => {
+				if (!field.fieldName || !field.fieldValueJson) return;
+				// 只取当前 stage 的字段，或者不限 stage（全部加载以支持跨 stage 引用）
+				try {
+					const parsed = JSON.parse(field.fieldValueJson);
+					// 如果是数组且只有一个元素，取第一个
+					if (Array.isArray(parsed) && parsed.length === 1) {
+						values[field.fieldName] = String(parsed[0]);
+					} else if (Array.isArray(parsed)) {
+						values[field.fieldName] = parsed.join(',');
+					} else {
+						values[field.fieldName] = String(parsed ?? '');
+					}
+				} catch {
+					values[field.fieldName] = field.fieldValueJson;
+				}
+			});
+			stageFieldValues.value = values;
+		}
+	} catch (error) {
+		console.error('Failed to load stage field values for quick link:', error);
+	}
+}
+
 // 监听组件变化
 watch(
 	() => props.component.quickLinkIds,
@@ -259,9 +301,19 @@ watch(
 	{ immediate: true, deep: true }
 );
 
+// 监听 onboardingId 或 stageId 变化时重新加载字段值
+watch(
+	[() => props.onboardingId, () => props.stageId],
+	() => {
+		loadStageFieldValues();
+	},
+	{ immediate: true }
+);
+
 // 初始化加载
 onMounted(() => {
 	loadQuickLinks();
+	loadStageFieldValues();
 });
 </script>
 
