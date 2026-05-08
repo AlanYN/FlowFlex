@@ -313,7 +313,7 @@
 															Value Detail
 														</span>
 													</template>
-													<!-- 下拉选择：Page Parameter, Login User Info, System Variable -->
+													<!-- 下拉选择：Page Parameter (可输入自定义字段名), Login User Info, System Variable -->
 													<el-select
 														v-if="
 															isValueDetailSelect(param.valueSource)
@@ -328,6 +328,14 @@
 														:disabled="
 															param.valueSource === null ||
 															param.valueSource === undefined
+														"
+														:filterable="
+															param.valueSource ===
+															ValueSource.PageParameter
+														"
+														:allow-create="
+															param.valueSource ===
+															ValueSource.PageParameter
 														"
 													>
 														<el-option
@@ -749,7 +757,7 @@ function isValueDetailSelect(valueSource: ValueSource): boolean {
  */
 function getValueDetailPlaceholder(valueSource: ValueSource): string {
 	const placeholders: Record<ValueSource, string> = {
-		[ValueSource.PageParameter]: 'Select page parameter',
+		[ValueSource.PageParameter]: 'Select or enter field name',
 		[ValueSource.LoginUserInfo]: 'Select user info field',
 		[ValueSource.FixedValue]: 'Enter fixed value',
 		[ValueSource.SystemVariable]: 'Select system variable',
