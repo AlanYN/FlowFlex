@@ -108,7 +108,7 @@
 				:disabled="!canTest || disabled"
 				@click="handleTest"
 			>
-				Test Options
+				Test Lookup
 			</el-button>
 			<span v-if="previewResult && previewResult.success" class="text-xs text-green-600">
 				Showing {{ previewResult.options?.length || 0 }} of
