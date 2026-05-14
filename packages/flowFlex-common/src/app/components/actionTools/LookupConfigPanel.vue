@@ -108,7 +108,7 @@
 				:disabled="!canTest || disabled"
 				@click="handleTest"
 			>
-				Test Lookup
+				Test Options
 			</el-button>
 			<span v-if="previewResult && previewResult.success" class="text-xs text-green-600">
 				Showing {{ previewResult.options?.length || 0 }} of
@@ -135,7 +135,7 @@
 			<el-alert
 				v-else
 				type="error"
-				:title="previewResult.error || 'Lookup failed'"
+				:title="previewResult.error || 'Failed to fetch options'"
 				:closable="true"
 				show-icon
 				@close="previewResult = null"
