@@ -231,7 +231,7 @@
 												<ArrowDown />
 											</el-icon>
 											<span class="text-sm font-medium text-text-primary">
-												AI Match
+												Request Field Lookup
 											</span>
 											<span class="text-xs text-text-secondary">
 												Auto-match free-text values to target system options
