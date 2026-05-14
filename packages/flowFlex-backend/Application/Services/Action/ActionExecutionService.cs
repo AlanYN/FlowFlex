@@ -21,6 +21,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionExecutionRepository _actionExecutionRepository;
         private readonly IActionExecutionFactory _actionExecutorFactory;
         private readonly IActionManagementService _actionManagementService;
+        private readonly IFieldLookupService _fieldLookupService;
+        private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
         private readonly ILogger<ActionExecutionService> _logger;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
@@ -30,6 +32,8 @@ namespace FlowFlex.Application.Services.Action
             IActionExecutionRepository actionExecutionRepository,
             IActionExecutionFactory actionExecutorFactory,
             IActionManagementService actionManagementService,
+            IFieldLookupService fieldLookupService,
+            IActionTriggerMappingRepository actionTriggerMappingRepository,
             IMapper mapper,
             UserContext userContext,
             ILogger<ActionExecutionService> logger)
@@ -38,6 +42,8 @@ namespace FlowFlex.Application.Services.Action
             _actionExecutionRepository = actionExecutionRepository;
             _actionExecutorFactory = actionExecutorFactory;
             _actionManagementService = actionManagementService;
+            _fieldLookupService = fieldLookupService;
+            _actionTriggerMappingRepository = actionTriggerMappingRepository;
             _logger = logger;
             _mapper = mapper;
             _userContext = userContext;
@@ -80,6 +86,43 @@ namespace FlowFlex.Application.Services.Action
 
                 try
                 {
+                    // Fetch lookup options from ActionConfig.lookupMappings
+                    List<FieldLookupResult>? lookupResults = null;
+                    var lookupMappingsToken = actionDefinition.ActionConfig?["lookupMappings"];
+                    if (lookupMappingsToken != null && lookupMappingsToken.Type == JTokenType.Array && lookupMappingsToken.Any())
+                    {
+                        try
+                        {
+                            var lookupMappings = lookupMappingsToken.ToObject<List<FieldMappingItem>>();
+                            if (lookupMappings != null && lookupMappings.Any())
+                            {
+                                lookupResults = await _fieldLookupService.FetchLookupOptionsAsync(
+                                    lookupMappings, contextData, cancellationToken);
+
+                                _logger.LogDebug("Fetched lookup results for action {ActionId}: {Count} fields",
+                                    actionDefinitionId, lookupResults.Count);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Lookup failure should not block action execution
+                            _logger.LogWarning(ex, "Failed to fetch lookup options for action {ActionId}, continuing execution",
+                                actionDefinitionId);
+                        }
+                    }
+
+                    // Store lookup metadata in execution input if available
+                    if (lookupResults != null && lookupResults.Any())
+                    {
+                        execution.ExecutionInput = JToken.FromObject(new { lookupResults });
+                        await _actionExecutionRepository.UpdateAsync(execution);
+
+                        // Resolve lookup values and inject into contextData
+                        // For each successful lookup, match source field value against options,
+                        // then inject the resolved value as the target param into contextData
+                        contextData = EnrichContextWithLookupValues(contextData, lookupResults, triggerMappingId ?? 0);
+                    }
+
                     // Get executor and execute
                     var executor = _actionExecutorFactory.CreateExecutor((ActionTypeEnum)Enum.Parse(typeof(ActionTypeEnum), actionDefinition.ActionType));
                     var result = await executor.ExecuteAsync(JsonConvert.SerializeObject(actionDefinition.ActionConfig), contextData);
@@ -259,6 +302,100 @@ namespace FlowFlex.Application.Services.Action
                     originalLength = jsonString.Length,
                     timestamp = DateTimeOffset.UtcNow
                 });
+            }
+        }
+
+        /// <summary>
+        /// Enrich contextData with resolved lookup values.
+        /// For each successful lookup field:
+        /// 1. Get the source field value from contextData (the WFE field value, e.g. "张三")
+        /// 2. Match it against the lookup options' display field
+        /// 3. If matched, inject the corresponding value as the target param (apiField) into contextData
+        /// This allows the executor's placeholder replacement to pick up the resolved values.
+        /// </summary>
+        private object EnrichContextWithLookupValues(object contextData, List<FieldLookupResult> lookupResults, long triggerMappingId)
+        {
+            try
+            {
+                // Convert contextData to a mutable dictionary
+                Dictionary<string, object> contextDict;
+
+                if (contextData is IDictionary<string, object> existingDict)
+                {
+                    contextDict = new Dictionary<string, object>(existingDict);
+                }
+                else if (contextData is Dictionary<string, object> dict)
+                {
+                    contextDict = new Dictionary<string, object>(dict);
+                }
+                else
+                {
+                    // Try to convert from JToken or other object
+                    var json = contextData is JToken jt ? jt : JToken.FromObject(contextData);
+                    contextDict = json.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>();
+                }
+
+                foreach (var lookupResult in lookupResults)
+                {
+                    if (lookupResult.Status != "success" || !lookupResult.Options.Any())
+                    {
+                        continue;
+                    }
+
+                    // The ApiField is the target param name (e.g. "sales_rep_id")
+                    // The WfeField (stored in a parallel structure) is the source field
+                    // We need to find the source value from contextData using the source field name
+
+                    // Get source field value from context
+                    // The source field name corresponds to the WFE field that was used in the lookup endpoint
+                    // For now, if there's only one option or the lookup returned a single match, use it directly
+                    if (lookupResult.Options.Count == 1)
+                    {
+                        // Single result - use it directly as the resolved value
+                        contextDict[lookupResult.ApiField] = lookupResult.Options[0].Value;
+                        _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (single result)",
+                            lookupResult.ApiField, lookupResult.Options[0].Value);
+                    }
+                    else
+                    {
+                        // Multiple results - try to match by source field value in display
+                        // Look for the source field value in contextData to match against display
+                        var matched = false;
+                        foreach (var kvp in contextDict)
+                        {
+                            var sourceValue = kvp.Value?.ToString();
+                            if (string.IsNullOrEmpty(sourceValue)) continue;
+
+                            var matchedOption = lookupResult.Options.FirstOrDefault(
+                                o => string.Equals(o.Display, sourceValue, StringComparison.OrdinalIgnoreCase));
+
+                            if (matchedOption != null)
+                            {
+                                contextDict[lookupResult.ApiField] = matchedOption.Value;
+                                _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (matched display '{Display}' from field '{SourceField}')",
+                                    lookupResult.ApiField, matchedOption.Value, matchedOption.Display, kvp.Key);
+                                matched = true;
+                                break;
+                            }
+                        }
+
+                        if (!matched)
+                        {
+                            // Fallback: use first option value
+                            contextDict[lookupResult.ApiField] = lookupResult.Options[0].Value;
+                            _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (fallback to first option, no display match found)",
+                                lookupResult.ApiField, lookupResult.Options[0].Value);
+                        }
+                    }
+                }
+
+                return contextDict;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to enrich context with lookup values for trigger mapping {MappingId}, returning original context",
+                    triggerMappingId);
+                return contextData;
             }
         }
 

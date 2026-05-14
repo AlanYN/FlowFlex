@@ -220,6 +220,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     IsEnabled = m.IsEnabled,
                     ExecutionOrder = m.ExecutionOrder,
                     Description = m.Description,
+                    MappingConfig = m.MappingConfig,
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
@@ -246,6 +247,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     IsEnabled = m.IsEnabled,
                     ExecutionOrder = m.ExecutionOrder,
                     Description = m.Description,
+                    MappingConfig = m.MappingConfig,
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
@@ -272,6 +274,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     IsEnabled = m.IsEnabled,
                     ExecutionOrder = m.ExecutionOrder,
                     Description = m.Description,
+                    MappingConfig = m.MappingConfig,
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
@@ -298,6 +301,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     IsEnabled = m.IsEnabled,
                     ExecutionOrder = m.ExecutionOrder,
                     Description = m.Description,
+                    MappingConfig = m.MappingConfig,
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
@@ -323,6 +327,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     IsEnabled = m.IsEnabled,
                     ExecutionOrder = m.ExecutionOrder,
                     Description = m.Description,
+                    MappingConfig = m.MappingConfig,
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
