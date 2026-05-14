@@ -214,7 +214,7 @@
 								/>
 							</div>
 
-							<!-- Pre-Execution Lookup Section -->
+							<!-- AI Match Section -->
 							<el-form-item class="w-full">
 								<div class="w-full">
 									<div
@@ -231,11 +231,11 @@
 												<ArrowDown />
 											</el-icon>
 											<span class="text-sm font-medium text-text-primary">
-												Pre-Execution Lookup
+												AI Match
 											</span>
 											<span class="text-xs text-text-secondary">
-												Resolve parameter values from external APIs before
-												sending request
+												Auto-match free-text values to target system options
+												using AI
 											</span>
 										</div>
 										<el-button
@@ -245,7 +245,7 @@
 											:disabled="shouldDisableFields"
 											:icon="Plus"
 										>
-											Add Lookup
+											Add Field
 										</el-button>
 									</div>
 									<el-collapse-transition>
@@ -279,7 +279,7 @@
 												<el-table
 													:data="outboundLookups"
 													class="w-full"
-													empty-text="No outbound lookups configured"
+													empty-text="No AI match fields configured"
 													:border="true"
 												>
 													<el-table-column
@@ -309,8 +309,8 @@
 													</el-table-column>
 
 													<el-table-column
-														label="Lookup"
-														width="80"
+														label="AI Match"
+														width="90"
 														align="center"
 													>
 														<template #default="{ row }">
@@ -346,7 +346,7 @@
 													</el-table-column>
 												</el-table>
 
-												<!-- Lookup Config Panels for enabled rows -->
+												<!-- AI Match Config Panels for enabled rows -->
 												<div
 													v-for="(row, index) in outboundLookups"
 													:key="'outbound-lookup-' + index"
@@ -355,7 +355,7 @@
 														<div
 															class="text-xs text-text-secondary mb-1"
 														>
-															Lookup config for:
+															Options source for:
 															<strong>
 																{{
 																	row.sourceField ||
@@ -813,7 +813,7 @@ function handleRemoveFieldMapping(index: number) {
 	fieldMappings.value = mappings;
 }
 
-// ===== Outbound Field Lookup =====
+// ===== AI Match (Outbound Field Lookup) =====
 const isOutboundLookupExpanded = ref(false);
 const outboundLookups = ref<IOutboundLookupItem[]>([]);
 
@@ -959,7 +959,7 @@ const resetForm = (closeDialog = true) => {
 	fieldMappings.value = [];
 	isFieldMappingExpanded.value = false;
 
-	// 重置 Outbound Lookup 状态
+	// 重置 AI Match 状态
 	outboundLookups.value = [];
 	isOutboundLookupExpanded.value = false;
 
