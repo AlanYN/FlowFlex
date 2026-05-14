@@ -71,5 +71,10 @@
         public string Description { get; set; } = string.Empty;
 
         public DateTimeOffset? LastApplied { get; set; }
+
+        /// <summary>
+        /// Mapping configuration (JSON format, contains outbound lookup field mappings)
+        /// </summary>
+        public Newtonsoft.Json.Linq.JToken? MappingConfig { get; set; }
     }
 }

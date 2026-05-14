@@ -3,6 +3,7 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using Item.Common.Lib.JsonConverts;
 using Item.Excel.Lib;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
 {
@@ -257,5 +258,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// </summary>
         [JsonConverter(typeof(DateTimeJsonConverter))]
         public DateTimeOffset? LastApplied { get; set; }
+
+        /// <summary>
+        /// Mapping configuration (contains outbound lookup field mappings)
+        /// </summary>
+        public JToken? MappingConfig { get; set; }
     }
 }
