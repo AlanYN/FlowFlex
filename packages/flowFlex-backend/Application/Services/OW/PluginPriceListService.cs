@@ -45,6 +45,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new Exception($"Onboarding not found for CaseCode: {caseCode}");
             }
 
+            var actualCaseCode = onboarding.CaseCode ?? caseCode;
+
             var permissionResult = await _permissionService.CheckCaseAccessAsync(
                 userId, onboarding.Id, OperationTypeEnum.View);
 
@@ -55,12 +57,12 @@ namespace FlowFlex.Application.Services.OW
 
             var permission = permissionResult.CanOperate ? "write" : "read";
 
-            var entity = await _repository.GetByCaseCodeAsync(caseCode);
+            var entity = await _repository.GetByCaseCodeAsync(actualCaseCode);
             if (entity == null)
             {
                 return new PluginPriceListOutputDto
                 {
-                    CaseCode = caseCode,
+                    CaseCode = actualCaseCode,
                     Permission = permission,
                     Data = null
                 };
@@ -94,6 +96,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new Exception($"Onboarding not found for CaseCode: {input.CaseCode}");
             }
 
+            var actualCaseCode = onboarding.CaseCode ?? input.CaseCode;
+
             var permissionResult = await _permissionService.CheckCaseAccessAsync(
                 userId, onboarding.Id, OperationTypeEnum.Operate);
 
@@ -104,7 +108,7 @@ namespace FlowFlex.Application.Services.OW
 
             var dataJson = input.Data != null ? JsonConvert.SerializeObject(input.Data) : "{}";
 
-            var existing = await _repository.GetByCaseCodeAsync(input.CaseCode);
+            var existing = await _repository.GetByCaseCodeAsync(actualCaseCode);
             if (existing != null)
             {
                 existing.CustomerCode = input.CustomerCode;
@@ -123,7 +127,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var entity = new PluginPriceList
                 {
-                    CaseCode = input.CaseCode,
+                    CaseCode = actualCaseCode,
                     CustomerCode = input.CustomerCode,
                     CustomerName = input.CustomerName,
                     PriceListType = input.PriceListType ?? "Customer Specific",
@@ -149,6 +153,8 @@ namespace FlowFlex.Application.Services.OW
                 throw new Exception($"Onboarding not found for CaseCode: {input.CaseCode}");
             }
 
+            var actualCaseCode = onboarding.CaseCode ?? input.CaseCode;
+
             var permissionResult = await _permissionService.CheckCaseAccessAsync(
                 userId, onboarding.Id, OperationTypeEnum.Operate);
 
@@ -157,10 +163,10 @@ namespace FlowFlex.Application.Services.OW
                 throw new UnauthorizedAccessException("Access denied - write permission required");
             }
 
-            var entity = await _repository.GetByCaseCodeAsync(input.CaseCode);
+            var entity = await _repository.GetByCaseCodeAsync(actualCaseCode);
             if (entity == null)
             {
-                throw new Exception($"Price list not found for CaseCode: {input.CaseCode}");
+                throw new Exception($"Price list not found for CaseCode: {actualCaseCode}");
             }
 
             entity.Status = "submitted";
@@ -172,6 +178,14 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task<Onboarding?> GetOnboardingByCaseCodeAsync(string caseCode)
         {
+            // Support both CaseCode (e.g. "C00001") and Onboarding ID (numeric)
+            if (long.TryParse(caseCode, out var onboardingId))
+            {
+                return await _db.Queryable<Onboarding>()
+                    .Where(x => (x.Id == onboardingId || x.CaseCode == caseCode) && x.IsValid)
+                    .FirstAsync();
+            }
+
             return await _db.Queryable<Onboarding>()
                 .Where(x => x.CaseCode == caseCode && x.IsValid)
                 .FirstAsync();
