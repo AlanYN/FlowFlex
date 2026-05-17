@@ -601,3 +601,197 @@ Value: FUZE
 ```
 
 执行时 `{{integrationToken}}` 会被自动替换为 contextData 中的实际 token 值。
+
+---
+
+## 第八组：AI 字段匹配（LLM 模糊匹配）
+
+> **背景**：当前 `EnrichContextWithLookupValues` 仅做精确匹配（display 完全相等）。当用户输入与选项列表存在同义词、缩写、跨语言、拼写错误等差异时，精确匹配失败，字段值无法正确替换。需要引入 LLM 做模糊匹配，作为精确匹配的增强层。
+
+### 设计方案
+
+**核心逻辑**：精确匹配优先 → 精确匹配失败的字段收集 → 一次 LLM 调用批量匹配 → 验证返回值合法性 → 替换
+
+**调用链路**：
+
+```
+EnrichContextWithLookupValues
+  → 精确匹配（现有逻辑）
+  → 未匹配的字段收集
+  → IFieldMatchingAIService.MatchFieldsAsync(unmatchedFields)
+      → 构建 Prompt（字段 + 选项列表）
+      → IAIProviderAdapter.CallAsync(prompt)
+      → 解析 JSON 响应
+      → 验证返回值在选项范围内
+  → 用 AI 结果替换 contextData 中的值
+  → 保存 AI 匹配元数据到 execution record
+```
+
+**降级策略**：
+
+- LLM 服务不可用 / 超时（10s）/ 返回格式异常 → 保留原始值不替换，标记为 `ai_unmatched`
+- AI 返回的值不在选项列表中 → 视为未匹配，保留原始值
+- 所有字段精确匹配成功 → 不调 AI，零影响
+
+**大列表预筛选**：选项列表 > 200 条时，先做模糊预筛选（Contains + Levenshtein 相似度 > 0.5），缩小到 20 条再给 AI
+
+---
+
+### TASK-TD-021: 创建 AI 字段匹配接口和 DTO
+
+**文件**：
+
+- `packages/flowFlex-backend/Application.Contracts/IServices/Action/IFieldMatchingAIService.cs`
+- `packages/flowFlex-backend/Application.Contracts/Dtos/Action/FieldMatchingAIDto.cs`
+
+**操作步骤**：
+
+1. 创建 `FieldMatchingAIDto.cs`，包含：
+   - `FieldMatchContext`（apiField + rawValue + options: List\<OptionItem\>）
+   - `FieldMatchResult`（apiField + rawValue + matchedValue + confidence + reasoning + source）
+   - `AiMatchMetadata`（originalInput + matchedValue + confidence + reasoning + source）
+   - `source` 枚举值：`exact_matched` / `ai_matched` / `ai_unmatched`
+2. 创建 `IFieldMatchingAIService.cs` 接口：
+   ```csharp
+   public interface IFieldMatchingAIService : IScopedService
+   {
+       Task<List<FieldMatchResult>> MatchFieldsAsync(
+           List<FieldMatchContext> fields,
+           CancellationToken cancellationToken = default);
+   }
+   ```
+
+**依赖**：无
+
+### TASK-TD-022: 实现 FieldMatchingAIService
+
+**文件**：`packages/flowFlex-backend/Application/Services/Action/FieldMatchingAIService.cs`
+
+**操作步骤**：
+
+1. 创建 `FieldMatchingAIService` 类，实现 `IFieldMatchingAIService, IScopedService`
+2. 构造函数注入：`IAIProviderAdapter`, `ILogger<FieldMatchingAIService>`
+3. 实现 `MatchFieldsAsync`：
+   - 如果 fields 为空，直接返回空列表
+   - 对每个字段做大列表预筛选（> 200 条时模糊过滤到 20 条）
+   - 调用 `BuildPrompt(fields)` 构建 prompt
+   - 调用 `_aiProviderAdapter.CallAsync(new AIProviderRequest { Prompt = prompt })`
+   - 调用 `ParseAndValidateResponse(response, fields)` 解析并验证
+   - try-catch 包裹整个流程，失败时返回所有字段标记为 `ai_unmatched`
+4. 实现 `BuildPrompt(fields)` 私有方法：
+   - 按方案文档第 3 节的 prompt 格式构建
+   - System 指令 + 每个字段的 input/options + 匹配规则 + JSON 响应格式要求
+5. 实现 `ParseAndValidateResponse(response, fields)` 私有方法：
+   - 从 AI 响应中提取 JSON（处理可能的 markdown code block 包裹）
+   - 反序列化为 `{ matches: [...] }` 结构
+   - 验证每个 match 的 value 是否在对应字段的选项列表中
+   - 非法值 → value 设为 null，confidence 设为 0，source 设为 `ai_unmatched`
+6. 实现 `PreFilterOptions(rawValue, options, maxCount)` 私有方法：
+   - 精确包含匹配（Contains, OrdinalIgnoreCase）
+   - 简单相似度计算（Levenshtein 或子串匹配）
+   - 取 Top N（默认 20）
+
+**依赖**：TASK-TD-021
+
+### TASK-TD-023: 修改 ActionExecutionService — 集成 AI 匹配
+
+**文件**：`packages/flowFlex-backend/Application/Services/Action/ActionExecutionService.cs`（修改）
+
+**操作步骤**：
+
+1. 在构造函数中注入 `IFieldMatchingAIService`
+2. 重构 `EnrichContextWithLookupValues` 方法：
+   - **第一轮：精确匹配**（保留现有逻辑）
+     - 遍历 lookupResults，对每个成功的字段尝试精确匹配 display
+     - 匹配成功 → 记录 source = `exact_matched`
+   - **第二轮：收集未匹配字段**
+     - 精确匹配失败的字段（多选项且无 display 完全匹配）收集为 `List<FieldMatchContext>`
+   - **第三轮：AI 匹配**
+     - 如果有未匹配字段 → 调用 `_fieldMatchingAIService.MatchFieldsAsync(unmatchedFields)`
+     - 遍历 AI 结果，matchedValue 不为 null 时替换 contextData 中的值
+   - **第四轮：构建 AI 匹配元数据**
+     - 为所有经过 lookup 的字段构建 `AiMatchMetadata`
+     - 存入 `execution.ExecutionInput` 的 `aiMatchMetadata` 字段
+3. 更新 `execution.ExecutionInput`：
+   ```json
+   {
+     "lookupResults": [...],
+     "aiMatchMetadata": {
+       "sales_rep_id": { "originalInput": "张三", "matchedValue": "USER_001", "confidence": 0.98, "reasoning": "...", "source": "exact_matched" },
+       "facility_code": { "originalInput": "浦东新办公室", "matchedValue": "SH002", "confidence": 0.85, "reasoning": "...", "source": "ai_matched" }
+     }
+   }
+   ```
+4. 确保 AI 调用失败不阻断流程（try-catch + 降级为保留原始值）
+
+**依赖**：TASK-TD-022
+
+### TASK-TD-024: 前端 — 审批/执行记录界面显示 AI 匹配标记（可选）
+
+**文件**：待定（Action 执行历史详情组件）
+
+**操作步骤**：
+
+1. 在 Action 执行记录详情中，读取 `executionInput.aiMatchMetadata`
+2. 对有 AI 匹配元数据的字段显示标记：
+   - `exact_matched`：显示绿色 ✓ 标记
+   - `ai_matched`：显示 "AI Assisted" 徽章 + 置信度百分比 + 原始输入（灰色副文本）
+   - `ai_unmatched`：显示红色高亮 + "Manual review needed" 提示
+3. 此任务为可选优化，不阻塞核心功能
+
+**依赖**：TASK-TD-023
+
+---
+
+### 执行顺序
+
+```
+TASK-TD-021 (接口 + DTO 定义)
+    ↓
+TASK-TD-022 (FieldMatchingAIService 实现)
+    ↓
+TASK-TD-023 (ActionExecutionService 集成 AI 匹配)
+    ↓
+TASK-TD-024 (前端 AI 标记展示 — 可选)
+```
+
+### Prompt 模板参考
+
+````
+You are a data matching assistant. Match the user's free-text input to the correct option value from the provided lists.
+
+## Fields to match
+
+### {apiField}
+User input: "{rawValue}"
+Available options:
+  - "{option.Display}" → {option.Value}
+  - ...
+
+## Rules
+1. Consider exact matches, partial matches, synonyms, abbreviations, typos, and cross-language equivalents
+2. You MUST select from the given options only. Do not invent values.
+3. If no option matches, return null for value
+4. confidence is a float between 0 and 1
+
+## Response format (strict JSON, no extra text)
+```json
+{
+  "matches": [
+    { "field": "field_name", "value": "matched_value_or_null", "confidence": 0.95, "reasoning": "brief reason" }
+  ]
+}
+````
+
+```
+
+### 预估工时
+
+| 任务 | 工时 |
+|------|------|
+| TASK-TD-021: 接口 + DTO | 0.25 天 |
+| TASK-TD-022: AI Service 实现 | 0.5 天 |
+| TASK-TD-023: 执行链路集成 | 0.5 天 |
+| TASK-TD-024: 前端标记（可选） | 0.5 天 |
+| **合计** | **1.75 天** |
+```
