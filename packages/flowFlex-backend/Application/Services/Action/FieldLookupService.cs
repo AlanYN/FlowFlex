@@ -167,11 +167,21 @@ namespace FlowFlex.Application.Services.Action
                 var lookup = field.Lookup!;
                 var integrationId = lookup.IntegrationId ?? defaultIntegrationId;
 
-                // Replace placeholders in endpoint (e.g. {{fieldName}}) with context values
-                var processedEndpoint = ReplacePlaceholders(lookup.Endpoint, contextData);
+                // Replace placeholders in endpoint (e.g. {{fieldName}}) with context values, URL-encoded
+                var processedEndpoint = ReplacePlaceholders(lookup.Endpoint, contextData, urlEncode: true);
 
                 // Replace placeholders in headers values (e.g. {{integrationToken}})
                 var processedHeaders = ProcessHeaders(lookup.Headers, contextData);
+
+                // Remove headers with unresolved placeholders (e.g. Preview scenario where contextData is null)
+                // This allows IntegrationHttpClient's built-in authentication to take effect
+                if (processedHeaders != null)
+                {
+                    processedHeaders = processedHeaders
+                        .Where(h => !h.Value.Contains("{{"))
+                        .ToDictionary(h => h.Key, h => h.Value);
+                    if (processedHeaders.Count == 0) processedHeaders = null;
+                }
 
                 // Determine how to make the HTTP call
                 IntegrationHttpResponse response;
@@ -347,7 +357,7 @@ namespace FlowFlex.Application.Services.Action
         /// <summary>
         /// Replace {{placeholder}} patterns in a string with values from contextData
         /// </summary>
-        private string ReplacePlaceholders(string input, object? contextData)
+        private string ReplacePlaceholders(string input, object? contextData, bool urlEncode = false)
         {
             if (string.IsNullOrEmpty(input) || contextData == null)
                 return input;
@@ -359,7 +369,8 @@ namespace FlowFlex.Application.Services.Action
                 {
                     var placeholderName = match.Groups[1].Value.Trim();
                     var value = ExtractValueFromContext(contextData, placeholderName);
-                    return value?.ToString() ?? string.Empty;
+                    var stringValue = value?.ToString() ?? string.Empty;
+                    return urlEncode ? Uri.EscapeDataString(stringValue) : stringValue;
                 });
 
                 return result;

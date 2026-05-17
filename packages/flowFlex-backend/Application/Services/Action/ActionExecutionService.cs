@@ -1,4 +1,4 @@
-﻿using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using AutoMapper;
 using FlowFlex.Application.Services.OW.Extensions;
+using System.Collections.Generic;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -22,6 +23,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly IActionExecutionFactory _actionExecutorFactory;
         private readonly IActionManagementService _actionManagementService;
         private readonly IFieldLookupService _fieldLookupService;
+        private readonly IFieldMatchingAIService _fieldMatchingAIService;
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
         private readonly ILogger<ActionExecutionService> _logger;
         private readonly IMapper _mapper;
@@ -33,6 +35,7 @@ namespace FlowFlex.Application.Services.Action
             IActionExecutionFactory actionExecutorFactory,
             IActionManagementService actionManagementService,
             IFieldLookupService fieldLookupService,
+            IFieldMatchingAIService fieldMatchingAIService,
             IActionTriggerMappingRepository actionTriggerMappingRepository,
             IMapper mapper,
             UserContext userContext,
@@ -43,6 +46,7 @@ namespace FlowFlex.Application.Services.Action
             _actionExecutorFactory = actionExecutorFactory;
             _actionManagementService = actionManagementService;
             _fieldLookupService = fieldLookupService;
+            _fieldMatchingAIService = fieldMatchingAIService;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
             _logger = logger;
             _mapper = mapper;
@@ -88,12 +92,13 @@ namespace FlowFlex.Application.Services.Action
                 {
                     // Fetch lookup options from ActionConfig.lookupMappings
                     List<FieldLookupResult>? lookupResults = null;
+                    List<FieldMappingItem>? lookupMappings = null;
                     var lookupMappingsToken = actionDefinition.ActionConfig?["lookupMappings"];
                     if (lookupMappingsToken != null && lookupMappingsToken.Type == JTokenType.Array && lookupMappingsToken.Any())
                     {
                         try
                         {
-                            var lookupMappings = lookupMappingsToken.ToObject<List<FieldMappingItem>>();
+                            lookupMappings = lookupMappingsToken.ToObject<List<FieldMappingItem>>();
                             if (lookupMappings != null && lookupMappings.Any())
                             {
                                 lookupResults = await _fieldLookupService.FetchLookupOptionsAsync(
@@ -114,13 +119,22 @@ namespace FlowFlex.Application.Services.Action
                     // Store lookup metadata in execution input if available
                     if (lookupResults != null && lookupResults.Any())
                     {
-                        execution.ExecutionInput = JToken.FromObject(new { lookupResults });
-                        await _actionExecutionRepository.UpdateAsync(execution);
+                        // Resolve lookup values with AI-enhanced matching
+                        var (enrichedContext, aiMetadata) = await EnrichContextWithLookupValuesAsync(
+                            contextData, lookupResults, lookupMappings ?? new List<FieldMappingItem>(), triggerMappingId ?? 0, cancellationToken);
+                        contextData = enrichedContext;
 
-                        // Resolve lookup values and inject into contextData
-                        // For each successful lookup, match source field value against options,
-                        // then inject the resolved value as the target param into contextData
-                        contextData = EnrichContextWithLookupValues(contextData, lookupResults, triggerMappingId ?? 0);
+                        // Store lookup results and AI match metadata in execution record
+                        var executionInputData = new Dictionary<string, object>
+                        {
+                            ["lookupResults"] = lookupResults
+                        };
+                        if (aiMetadata.Any())
+                        {
+                            executionInputData["aiMatchMetadata"] = aiMetadata;
+                        }
+                        execution.ExecutionInput = JToken.FromObject(executionInputData);
+                        await _actionExecutionRepository.UpdateAsync(execution);
                     }
 
                     // Get executor and execute
@@ -306,35 +320,35 @@ namespace FlowFlex.Application.Services.Action
         }
 
         /// <summary>
-        /// Enrich contextData with resolved lookup values.
+        /// Enrich contextData with resolved lookup values using exact match first, then AI matching as fallback.
         /// For each successful lookup field:
         /// 1. Get the source field value from contextData (the WFE field value, e.g. "张三")
-        /// 2. Match it against the lookup options' display field
-        /// 3. If matched, inject the corresponding value as the target param (apiField) into contextData
-        /// This allows the executor's placeholder replacement to pick up the resolved values.
+        /// 2. Try exact match against the lookup options' display field
+        /// 3. If exact match fails, collect unmatched fields for AI batch matching
+        /// 4. Use AI results to resolve remaining fields
+        /// 5. Store match metadata in execution record for audit
         /// </summary>
-        private object EnrichContextWithLookupValues(object contextData, List<FieldLookupResult> lookupResults, long triggerMappingId)
+        private async Task<(object enrichedContext, Dictionary<string, AiMatchMetadata> metadata)> EnrichContextWithLookupValuesAsync(
+            object contextData,
+            List<FieldLookupResult> lookupResults,
+            List<FieldMappingItem> lookupMappings,
+            long triggerMappingId,
+            CancellationToken cancellationToken)
         {
+            var metadata = new Dictionary<string, AiMatchMetadata>();
+
             try
             {
                 // Convert contextData to a mutable dictionary
-                Dictionary<string, object> contextDict;
+                Dictionary<string, object> contextDict = ConvertToContextDictionary(contextData);
+                var lookupMappingByApiField = lookupMappings
+                    .Where(m => !string.IsNullOrWhiteSpace(m.ApiField) && m.Lookup != null)
+                    .GroupBy(m => m.ApiField, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-                if (contextData is IDictionary<string, object> existingDict)
-                {
-                    contextDict = new Dictionary<string, object>(existingDict);
-                }
-                else if (contextData is Dictionary<string, object> dict)
-                {
-                    contextDict = new Dictionary<string, object>(dict);
-                }
-                else
-                {
-                    // Try to convert from JToken or other object
-                    var json = contextData is JToken jt ? jt : JToken.FromObject(contextData);
-                    contextDict = json.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>();
-                }
+                var unmatchedFields = new List<FieldMatchContext>();
 
+                // Phase 1: Exact matching
                 foreach (var lookupResult in lookupResults)
                 {
                     if (lookupResult.Status != "success" || !lookupResult.Options.Any())
@@ -342,62 +356,258 @@ namespace FlowFlex.Application.Services.Action
                         continue;
                     }
 
-                    // The ApiField is the target param name (e.g. "sales_rep_id")
-                    // The WfeField (stored in a parallel structure) is the source field
-                    // We need to find the source value from contextData using the source field name
-
-                    // Get source field value from context
-                    // The source field name corresponds to the WFE field that was used in the lookup endpoint
-                    // For now, if there's only one option or the lookup returned a single match, use it directly
-                    if (lookupResult.Options.Count == 1)
+                    if (!lookupMappingByApiField.TryGetValue(lookupResult.ApiField, out var lookupMapping))
                     {
-                        // Single result - use it directly as the resolved value
-                        contextDict[lookupResult.ApiField] = lookupResult.Options[0].Value;
-                        _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (single result)",
-                            lookupResult.ApiField, lookupResult.Options[0].Value);
+                        _logger.LogWarning("Lookup result for {ApiField} has no matching ActionConfig.lookupMappings entry, skipping value enrichment",
+                            lookupResult.ApiField);
+                        continue;
                     }
-                    else
+
+                    var sourceValue = ExtractSourceFieldValue(contextData, contextDict, lookupMapping.WfeField);
+
+                    if (string.IsNullOrWhiteSpace(sourceValue))
                     {
-                        // Multiple results - try to match by source field value in display
-                        // Look for the source field value in contextData to match against display
-                        var matched = false;
-                        foreach (var kvp in contextDict)
+                        metadata[lookupResult.ApiField] = new AiMatchMetadata
                         {
-                            var sourceValue = kvp.Value?.ToString();
-                            if (string.IsNullOrEmpty(sourceValue)) continue;
+                            OriginalInput = string.Empty,
+                            MatchedValue = null,
+                            Confidence = 0,
+                            Reasoning = $"Source field '{lookupMapping.WfeField}' was not found in context data",
+                            Source = "source_missing"
+                        };
+                        _logger.LogDebug("Lookup unresolved: {TargetParam}, source field '{SourceField}' was not found in context",
+                            lookupResult.ApiField, lookupMapping.WfeField);
+                        continue;
+                    }
 
-                            var matchedOption = lookupResult.Options.FirstOrDefault(
-                                o => string.Equals(o.Display, sourceValue, StringComparison.OrdinalIgnoreCase));
+                    // Multiple results - try exact match by configured source field value in display
+                    var exactMatched = false;
+                    var matchedOption = lookupResult.Options.FirstOrDefault(
+                        o => string.Equals(o.Display, sourceValue, StringComparison.OrdinalIgnoreCase));
 
-                            if (matchedOption != null)
+                    if (matchedOption != null)
+                    {
+                        contextDict[lookupResult.ApiField] = matchedOption.Value;
+                        metadata[lookupResult.ApiField] = new AiMatchMetadata
+                        {
+                            OriginalInput = sourceValue,
+                            MatchedValue = matchedOption.Value,
+                            Confidence = 1.0,
+                            Reasoning = $"Exact match for '{sourceValue}'",
+                            Source = "exact_matched"
+                        };
+                        _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (exact match from '{SourceField}')",
+                            lookupResult.ApiField, matchedOption.Value, lookupMapping.WfeField);
+                        exactMatched = true;
+                    }
+
+                    if (!exactMatched)
+                    {
+                        // Collect for AI matching using the configured source field only.
+                        unmatchedFields.Add(new FieldMatchContext
+                        {
+                            ApiField = lookupResult.ApiField,
+                            RawValue = sourceValue,
+                            Options = lookupResult.Options
+                        });
+                    }
+                }
+
+                // Phase 2: AI matching for unmatched fields
+                if (unmatchedFields.Any())
+                {
+                    _logger.LogInformation("AI field matching: {Count} fields need AI resolution", unmatchedFields.Count);
+
+                    try
+                    {
+                        var aiResults = await _fieldMatchingAIService.MatchFieldsAsync(unmatchedFields, cancellationToken);
+
+                        // Build a lookup: apiField → valid option values, for hallucination guard
+                        var validOptionsByField = unmatchedFields
+                            .ToDictionary(f => f.ApiField, f => f.Options, StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var aiResult in aiResults)
+                        {
+                            // Guard: reject AI values that are not in the original options list
+                            if (aiResult.MatchedValue != null)
                             {
-                                contextDict[lookupResult.ApiField] = matchedOption.Value;
-                                _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (matched display '{Display}' from field '{SourceField}')",
-                                    lookupResult.ApiField, matchedOption.Value, matchedOption.Display, kvp.Key);
-                                matched = true;
-                                break;
-                            }
-                        }
+                                var isValidValue = validOptionsByField.TryGetValue(aiResult.ApiField, out var validOptions)
+                                    && validOptions.Any(o => string.Equals(o.Value, aiResult.MatchedValue, StringComparison.OrdinalIgnoreCase));
 
-                        if (!matched)
+                                if (!isValidValue)
+                                {
+                                    _logger.LogWarning(
+                                        "AI returned value '{Value}' for field '{Field}' is not in the valid options list, treating as unmatched",
+                                        aiResult.MatchedValue, aiResult.ApiField);
+                                    metadata[aiResult.ApiField] = new AiMatchMetadata
+                                    {
+                                        OriginalInput = aiResult.RawValue,
+                                        MatchedValue = null,
+                                        Confidence = 0,
+                                        Reasoning = $"AI suggested '{aiResult.MatchedValue}' but it is not in the valid options list",
+                                        Source = "ai_unmatched"
+                                    };
+                                    continue;
+                                }
+
+                                contextDict[aiResult.ApiField] = aiResult.MatchedValue;
+                                _logger.LogDebug("AI matched: {TargetParam} = {Value} (confidence: {Confidence})",
+                                    aiResult.ApiField, aiResult.MatchedValue, aiResult.Confidence);
+                            }
+                            else
+                            {
+                                _logger.LogDebug("AI unmatched: {TargetParam}, raw value '{RawValue}' has no match",
+                                    aiResult.ApiField, aiResult.RawValue);
+                            }
+
+                            metadata[aiResult.ApiField] = new AiMatchMetadata
+                            {
+                                OriginalInput = aiResult.RawValue,
+                                MatchedValue = aiResult.MatchedValue,
+                                Confidence = aiResult.Confidence,
+                                Reasoning = aiResult.Reasoning,
+                                Source = aiResult.Source
+                            };
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // AI failure should not block execution - mark all as unmatched
+                        _logger.LogWarning(ex, "AI field matching failed, continuing with unmatched fields");
+                        foreach (var field in unmatchedFields)
                         {
-                            // Fallback: use first option value
-                            contextDict[lookupResult.ApiField] = lookupResult.Options[0].Value;
-                            _logger.LogDebug("Lookup resolved: {TargetParam} = {Value} (fallback to first option, no display match found)",
-                                lookupResult.ApiField, lookupResult.Options[0].Value);
+                            metadata[field.ApiField] = new AiMatchMetadata
+                            {
+                                OriginalInput = field.RawValue,
+                                MatchedValue = null,
+                                Confidence = 0,
+                                Reasoning = "AI matching unavailable",
+                                Source = "ai_unmatched"
+                            };
                         }
                     }
                 }
 
-                return contextDict;
+                return (contextDict, metadata);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to enrich context with lookup values for trigger mapping {MappingId}, returning original context",
                     triggerMappingId);
-                return contextData;
+                return (contextData, metadata);
             }
         }
+
+        /// <summary>
+        /// Extract the configured source field value from context data.
+        /// </summary>
+        private string? ExtractSourceFieldValue(object contextData, Dictionary<string, object> contextDict, string wfeField)
+        {
+            var sourceField = NormalizeWfeField(wfeField);
+            if (string.IsNullOrWhiteSpace(sourceField))
+            {
+                return null;
+            }
+
+            if (TryGetContextDictionaryValue(contextDict, sourceField, out var dictionaryValue))
+            {
+                return ConvertContextValueToString(dictionaryValue);
+            }
+
+            if (!string.Equals(sourceField, wfeField, StringComparison.Ordinal) &&
+                TryGetContextDictionaryValue(contextDict, wfeField, out dictionaryValue))
+            {
+                return ConvertContextValueToString(dictionaryValue);
+            }
+
+            try
+            {
+                // Fallback: use JSONPath SelectToken to support nested paths (e.g. "user.name")
+                // that cannot be expressed as flat dictionary keys. contextDict is checked first
+                // so enriched values from previous iterations do not interfere here.
+                var token = contextData is JToken jt ? jt : JToken.FromObject(contextData);
+                var valueToken = token.SelectToken(sourceField);
+                if (valueToken != null && valueToken.Type != JTokenType.Null)
+                {
+                    return valueToken.Type == JTokenType.Object || valueToken.Type == JTokenType.Array
+                        ? valueToken.ToString(Formatting.None)
+                        : valueToken.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract source field '{SourceField}' from context data", sourceField);
+            }
+
+            return null;
+        }
+
+        private static string NormalizeWfeField(string wfeField)
+        {
+            var value = (wfeField ?? string.Empty).Trim();
+            if (value.StartsWith("{{", StringComparison.Ordinal) && value.EndsWith("}}", StringComparison.Ordinal) && value.Length > 4)
+            {
+                value = value[2..^2].Trim();
+            }
+
+            return value;
+        }
+
+        private static bool TryGetContextDictionaryValue(Dictionary<string, object> contextDict, string key, out object? value)
+        {
+            if (contextDict.TryGetValue(key, out value))
+            {
+                return true;
+            }
+
+            foreach (var kvp in contextDict)
+            {
+                if (string.Equals(kvp.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = kvp.Value;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static string? ConvertContextValueToString(object? value)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            if (value is JToken token)
+            {
+                return token.Type == JTokenType.Object || token.Type == JTokenType.Array
+                    ? token.ToString(Formatting.None)
+                    : token.ToString();
+            }
+
+            return value.ToString();
+        }
+
+        /// <summary>
+        /// Convert contextData to a mutable dictionary
+        /// </summary>
+        private Dictionary<string, object> ConvertToContextDictionary(object contextData)
+        {
+            // Dictionary<string, object> is a subtype of IDictionary<string, object>,
+            // so the first branch covers both — the second branch is not needed.
+            if (contextData is IDictionary<string, object> existingDict)
+            {
+                return new Dictionary<string, object>(existingDict);
+            }
+            else
+            {
+                var json = contextData is JToken jt ? jt : JToken.FromObject(contextData);
+                return json.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>();
+            }
+        }
+
 
         #endregion
     }

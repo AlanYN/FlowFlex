@@ -111,7 +111,18 @@ namespace FlowFlex.Application.Services.Integration
                 var request = new HttpRequestMessage(method, requestUrl);
 
                 // 6. Apply authentication headers
-                ApplyAuthentication(request, integration.AuthMethod, credentials);
+                if (integration.AuthMethod == AuthenticationMethod.OAuth2)
+                {
+                    var oauthToken = await GetOAuth2TokenAsync(integration.EndpointUrl, credentials, cancellationToken);
+                    if (!string.IsNullOrEmpty(oauthToken))
+                    {
+                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", oauthToken);
+                    }
+                }
+                else
+                {
+                    ApplyAuthentication(request, integration.AuthMethod, credentials);
+                }
 
                 // 7. Add common headers
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -264,13 +275,7 @@ namespace FlowFlex.Application.Services.Integration
                     break;
 
                 case AuthenticationMethod.OAuth2:
-                    // For OAuth2, we need to get an access token first
-                    // The token should be obtained before calling this method
-                    // For now, if a token is available in credentials, use it
-                    if (credentials.TryGetValue("accessToken", out var accessToken))
-                    {
-                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                    }
+                    // OAuth2 is handled asynchronously in SendAsync before this method is called
                     break;
 
                 case AuthenticationMethod.BearerToken:
@@ -301,6 +306,71 @@ namespace FlowFlex.Application.Services.Integration
             {
                 _logger.LogError(ex, "Failed to decrypt credentials");
                 return new Dictionary<string, string>();
+            }
+        }
+
+        /// <summary>
+        /// Obtain an OAuth2 access token using client_credentials grant
+        /// </summary>
+        private async Task<string?> GetOAuth2TokenAsync(
+            string tokenEndpoint,
+            Dictionary<string, string> credentials,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(tokenEndpoint))
+            {
+                _logger.LogWarning("OAuth2 token endpoint is not configured");
+                return null;
+            }
+
+            if (!credentials.TryGetValue("clientId", out var clientId) ||
+                !credentials.TryGetValue("clientSecret", out var clientSecret))
+            {
+                _logger.LogWarning("OAuth2 credentials missing clientId or clientSecret");
+                return null;
+            }
+
+            try
+            {
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+                var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint);
+                var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+                request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "grant_type", "client_credentials" }
+                });
+
+                var response = await httpClient.SendAsync(request, cancellationToken);
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("OAuth2 token request failed: {StatusCode} - {Response}",
+                        response.StatusCode, content.Length > 200 ? content[..200] : content);
+                    return null;
+                }
+
+                var tokenResponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
+                var accessToken = tokenResponse?.ContainsKey("access_token") == true
+                    ? tokenResponse["access_token"]?.ToString()
+                    : null;
+
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    _logger.LogWarning("OAuth2 response missing access_token");
+                    return null;
+                }
+
+                _logger.LogDebug("Successfully obtained OAuth2 token from {Endpoint}", tokenEndpoint);
+                return accessToken;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obtaining OAuth2 token from {Endpoint}", tokenEndpoint);
+                return null;
             }
         }
 

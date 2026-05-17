@@ -2219,7 +2219,7 @@ namespace FlowFlex.Application.Services.AI.Providers
                             Content = content,
                         };
                         request.Headers.Add("Authorization", $"Bearer {apiKey}");
-
+                        request.Headers.Add("X-App-Code", $"wfe");
                         var timeoutSeconds = Math.Max(10, Math.Min(60, _aiOptions.ConnectionTest.TimeoutSeconds));
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                         var response = await httpClient.SendAsync(request, cts.Token);
