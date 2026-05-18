@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (!permissionResult.CanView)
             {
-                throw new UnauthorizedAccessException("Access denied");
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Access denied - no view permission on this case");
             }
 
             var permission = permissionResult.CanOperate ? "write" : "read";
@@ -103,7 +103,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (!permissionResult.CanOperate)
             {
-                throw new UnauthorizedAccessException("Access denied - write permission required");
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Access denied - write permission required");
             }
 
             var dataJson = input.Data != null ? JsonConvert.SerializeObject(input.Data) : "{}";
@@ -160,7 +160,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (!permissionResult.CanOperate)
             {
-                throw new UnauthorizedAccessException("Access denied - write permission required");
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Access denied - write permission required");
             }
 
             var entity = await _repository.GetByCaseCodeAsync(actualCaseCode);
