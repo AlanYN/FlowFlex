@@ -31,17 +31,20 @@ namespace FlowFlex.WebApi.Controllers.Action
         private readonly IActionManagementService _actionManagementService;
         private readonly IActionExecutionService _actionExecutionService;
         private readonly IInboundFieldMappingService _fieldMappingService;
+        private readonly IFieldLookupService _fieldLookupService;
         private readonly ILogger<ActionController> _logger;
 
         public ActionController(
             IActionManagementService actionManagementService,
             IActionExecutionService actionExecutionService,
             IInboundFieldMappingService fieldMappingService,
+            IFieldLookupService fieldLookupService,
             ILogger<ActionController> logger)
         {
             _actionManagementService = actionManagementService;
             _actionExecutionService = actionExecutionService;
             _fieldMappingService = fieldMappingService;
+            _fieldLookupService = fieldLookupService;
             _logger = logger;
         }
 
@@ -820,6 +823,31 @@ namespace FlowFlex.WebApi.Controllers.Action
             }
 
             return Success(template);
+        }
+
+        #endregion
+
+        #region Field Lookup
+
+        /// <summary>
+        /// Preview lookup options for a field configuration
+        /// Used by frontend Test button to validate lookup settings
+        /// </summary>
+        /// <param name="request">Lookup preview request</param>
+        /// <returns>Preview result with up to 10 options</returns>
+        [HttpPost("lookup/preview")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
+        [ProducesResponseType<SuccessResponse<LookupPreviewResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> PreviewLookup([FromBody] LookupPreviewRequest request)
+        {
+            var result = await _fieldLookupService.PreviewLookupAsync(request.IntegrationId, request);
+            return Success(new LookupPreviewResponse
+            {
+                Success = result.Status == "success",
+                Options = result.Options.Take(10).ToList(),
+                TotalCount = result.TotalCount,
+                Error = result.Error
+            });
         }
 
         #endregion

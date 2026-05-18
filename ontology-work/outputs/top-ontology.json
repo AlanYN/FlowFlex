@@ -1,0 +1,1426 @@
+{
+  "meta": {
+    "ontology_name": "AI Dev Top Ontology",
+    "version": "v2.1",
+    "status": "ready_for_reference",
+    "description": "Top ontology JSON aligned for OntologyStudio export and Neo4j business-graph validation."
+  },
+  "classmate": [
+    {
+      "name": "System",
+      "description": "Represents a complete software system as the highest boundary.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture system-level boundary information: system goals, covered business domains, external system boundaries, global constraints, and governance scope."
+        }
+      ]
+    },
+    {
+      "name": "Project",
+      "description": "Represents an independent engineering unit inside a system.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture project-level information: project responsibilities, service boundaries, key upstream/downstream dependencies, and deployment/maintenance ownership boundaries."
+        }
+      ]
+    },
+    {
+      "name": "Module",
+      "description": "Represents a stable implementation unit inside a project.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture module-level information: module responsibilities, core capabilities, input/output business objects, and collaboration with other modules."
+        }
+      ]
+    },
+    {
+      "name": "BusinessObject",
+      "description": "Business semantic subject directly processed by the system.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture business-object semantics: business definition, key identifying elements, lifecycle highlights, and semantic distinctions from other objects."
+        }
+      ]
+    },
+    {
+      "name": "BusinessProcess",
+      "description": "Stable process unit that acts on business objects and drives their creation, change, validation, routing, termination, or recovery within a business context.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Use a concrete business action or process-unit name for display and reference. Prefer names such as 'Create Order', 'Approve Order', 'Allocate Inventory', or 'Confirm Receipt'. Avoid overly broad stage names such as 'Order Management', 'Inbound Process', or other end-to-end flow labels."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business meaning of the process unit. State which business object it acts on, what business change it performs, and where its responsibility starts and ends. Do not repeat the name and do not expand into a long end-to-end process narrative."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture process semantics: trigger conditions, target business object, key preconditions, main business rules, produced or consumed artifacts, state changes, and success or failure outcomes."
+        }
+      ]
+    },
+    {
+      "name": "SourceArtifact",
+      "description": "Stable information carrier referenced or produced during processing.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture artifact semantics: purpose, source and destination, key information carried, and creation/update timing."
+        }
+      ]
+    },
+    {
+      "name": "APIEndpoint",
+      "description": "Stable API contract endpoint that exposes or consumes business capabilities across module, application, or integration boundaries.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical endpoint name used for display and reference. Normalize the OpenAPI summary into a stable business-facing endpoint name instead of using the raw path as the primary display name."
+        },
+        {
+          "property_key": "summary",
+          "note": "Required; string. Preserve the original OpenAPI summary from the Apifox index so the ontology can serve as a fast API contract index."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Integrated business-facing endpoint description distilled from the Apifox operation definition. Explain the business capability and boundary without merely repeating the summary or raw path."
+        },
+        {
+          "property_key": "content",
+          "note": "Optional; string. Use only when preserving longer operation context is helpful for fast reuse, such as key request or response semantics, important constraints, or a compact copy of the operation text."
+        },
+        {
+          "property_key": "path",
+          "note": "Required; string. Canonical API route template from OpenAPI, such as '/outbound/wms-pick-suggest/rebuild/by-task/{taskId}'."
+        },
+        {
+          "property_key": "method",
+          "note": "Required; string. HTTP operation verb from OpenAPI such as GET, POST, PUT, DELETE, or PATCH."
+        },
+        {
+          "property_key": "openapi_operation_ref",
+          "note": "Required; string. Stable local reference to the concrete Apifox operation definition, including file path and method fragment, such as 'apifox/project-4853761-wms-3.0/paths/_wms_outbound_wms-pick-suggest_rebuild_by-task_%7BtaskId%7D.json#post'."
+        },
+        {
+          "property_key": "api_level",
+          "note": "Optional; string. API abstraction layer derived from the Apifox tag and path convention. Use 'level1' for atomic backend APIs that mainly expose raw record fields such as ids, codes, and statuses; use 'level2' for BAM/BFF APIs that expose enriched read models, display names, and aggregated context."
+        },
+        {
+          "property_key": "api_audience",
+          "note": "Optional; string. API audience boundary. Use 'internal' for internal WMS APIs used by internal services, apps, or BFF layers; use 'public' for external-facing APIs intended for customers or partners. This property is independent from api_level."
+        }
+      ]
+    },
+    {
+      "name": "State",
+      "description": "Lifecycle phase of an object or process.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture state semantics: state definition, entry conditions, executable actions, and allowed next states."
+        }
+      ]
+    },
+    {
+      "name": "Rule",
+      "description": "Stable judgment or constraint unit for validation and decisions.",
+      "business_ontology_properties_list": [
+        {
+          "property_key": "name",
+          "note": "Required; string. Canonical business name used for display and reference. Do not use technical IDs, paths, table names, or implementation details."
+        },
+        {
+          "property_key": "description",
+          "note": "Required; string. Defines the semantic boundary and business definition of the node. Do not repeat name and do not include process steps."
+        },
+        {
+          "property_key": "content",
+          "note": "Required; string. Capture rule semantics: rule objective, decision conditions, constrained objects, post-hit actions, and exceptions."
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "relationtype": [
+        "action",
+        "composition",
+        "dependency",
+        "flow",
+        "mapping",
+        "ownership"
+      ],
+      "description": "A business object may be structurally composed of another business object.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Rule",
+      "target": "BusinessObject",
+      "relationtype": [
+        "constraint"
+      ],
+      "description": "A rule constrains, validates, or defines the valid conditions of a business object.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessObject",
+      "target": "SourceArtifact",
+      "relationtype": [
+        "mapping"
+      ],
+      "description": "A business object maps to source artifacts that carry its information.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "SourceArtifact",
+      "relationtype": [
+        "mapping"
+      ],
+      "description": "An API endpoint may map to controller code, client code, gateway configuration, interface documentation, or integration evidence artifacts.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "Rule",
+      "relationtype": [
+        "dependency"
+      ],
+      "description": "An API endpoint may depend on rules for request validation, routing decisions, eligibility checks, or rejection behavior.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessProcess",
+      "relationtype": [
+        "action"
+      ],
+      "description": "An API endpoint may trigger, expose, or encapsulate a business process as an interaction boundary.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessObject",
+      "relationtype": [
+        "query",
+        "mutate",
+        "dependency"
+      ],
+      "description": "An API endpoint may query a primary business object, mutate a primary business object, or depend on additional business objects as request context, lookup context, or operational prerequisites.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessObject",
+      "target": "State",
+      "relationtype": [
+        "ownership"
+      ],
+      "description": "A business object belongs to or is currently under a state.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessProcess",
+      "relationtype": [
+        "composition",
+        "dependency",
+        "flow"
+      ],
+      "description": "A business process may be decomposed into sub-processes, depend on another process as a prerequisite, or flow into the next process as part of an end-to-end business chain.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessObject",
+      "relationtype": [
+        "action",
+        "dependency",
+        "flow"
+      ],
+      "description": "A business process may act on a business object, depend on a business object as execution context or prerequisite, or produce a downstream business object outcome.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "Rule",
+      "relationtype": [
+        "dependency"
+      ],
+      "description": "A business process depends on rules for execution or decision logic.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "SourceArtifact",
+      "relationtype": [
+        "action",
+        "mapping"
+      ],
+      "description": "A business process creates, consumes, validates, updates, or is evidenced by source artifacts.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Rule",
+      "target": "SourceArtifact",
+      "relationtype": [
+        "mapping"
+      ],
+      "description": "A rule may be evidenced by or directly mapped to source artifacts that encode or document its logic.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "State",
+      "relationtype": [
+        "flow"
+      ],
+      "description": "A business process drives or participates in state progression.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Module",
+      "target": "BusinessObject",
+      "relationtype": [
+        "action"
+      ],
+      "description": "A module acts on a business object from implementation side.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Module",
+      "target": "BusinessProcess",
+      "relationtype": [
+        "action"
+      ],
+      "description": "A module carries or implements a business process.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Module",
+      "target": "APIEndpoint",
+      "relationtype": [
+        "action"
+      ],
+      "description": "A module may expose, proxy, implement, or consume an API endpoint.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "Project",
+      "target": "Module",
+      "relationtype": [
+        "composition"
+      ],
+      "description": "A project is composed of modules.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "State",
+      "target": "Rule",
+      "relationtype": [
+        "dependency"
+      ],
+      "description": "A state depends on rules for transition or validation semantics.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    },
+    {
+      "source": "System",
+      "target": "Project",
+      "relationtype": [
+        "composition"
+      ],
+      "description": "A system is composed of projects.",
+      "business_ontology_relationship_properties_list": [
+        {
+          "property_key": "relation_name",
+          "required": true
+        },
+        {
+          "property_key": "description",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "System",
+      "description": "Represents a complete software system as the highest boundary.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "Project",
+      "description": "Represents an independent engineering unit inside a system.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "Module",
+      "description": "Represents a stable implementation unit inside a project.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "BusinessObject",
+      "description": "Business semantic subject directly processed by the system.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "BusinessProcess",
+      "description": "Stable process unit that acts on business objects and drives their creation, change, validation, routing, termination, or recovery within a business context.",
+      "kind": "process",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "SourceArtifact",
+      "description": "Stable information carrier referenced or produced during processing.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "APIEndpoint",
+      "description": "Stable API contract endpoint that exposes or consumes business capabilities across module, application, or integration boundaries.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content",
+        "summary",
+        "method",
+        "path",
+        "openapi_operation_ref",
+        "api_level",
+        "api_audience"
+      ]
+    },
+    {
+      "name": "State",
+      "description": "Lifecycle phase of an object or process.",
+      "kind": "object",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    },
+    {
+      "name": "Rule",
+      "description": "Stable judgment or constraint unit for validation and decisions.",
+      "kind": "competency",
+      "properties": [
+        "name",
+        "description",
+        "content"
+      ]
+    }
+  ],
+  "relation_categories": [
+    {
+      "name": "action",
+      "description": "A business object may be structurally composed of another business object."
+    },
+    {
+      "name": "composition",
+      "description": "A business object may be structurally composed of another business object."
+    },
+    {
+      "name": "constraint",
+      "description": "A rule constrains, validates, or defines the valid conditions of a business object."
+    },
+    {
+      "name": "dependency",
+      "description": "A business object may be structurally composed of another business object."
+    },
+    {
+      "name": "query",
+      "description": "An API endpoint primarily reads, searches, or returns a business object."
+    },
+    {
+      "name": "mutate",
+      "description": "An API endpoint primarily creates, updates, deletes, binds, releases, or otherwise changes a business object."
+    },
+    {
+      "name": "flow",
+      "description": "A business object may be structurally composed of another business object."
+    },
+    {
+      "name": "mapping",
+      "description": "A business object may be structurally composed of another business object."
+    },
+    {
+      "name": "ownership",
+      "description": "A business object may be structurally composed of another business object."
+    }
+  ],
+  "relations": [
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "action"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "composition"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "dependency"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "flow"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "mapping"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "SourceArtifact",
+      "type": "mapping"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "SourceArtifact",
+      "type": "mapping"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "Rule",
+      "type": "dependency"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessProcess",
+      "type": "action"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessObject",
+      "type": "query"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessObject",
+      "type": "mutate"
+    },
+    {
+      "source": "APIEndpoint",
+      "target": "BusinessObject",
+      "type": "dependency"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "BusinessObject",
+      "type": "ownership"
+    },
+    {
+      "source": "BusinessObject",
+      "target": "State",
+      "type": "ownership"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessObject",
+      "type": "action"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "SourceArtifact",
+      "type": "action"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessProcess",
+      "type": "composition"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessObject",
+      "type": "dependency"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessProcess",
+      "type": "dependency"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "Rule",
+      "type": "dependency"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessProcess",
+      "type": "flow"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "BusinessObject",
+      "type": "flow"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "State",
+      "type": "flow"
+    },
+    {
+      "source": "BusinessProcess",
+      "target": "SourceArtifact",
+      "type": "mapping"
+    },
+    {
+      "source": "Module",
+      "target": "BusinessObject",
+      "type": "action"
+    },
+    {
+      "source": "Module",
+      "target": "BusinessProcess",
+      "type": "action"
+    },
+    {
+      "source": "Module",
+      "target": "APIEndpoint",
+      "type": "action"
+    },
+    {
+      "source": "Project",
+      "target": "Module",
+      "type": "composition"
+    },
+    {
+      "source": "Rule",
+      "target": "BusinessObject",
+      "type": "constraint"
+    },
+    {
+      "source": "Rule",
+      "target": "SourceArtifact",
+      "type": "mapping"
+    },
+    {
+      "source": "State",
+      "target": "Rule",
+      "type": "dependency"
+    },
+    {
+      "source": "System",
+      "target": "Project",
+      "type": "composition"
+    }
+  ],
+  "instance_property_schema": {
+    "required_keys": [
+      "name"
+    ]
+  },
+  "common_optional_metadata_keys": [],
+  "class_extra_property_schema": {
+    "System": {
+      "optional_keys": []
+    },
+    "Project": {
+      "optional_keys": []
+    },
+    "Module": {
+      "optional_keys": []
+    },
+    "BusinessObject": {
+      "optional_keys": [
+        "description",
+        "content"
+      ]
+    },
+    "BusinessProcess": {
+      "optional_keys": []
+    },
+    "SourceArtifact": {
+      "optional_keys": []
+    },
+    "State": {
+      "optional_keys": []
+    },
+    "Rule": {
+      "optional_keys": []
+    },
+    "APIEndpoint": {
+      "optional_keys": [
+        "content"
+      ]
+    }
+  },
+  "per_type_required_node_properties": {
+    "System": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Project": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Module": [
+      "name",
+      "description",
+      "content"
+    ],
+    "BusinessObject": [
+      "name"
+    ],
+    "BusinessProcess": [
+      "name",
+      "description",
+      "content"
+    ],
+    "SourceArtifact": [
+      "name",
+      "description",
+      "content"
+    ],
+    "State": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Rule": [
+      "name",
+      "description",
+      "content"
+    ],
+    "APIEndpoint": [
+      "name",
+      "summary",
+      "description",
+      "path",
+      "method",
+      "openapi_operation_ref",
+      "api_level",
+      "api_audience"
+    ]
+  },
+  "per_type_allowed_node_properties": {
+    "System": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Project": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Module": [
+      "name",
+      "description",
+      "content"
+    ],
+    "BusinessObject": [
+      "name",
+      "description",
+      "content"
+    ],
+    "BusinessProcess": [
+      "name",
+      "description",
+      "content"
+    ],
+    "SourceArtifact": [
+      "name",
+      "description",
+      "content"
+    ],
+    "State": [
+      "name",
+      "description",
+      "content"
+    ],
+    "Rule": [
+      "name",
+      "description",
+      "content"
+    ],
+    "APIEndpoint": [
+      "name",
+      "summary",
+      "description",
+      "content",
+      "path",
+      "method",
+      "openapi_operation_ref",
+      "api_level",
+      "api_audience"
+    ]
+  },
+  "relation_rules": {
+    "BusinessObject|action|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "action",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|composition|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "composition",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|dependency|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "dependency",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|flow|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "flow",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|mapping|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "mapping",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|ownership|BusinessObject": {
+      "source_type": "BusinessObject",
+      "relation_type": "ownership",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Rule|constraint|BusinessObject": {
+      "source_type": "Rule",
+      "relation_type": "constraint",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|mapping|SourceArtifact": {
+      "source_type": "BusinessObject",
+      "relation_type": "mapping",
+      "target_type": "SourceArtifact",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessObject|ownership|State": {
+      "source_type": "BusinessObject",
+      "relation_type": "ownership",
+      "target_type": "State",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|composition|BusinessProcess": {
+      "source_type": "BusinessProcess",
+      "relation_type": "composition",
+      "target_type": "BusinessProcess",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|dependency|BusinessProcess": {
+      "source_type": "BusinessProcess",
+      "relation_type": "dependency",
+      "target_type": "BusinessProcess",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|flow|BusinessProcess": {
+      "source_type": "BusinessProcess",
+      "relation_type": "flow",
+      "target_type": "BusinessProcess",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|action|BusinessObject": {
+      "source_type": "BusinessProcess",
+      "relation_type": "action",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|dependency|Rule": {
+      "source_type": "BusinessProcess",
+      "relation_type": "dependency",
+      "target_type": "Rule",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|action|SourceArtifact": {
+      "source_type": "BusinessProcess",
+      "relation_type": "action",
+      "target_type": "SourceArtifact",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|flow|State": {
+      "source_type": "BusinessProcess",
+      "relation_type": "flow",
+      "target_type": "State",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Module|action|BusinessObject": {
+      "source_type": "Module",
+      "relation_type": "action",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Module|action|BusinessProcess": {
+      "source_type": "Module",
+      "relation_type": "action",
+      "target_type": "BusinessProcess",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Project|composition|Module": {
+      "source_type": "Project",
+      "relation_type": "composition",
+      "target_type": "Module",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "State|dependency|Rule": {
+      "source_type": "State",
+      "relation_type": "dependency",
+      "target_type": "Rule",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "System|composition|Project": {
+      "source_type": "System",
+      "relation_type": "composition",
+      "target_type": "Project",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|dependency|BusinessObject": {
+      "source_type": "BusinessProcess",
+      "relation_type": "dependency",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|mapping|SourceArtifact": {
+      "source_type": "BusinessProcess",
+      "relation_type": "mapping",
+      "target_type": "SourceArtifact",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Rule|mapping|SourceArtifact": {
+      "source_type": "Rule",
+      "relation_type": "mapping",
+      "target_type": "SourceArtifact",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "BusinessProcess|flow|BusinessObject": {
+      "source_type": "BusinessProcess",
+      "relation_type": "flow",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|dependency|BusinessObject": {
+      "source_type": "APIEndpoint",
+      "relation_type": "dependency",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|query|BusinessObject": {
+      "source_type": "APIEndpoint",
+      "relation_type": "query",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|mutate|BusinessObject": {
+      "source_type": "APIEndpoint",
+      "relation_type": "mutate",
+      "target_type": "BusinessObject",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|action|BusinessProcess": {
+      "source_type": "APIEndpoint",
+      "relation_type": "action",
+      "target_type": "BusinessProcess",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|dependency|Rule": {
+      "source_type": "APIEndpoint",
+      "relation_type": "dependency",
+      "target_type": "Rule",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "APIEndpoint|mapping|SourceArtifact": {
+      "source_type": "APIEndpoint",
+      "relation_type": "mapping",
+      "target_type": "SourceArtifact",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    },
+    "Module|action|APIEndpoint": {
+      "source_type": "Module",
+      "relation_type": "action",
+      "target_type": "APIEndpoint",
+      "required_properties": [
+        "relation_name"
+      ],
+      "allowed_properties": [
+        "relation_name",
+        "description"
+      ]
+    }
+  },
+  "class_name_aliases": {
+    "System": [
+      "System"
+    ],
+    "Project": [
+      "Project"
+    ],
+    "Module": [
+      "Module"
+    ],
+    "BusinessObject": [
+      "BusinessObject"
+    ],
+    "BusinessProcess": [
+      "BusinessProcess"
+    ],
+    "SourceArtifact": [
+      "SourceArtifact"
+    ],
+    "State": [
+      "State"
+    ],
+    "Rule": [
+      "Rule"
+    ],
+    "APIEndpoint": [
+      "APIEndpoint"
+    ]
+  }
+}
