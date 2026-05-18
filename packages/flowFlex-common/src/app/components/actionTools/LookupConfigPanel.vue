@@ -135,7 +135,7 @@
 			<el-alert
 				v-else
 				type="error"
-				:title="previewResult.error || 'Lookup failed'"
+				:title="previewResult.error || 'Failed to fetch options'"
 				:closable="true"
 				show-icon
 				@close="previewResult = null"
@@ -275,13 +275,14 @@ async function handleTest() {
 			headers: buildHeadersObject(),
 		});
 
-		// Handle response - defHttp may return the data directly or wrapped
+		// Handle response - defHttp returns the outer wrapper { data, success, msg, code }
 		if (result && typeof result === 'object') {
+			const payload = result.data ?? result;
 			previewResult.value = {
-				success: result.success ?? false,
-				options: result.options ?? [],
-				totalCount: result.totalCount ?? 0,
-				error: result.error ?? undefined,
+				success: payload.success ?? false,
+				options: payload.options ?? [],
+				totalCount: payload.totalCount ?? 0,
+				error: payload.error ?? undefined,
 			};
 		} else {
 			previewResult.value = {

@@ -214,7 +214,7 @@
 								/>
 							</div>
 
-							<!-- Pre-Execution Lookup Section -->
+							<!-- AI Match Section -->
 							<el-form-item class="w-full">
 								<div class="w-full">
 									<div
@@ -231,11 +231,11 @@
 												<ArrowDown />
 											</el-icon>
 											<span class="text-sm font-medium text-text-primary">
-												Pre-Execution Lookup
+												Request Field Lookup
 											</span>
 											<span class="text-xs text-text-secondary">
-												Resolve parameter values from external APIs before
-												sending request
+												Auto-match free-text values to target system options
+												using AI
 											</span>
 										</div>
 										<el-button
@@ -245,7 +245,7 @@
 											:disabled="shouldDisableFields"
 											:icon="Plus"
 										>
-											Add Lookup
+											Add Field
 										</el-button>
 									</div>
 									<el-collapse-transition>
@@ -279,9 +279,43 @@
 												<el-table
 													:data="outboundLookups"
 													class="w-full"
-													empty-text="No outbound lookups configured"
+													empty-text="No AI match fields configured"
 													:border="true"
+													row-key="__key"
+													:expand-row-keys="expandedLookupRowKeys"
+													@expand-change="handleLookupExpandChange"
 												>
+													<el-table-column type="expand">
+														<template #default="{ row, $index }">
+															<div class="px-4 py-3">
+																<div
+																	class="text-xs text-text-secondary mb-1"
+																>
+																	Options source for:
+																	<strong>
+																		{{
+																			row.sourceField ||
+																			row.targetParam ||
+																			'Field ' + ($index + 1)
+																		}}
+																	</strong>
+																</div>
+																<LookupConfigPanel
+																	v-model="row.lookup"
+																	:integration-id="currentIntegrationId"
+																	:disabled="shouldDisableFields"
+																	@update:model-value="
+																		(val) =>
+																			handleOutboundLookupConfigUpdate(
+																				$index,
+																				val
+																			)
+																	"
+																/>
+															</div>
+														</template>
+													</el-table-column>
+
 													<el-table-column
 														label="Source Field (WFE)"
 														min-width="180"
@@ -309,8 +343,8 @@
 													</el-table-column>
 
 													<el-table-column
-														label="Lookup"
-														width="80"
+														label="AI Match"
+														width="90"
 														align="center"
 													>
 														<template #default="{ row }">
@@ -345,39 +379,6 @@
 														</template>
 													</el-table-column>
 												</el-table>
-
-												<!-- Lookup Config Panels for enabled rows -->
-												<div
-													v-for="(row, index) in outboundLookups"
-													:key="'outbound-lookup-' + index"
-												>
-													<div v-if="row.lookupEnabled" class="mt-2 mb-3">
-														<div
-															class="text-xs text-text-secondary mb-1"
-														>
-															Lookup config for:
-															<strong>
-																{{
-																	row.sourceField ||
-																	row.targetParam ||
-																	'Field ' + (index + 1)
-																}}
-															</strong>
-														</div>
-														<LookupConfigPanel
-															v-model="row.lookup"
-															:integration-id="currentIntegrationId"
-															:disabled="shouldDisableFields"
-															@update:model-value="
-																(val) =>
-																	handleOutboundLookupConfigUpdate(
-																		index,
-																		val
-																	)
-															"
-														/>
-													</div>
-												</div>
 											</div>
 										</div>
 									</el-collapse-transition>
@@ -760,7 +761,10 @@ interface IOutboundLookupItem {
 	targetParam: string;
 	lookupEnabled: boolean;
 	lookup?: LookupConfig;
+	__key: string;
 }
+
+let outboundLookupKeyCounter = 0;
 
 const showFieldMapping = ref(false);
 const wfeFieldOptions = ref<DynamicList[]>([]);
@@ -813,11 +817,13 @@ function handleRemoveFieldMapping(index: number) {
 	fieldMappings.value = mappings;
 }
 
-// ===== Outbound Field Lookup =====
+// ===== AI Match (Outbound Field Lookup) =====
 const isOutboundLookupExpanded = ref(false);
 const outboundLookups = ref<IOutboundLookupItem[]>([]);
+const expandedLookupRowKeys = ref<string[]>([]);
 
 function handleAddOutboundLookup() {
+	const key = `lookup_${++outboundLookupKeyCounter}`;
 	outboundLookups.value.push({
 		sourceField: '',
 		targetParam: '',
@@ -827,21 +833,38 @@ function handleAddOutboundLookup() {
 			displayPath: '',
 			valuePath: '',
 		},
+		__key: key,
 	});
+	expandedLookupRowKeys.value.push(key);
 }
 
 function handleRemoveOutboundLookup(index: number) {
+	const row = outboundLookups.value[index];
+	if (row) {
+		expandedLookupRowKeys.value = expandedLookupRowKeys.value.filter((k) => k !== row.__key);
+	}
 	outboundLookups.value.splice(index, 1);
 }
 
 function handleOutboundLookupToggle(row: IOutboundLookupItem) {
-	if (row.lookupEnabled && !row.lookup) {
-		row.lookup = {
-			endpoint: '',
-			displayPath: '',
-			valuePath: '',
-		};
+	if (row.lookupEnabled) {
+		if (!row.lookup) {
+			row.lookup = {
+				endpoint: '',
+				displayPath: '',
+				valuePath: '',
+			};
+		}
+		if (!expandedLookupRowKeys.value.includes(row.__key)) {
+			expandedLookupRowKeys.value.push(row.__key);
+		}
+	} else {
+		expandedLookupRowKeys.value = expandedLookupRowKeys.value.filter((k) => k !== row.__key);
 	}
+}
+
+function handleLookupExpandChange(_row: IOutboundLookupItem, expandedRows: IOutboundLookupItem[]) {
+	expandedLookupRowKeys.value = expandedRows.map((r) => r.__key);
 }
 
 function handleOutboundLookupConfigUpdate(index: number, val: LookupConfig) {
@@ -919,6 +942,7 @@ const detectedPlaceholders = computed(() => {
  * Add a detected placeholder as an outbound lookup item
  */
 function handleAddDetectedPlaceholder(name: string) {
+	const key = `lookup_${++outboundLookupKeyCounter}`;
 	outboundLookups.value.push({
 		sourceField: `{{${name}}}`,
 		targetParam: name,
@@ -928,7 +952,9 @@ function handleAddDetectedPlaceholder(name: string) {
 			displayPath: '',
 			valuePath: '',
 		},
+		__key: key,
 	});
+	expandedLookupRowKeys.value.push(key);
 	isOutboundLookupExpanded.value = true;
 }
 
@@ -959,9 +985,10 @@ const resetForm = (closeDialog = true) => {
 	fieldMappings.value = [];
 	isFieldMappingExpanded.value = false;
 
-	// 重置 Outbound Lookup 状态
+	// 重置 AI Match 状态
 	outboundLookups.value = [];
 	isOutboundLookupExpanded.value = false;
+	expandedLookupRowKeys.value = [];
 
 	// 重置配置模式为默认值
 	// 如果 forceEditable 为 true 且没有 actionId，设置为 NewTool 模式
@@ -1092,9 +1119,11 @@ const loadActionDetail = async (actionId: string) => {
 						targetParam: cf.apiField || '',
 						lookupEnabled: true,
 						lookup: cf.lookup,
+						__key: `lookup_${++outboundLookupKeyCounter}`,
 					}));
 				if (outboundLookups.value.length > 0) {
 					isOutboundLookupExpanded.value = true;
+					expandedLookupRowKeys.value = outboundLookups.value.map((r) => r.__key);
 				}
 			}
 
