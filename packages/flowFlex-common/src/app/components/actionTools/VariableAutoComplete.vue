@@ -104,6 +104,53 @@ const searchText = ref('');
 
 // Variables data - Complete list from VariablesPanel.vue
 const allVariables: Variable[] = [
+	// HTTP Action Context Variables (recommended for HTTP API actions)
+	{
+		name: 'CaseCode',
+		description: 'Case code identifier',
+		category: 'httpContext',
+	},
+	{
+		name: 'CaseName',
+		description: 'Case display name',
+		category: 'httpContext',
+	},
+	{
+		name: 'OnboardingId',
+		description: 'Onboarding identifier',
+		category: 'httpContext',
+	},
+	{
+		name: 'WorkflowId',
+		description: 'Workflow identifier',
+		category: 'httpContext',
+	},
+	{
+		name: 'StageId',
+		description: 'Current stage identifier',
+		category: 'httpContext',
+	},
+	{
+		name: 'integrationToken',
+		description: 'OAuth2 integration token',
+		category: 'httpContext',
+	},
+	{
+		name: 'questionnaireAnswerByQuestionId.<questionId>',
+		description: 'Answer value by question ID (across all completed stages)',
+		category: 'httpContext',
+	},
+	{
+		name: 'questionnaireAnswerMap.<questionnaireId>.<questionId>',
+		description: 'Answer value by questionnaire ID and question ID',
+		category: 'httpContext',
+	},
+	{
+		name: 'previousActionResult.data.<field>',
+		description: 'Field from previous action response data',
+		category: 'httpContext',
+	},
+
 	// Basic Event Data
 	{ name: 'context.eventId', description: 'Unique event identifier', category: 'basic' },
 	{ name: 'context.timestamp', description: 'Event timestamp', category: 'basic' },

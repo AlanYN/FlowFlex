@@ -45,6 +45,7 @@ namespace FlowFlex.Tests.Services.OW
         private readonly IdmUserDataClient _idmUserDataClient;
         private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
         private readonly Mock<IEncryptionService> _mockEncryptionService;
+        private readonly Mock<IActionContextBuilder> _mockActionContextBuilder;
         private readonly Mock<ILogger<ConditionActionExecutor>> _mockLogger;
         private readonly UserContext _userContext;
         private readonly ConditionActionExecutor _executor;
@@ -93,6 +94,7 @@ namespace FlowFlex.Tests.Services.OW
 
             _mockHttpClientFactory = new Mock<IHttpClientFactory>();
             _mockEncryptionService = new Mock<IEncryptionService>();
+            _mockActionContextBuilder = new Mock<IActionContextBuilder>();
 
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
 
@@ -125,6 +127,7 @@ namespace FlowFlex.Tests.Services.OW
                 _idmUserDataClient,
                 _mockHttpClientFactory.Object,
                 _mockEncryptionService.Object,
+                _mockActionContextBuilder.Object,
                 _mockLogger.Object);
         }
 
