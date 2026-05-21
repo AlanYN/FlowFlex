@@ -920,8 +920,8 @@ const detectedPlaceholders = computed(() => {
 		}
 	}
 
-	// Extract all {{xxx}} placeholders
-	const pattern = /\{\{(\w+)\}\}/g;
+	// Extract all {{xxx}} placeholders (supports dot-notation like questionnaireAnswerByQuestionId.123)
+	const pattern = /\{\{([\w.]+)\}\}/g;
 	const found = new Set<string>();
 	for (const text of sources) {
 		let match;
