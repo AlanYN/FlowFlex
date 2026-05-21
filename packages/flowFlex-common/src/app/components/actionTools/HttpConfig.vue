@@ -51,8 +51,9 @@
 						</el-button>
 					</div>
 					<div class="text-xs url-hint mt-1">
-						Use variables like &#123;&#123;onboarding.id&#125;&#125; or
-						&#123;&#123;stage.name&#125;&#125; in the URL
+						Use variables like &#123;&#123;CaseCode&#125;&#125;,
+						&#123;&#123;questionnaireAnswerByQuestionId.2001&#125;&#125;, or
+						&#123;&#123;previousActionResult.data.customerCode&#125;&#125; in the URL
 					</div>
 				</div>
 			</el-form-item>

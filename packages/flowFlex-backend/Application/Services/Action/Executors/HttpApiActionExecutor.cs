@@ -4,8 +4,6 @@ using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.Helpers;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
-using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 using FlowFlex.Application.Contracts;
 using Microsoft.AspNetCore.Http;
 
@@ -19,16 +17,19 @@ namespace FlowFlex.Application.Services.Action.Executors
         private readonly ILogger<HttpApiActionExecutor> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IFileStorageService _fileStorageService;
+        private readonly ITemplateVariableResolver _templateVariableResolver;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public HttpApiActionExecutor(
             ILogger<HttpApiActionExecutor> logger,
             IHttpClientFactory httpClientFactory,
-            IFileStorageService fileStorageService)
+            IFileStorageService fileStorageService,
+            ITemplateVariableResolver templateVariableResolver)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _fileStorageService = fileStorageService;
+            _templateVariableResolver = templateVariableResolver;
             _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         }
 
@@ -240,132 +241,14 @@ namespace FlowFlex.Application.Services.Action.Executors
         }
 
         /// <summary>
-        /// Replace placeholders like {{ stageId }} with values from triggerContext
+        /// Replace placeholders like {{ path.to.value }} with values from triggerContext
         /// </summary>
-        /// <param name="input">Input string containing placeholders</param>
-        /// <param name="triggerContext">Context object containing values</param>
-        /// <returns>String with placeholders replaced</returns>
         private string ReplacePlaceholders(string input, object triggerContext)
         {
             if (string.IsNullOrEmpty(input) || triggerContext == null)
                 return input;
 
-            try
-            {
-                // Use regex to find all placeholders like {{stageId}}
-                var placeholderPattern = @"\{\{(\w+)\}\}";
-                var result = Regex.Replace(input, placeholderPattern, match =>
-                {
-                    var placeholderName = match.Groups[1].Value.Trim();
-                    var value = ExtractValueFromContext(triggerContext, placeholderName);
-                    return value?.ToString() ?? match.Value; // Return original placeholder if value not found
-                });
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to replace placeholders in string: {Input}", input);
-                return input;
-            }
-        }
-
-        /// <summary>
-        /// Extract value from triggerContext by property name
-        /// </summary>
-        /// <param name="triggerContext">Context object</param>
-        /// <param name="propertyName">Property name to extract</param>
-        /// <returns>Property value or null if not found</returns>
-        private object? ExtractValueFromContext(object triggerContext, string propertyName)
-        {
-            if (triggerContext == null)
-                return null;
-
-            try
-            {
-                object parsedContext = triggerContext;
-                if (triggerContext is string jsonString && !string.IsNullOrWhiteSpace(jsonString))
-                {
-                    string trimmed = jsonString.Trim();
-                    if ((trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
-                        (trimmed.StartsWith("[") && trimmed.EndsWith("]")))
-                    {
-                        try
-                        {
-                            parsedContext = JToken.Parse(jsonString);
-                        }
-                        catch (JsonException)
-                        {
-                            // If parsing fails, continue with original triggerContext
-                            parsedContext = triggerContext;
-                        }
-                    }
-                }
-
-                // Handle JToken/JObject
-                if (parsedContext is JToken jToken)
-                {
-                    var token = jToken[propertyName];
-                    if (token != null && token.Type != JTokenType.Null)
-                    {
-                        return token.ToObject<object>();
-                    }
-                    return null;
-                }
-
-                // Handle JObject
-                if (parsedContext is JObject jObject)
-                {
-                    var token = jObject[propertyName];
-                    if (token != null && token.Type != JTokenType.Null)
-                    {
-                        return token.ToObject<object>();
-                    }
-                    return null;
-                }
-
-                // Handle IDictionary
-                if (parsedContext is System.Collections.IDictionary dict)
-                {
-                    if (dict.Contains(propertyName))
-                    {
-                        return dict[propertyName];
-                    }
-                    return null;
-                }
-
-                // Handle generic Dictionary
-                if (parsedContext is IDictionary<string, object> genericDict)
-                {
-                    if (genericDict.TryGetValue(propertyName, out var value))
-                    {
-                        return value;
-                    }
-                    return null;
-                }
-
-                // Handle object properties via reflection
-                var property = parsedContext.GetType().GetProperty(propertyName);
-                if (property != null)
-                {
-                    return property.GetValue(parsedContext);
-                }
-
-                // Try case-insensitive property search
-                property = parsedContext.GetType().GetProperties()
-                    .FirstOrDefault(p => p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
-                if (property != null)
-                {
-                    return property.GetValue(parsedContext);
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to extract property '{PropertyName}' from triggerContext", propertyName);
-                return null;
-            }
+            return _templateVariableResolver.Replace(input, triggerContext);
         }
 
         private static HttpMethod GetHttpMethod(string method)

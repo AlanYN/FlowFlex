@@ -413,12 +413,24 @@ const requiredFieldVariables: Variable[] = [
 
 const formResponseVariables: Variable[] = [
 	{
-		name: 'context.components.questionnaireAnswers',
-		description: 'Array of questionnaire answer records',
+		name: 'questionnaireAnswerByQuestionId.<questionId>',
+		description: 'Answer by question ID (recommended for HTTP Actions)',
 	},
 	{
-		name: 'context.components.questionnaireAnswers[i].answerId',
-		description: 'Answer record identifier',
+		name: 'questionnaireAnswerMap.<questionnaireId>.<questionId>',
+		description: 'Answer by questionnaire ID + question ID',
+	},
+	{
+		name: 'questionnaireAnswers',
+		description: 'Full array of all questionnaire answers across completed stages',
+	},
+	{
+		name: 'previousActionResult.data.<field>',
+		description: 'Field from previous action response data',
+	},
+	{
+		name: 'context.components.questionnaireAnswers',
+		description: 'Array of questionnaire answer records (Python script context)',
 	},
 	{
 		name: 'context.components.questionnaireAnswers[i].questionnaireId',
@@ -437,53 +449,8 @@ const formResponseVariables: Variable[] = [
 		description: 'Question type',
 	},
 	{
-		name: 'context.components.questionnaireAnswers[i].isRequired',
-		description: 'Whether question is required',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].status',
-		description: 'Answer status (Draft/Submitted)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answerTime',
-		description: 'Answer submission time',
-	},
-	// Answer JSON (as string) and common nested fields in the JSON structure
-	{
 		name: 'context.components.questionnaireAnswers[i].answer',
-		description: 'JSON string containing responses array',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses',
-		description: 'Array of response items (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].question',
-		description: 'Response question text (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].answer',
-		description: 'Response value (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].type',
-		description: 'Response question type (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].responseText',
-		description: 'Additional response text (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].changeHistory',
-		description: 'Change history array (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].lastModifiedBy',
-		description: 'Last modified by (in answer JSON)',
-	},
-	{
-		name: 'context.components.questionnaireAnswers[i].answer.responses[i].lastModifiedAt',
-		description: 'Last modified timestamp (in answer JSON)',
+		description: 'Answer value',
 	},
 ];
 
@@ -615,14 +582,24 @@ const variableExamples = computed(() => {
 	} else if (props.actionType === ActionType.HTTP_API) {
 		return [
 			{
-				title: 'Dynamic URL',
-				description: 'Compose URL with variables',
-				code: `https://api.example.com/onboarding/{{context.onboardingId}}/stages/{{context.completedStageId}}`,
+				title: 'Dynamic URL with Case Code',
+				description: 'Use top-level context variables in URL',
+				code: `https://api.example.com/customers/{{CaseCode}}/sync`,
 			},
 			{
-				title: 'Minimal JSON Body',
-				description: 'Include key event fields',
-				code: `{"event_id":"{{context.eventId}}","workflow":"{{context.workflowName}}"}`,
+				title: 'Use Questionnaire Answer in URL',
+				description: 'Reference questionnaire answers by question ID',
+				code: `https://api.example.com/customers/{{questionnaireAnswerByQuestionId.2001}}`,
+			},
+			{
+				title: 'JSON Body with Questionnaire Data',
+				description: 'Include questionnaire answers and previous action results',
+				code: `{"companyName":"{{questionnaireAnswerByQuestionId.2001}}","customerCode":"{{previousActionResult.data.customerCode}}"}`,
+			},
+			{
+				title: 'Authorization Header with Integration Token',
+				description: 'Use integration token in headers',
+				code: `Bearer {{integrationToken}}`,
 			},
 		];
 	} else {
