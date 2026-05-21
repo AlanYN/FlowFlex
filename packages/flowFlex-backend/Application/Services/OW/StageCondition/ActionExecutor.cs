@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
@@ -46,6 +44,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IdmUserDataClient _idmUserDataClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IEncryptionService _encryptionService;
+        private readonly IActionContextBuilder _actionContextBuilder;
         private readonly ILogger<ConditionActionExecutor> _logger;
 
         public ConditionActionExecutor(
@@ -62,6 +61,7 @@ namespace FlowFlex.Application.Services.OW
             IdmUserDataClient idmUserDataClient,
             IHttpClientFactory httpClientFactory,
             IEncryptionService encryptionService,
+            IActionContextBuilder actionContextBuilder,
             ILogger<ConditionActionExecutor> logger)
         {
             _db = db;
@@ -77,6 +77,7 @@ namespace FlowFlex.Application.Services.OW
             _idmUserDataClient = idmUserDataClient;
             _httpClientFactory = httpClientFactory;
             _encryptionService = encryptionService;
+            _actionContextBuilder = actionContextBuilder;
             _logger = logger;
         }
 
@@ -1023,55 +1024,12 @@ namespace FlowFlex.Application.Services.OW
                     return result;
                 }
 
-                // Get onboarding info for context data
-                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
-
-                // 1. Query StaticFieldValues and convert to camelCase dictionary
-                var fieldData = await GetStaticFieldValuesAsCamelCaseAsync(context.OnboardingId);
-
-                // 2. Get Integration Token if integrationId is configured
-                string integrationToken = null;
-                if (action.IntegrationId.HasValue)
-                {
-                    integrationToken = await GetIntegrationTokenAsync(action.IntegrationId.Value);
-                }
-
-                // 3. Build context data as Dictionary for dynamic key injection
-                var contextData = new Dictionary<string, object>
-                {
-                    ["OnboardingId"] = context.OnboardingId,
-                    ["StageId"] = context.StageId,
-                    ["ConditionId"] = context.ConditionId,
-                    ["TenantId"] = context.TenantId,
-                    ["ActionDefinitionId"] = action.ActionDefinitionId.Value,
-                    ["ActionName"] = actionDefinition.ActionName,
-                    ["TriggerSource"] = "StageCondition",
-                    ["CaseName"] = onboarding?.CaseName ?? "",
-                    ["CaseCode"] = onboarding?.CaseCode ?? "",
-                    ["WorkflowId"] = onboarding?.WorkflowId ?? 0L
-                };
-
-                // Inject StaticFieldValue (camelCase keys)
-                foreach (var kvp in fieldData)
-                {
-                    contextData[kvp.Key] = kvp.Value;
-                }
-
-                // Inject Integration Token
-                if (!string.IsNullOrEmpty(integrationToken))
-                {
-                    contextData["integrationToken"] = integrationToken;
-                }
-
-                // Inject previous action result for chain passing
-                if (previousActionResult != null)
-                {
-                    contextData["previousActionResult"] = previousActionResult;
-
-                    // Flatten previous action's response fields with "prev_" prefix
-                    // so IAM action can use {{prev_customerCode}} to reference CRM response fields
-                    FlattenPreviousActionResult(previousActionResult, contextData);
-                }
+                // Build context using ActionContextBuilder
+                var contextData = await _actionContextBuilder.BuildStageConditionTriggerContextAsync(
+                    context,
+                    action.ActionDefinitionId.Value,
+                    action.IntegrationId,
+                    previousActionResult);
 
                 // Get current user ID
                 long? currentUserId = null;
@@ -1081,8 +1039,8 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Execute action directly using ActionExecutionService
-                _logger.LogInformation("TriggerAction: Executing ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}, IntegrationId={IntegrationId}, FieldCount={FieldCount}, ContextKeys={ContextKeys}",
-                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId, action.IntegrationId, fieldData.Count,
+                _logger.LogInformation("TriggerAction: Executing ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}, IntegrationId={IntegrationId}, ContextKeys={ContextKeys}",
+                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId, action.IntegrationId,
                     string.Join(", ", contextData.Keys));
 
                 var executionResult = await _actionExecutionService.ExecuteActionAsync(
@@ -1091,7 +1049,6 @@ namespace FlowFlex.Application.Services.OW
                     currentUserId);
 
                 // Check for business-level errors in the execution result
-                // External APIs may return HTTP 200 but with success:false in the response body
                 var businessError = CheckForBusinessError(executionResult, actionDefinition.ActionName);
                 if (businessError != null)
                 {
@@ -1643,228 +1600,6 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Flatten previous action's response fields into contextData with "prev_" prefix.
-        /// Parses the "response" field (JSON string) from HttpApiActionExecutor result
-        /// and extracts "data" object fields.
-        /// Example: CRM returns {"data":{"customerCode":"C-123"}} -> contextData["prev_customerCode"] = "C-123"
-        /// </summary>
-        private void FlattenPreviousActionResult(JToken previousResult, Dictionary<string, object> contextData)
-        {
-            try
-            {
-                var responseStr = previousResult?["response"]?.ToString();
-                if (string.IsNullOrEmpty(responseStr)) return;
-
-                JObject responseObj;
-                try { responseObj = JObject.Parse(responseStr); }
-                catch { return; }
-
-                // Extract fields from "data" object (common API pattern: { data: { customerCode: "C-123" } })
-                var dataObj = responseObj["data"] as JObject;
-                if (dataObj != null)
-                {
-                    foreach (var prop in dataObj.Properties())
-                    {
-                        var key = $"prev_{prop.Name}";
-                        if (prop.Value.Type == JTokenType.Null) continue;
-                        contextData[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
-                            ? prop.Value.ToString()
-                            : prop.Value.ToObject<object>();
-                    }
-                }
-
-                // Also extract top-level fields with "prev_" prefix (for flat response structures)
-                foreach (var prop in responseObj.Properties())
-                {
-                    if (prop.Name == "data" || prop.Name == "success" || prop.Name == "code" || prop.Name == "msg") continue;
-                    var key = $"prev_{prop.Name}";
-                    if (!contextData.ContainsKey(key) && prop.Value.Type != JTokenType.Null)
-                    {
-                        contextData[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
-                            ? prop.Value.ToString()
-                            : prop.Value.ToObject<object>();
-                    }
-                }
-
-                _logger.LogDebug("Flattened previous action result: injected {Count} prev_ keys",
-                    contextData.Keys.Count(k => k.StartsWith("prev_")));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Error flattening previous action result");
-            }
-        }
-
-        /// <summary>
-        /// Get all StaticFieldValues for an onboarding and convert to camelCase dictionary
-        /// </summary>
-        private async Task<Dictionary<string, object>> GetStaticFieldValuesAsCamelCaseAsync(long onboardingId)
-        {
-            var result = new Dictionary<string, object>();
-            try
-            {
-                var fieldValues = await _staticFieldValueService.GetByOnboardingIdAsync(onboardingId);
-                if (fieldValues == null) return result;
-
-                foreach (var field in fieldValues)
-                {
-                    object value = null;
-                    if (!string.IsNullOrEmpty(field.FieldValueJson))
-                    {
-                        try
-                        {
-                            var parsed = JsonConvert.DeserializeObject(field.FieldValueJson);
-                            // If the value is a single-element array, extract the first element
-                            if (parsed is Newtonsoft.Json.Linq.JArray jArray && jArray.Count == 1)
-                                value = jArray[0]?.ToString();
-                            else
-                                value = parsed;
-                        }
-                        catch
-                        {
-                            value = field.FieldValueJson;
-                        }
-                    }
-
-                    if (value != null && !string.IsNullOrEmpty(field.FieldName))
-                    {
-                        var camelKey = ToCamelCase(field.FieldName);
-                        result[camelKey] = value;
-                    }
-                }
-
-                _logger.LogDebug("GetStaticFieldValuesAsCamelCaseAsync: Loaded {Count} fields for onboarding {OnboardingId}", result.Count, onboardingId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get StaticFieldValues for onboarding {OnboardingId}", onboardingId);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Convert field name to camelCase (handles spaces, slashes, hyphens, double spaces)
-        /// Examples: "Contact First Name" -> "contactFirstName", "Company  State" -> "companyState", "Tax ID" -> "taxId"
-        /// </summary>
-        internal static string ToCamelCase(string fieldName)
-        {
-            if (string.IsNullOrEmpty(fieldName)) return fieldName;
-
-            var words = fieldName.Split(new[] { ' ', '/', '-' }, StringSplitOptions.RemoveEmptyEntries);
-            if (words.Length == 0) return fieldName;
-
-            var sb = new StringBuilder();
-            sb.Append(words[0].ToLowerInvariant());
-            for (int i = 1; i < words.Length; i++)
-            {
-                if (words[i].Length > 0)
-                {
-                    sb.Append(char.ToUpperInvariant(words[i][0]));
-                    if (words[i].Length > 1)
-                        sb.Append(words[i].Substring(1).ToLowerInvariant());
-                }
-            }
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Get OAuth2 access token from Integration by ID
-        /// </summary>
-        private async Task<string> GetIntegrationTokenAsync(long integrationId)
-        {
-            try
-            {
-                var integration = await _db.Queryable<Domain.Entities.Integration.Integration>()
-                    .Where(i => i.Id == integrationId && i.IsValid)
-                    .FirstAsync();
-
-                if (integration == null)
-                {
-                    _logger.LogWarning("Integration {IntegrationId} not found", integrationId);
-                    return null;
-                }
-
-                if (integration.AuthMethod != AuthenticationMethod.OAuth2)
-                {
-                    _logger.LogDebug("Integration {IntegrationId} uses {AuthMethod}, not OAuth2", integrationId, integration.AuthMethod);
-                    return null;
-                }
-
-                if (string.IsNullOrEmpty(integration.EncryptedCredentials) || integration.EncryptedCredentials == "{}")
-                {
-                    _logger.LogWarning("Integration {IntegrationId} has no credentials configured", integrationId);
-                    return null;
-                }
-
-                // Decrypt credentials
-                Dictionary<string, string> credentials;
-                try
-                {
-                    var json = _encryptionService.Decrypt(integration.EncryptedCredentials);
-                    credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to decrypt credentials for Integration {IntegrationId}", integrationId);
-                    return null;
-                }
-
-                if (credentials == null ||
-                    !credentials.TryGetValue("clientId", out var clientId) ||
-                    !credentials.TryGetValue("clientSecret", out var clientSecret))
-                {
-                    _logger.LogWarning("Integration {IntegrationId} missing clientId or clientSecret", integrationId);
-                    return null;
-                }
-
-                if (string.IsNullOrEmpty(integration.EndpointUrl))
-                {
-                    _logger.LogWarning("Integration {IntegrationId} has no endpoint URL configured", integrationId);
-                    return null;
-                }
-
-                // Request OAuth2 token
-                using var httpClient = _httpClientFactory.CreateClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(30);
-
-                var request = new HttpRequestMessage(HttpMethod.Post, integration.EndpointUrl);
-                var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
-                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
-                request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    { "grant_type", "client_credentials" }
-                });
-
-                var response = await httpClient.SendAsync(request);
-                var content = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("OAuth2 token request failed for Integration {IntegrationId}: {StatusCode} - {Response}",
-                        integrationId, response.StatusCode, content.Length > 200 ? content.Substring(0, 200) : content);
-                    return null;
-                }
-
-                var tokenResponse = JObject.Parse(content);
-                var accessToken = tokenResponse["access_token"]?.ToString();
-
-                if (string.IsNullOrEmpty(accessToken))
-                {
-                    _logger.LogWarning("OAuth2 response missing access_token for Integration {IntegrationId}", integrationId);
-                    return null;
-                }
-
-                _logger.LogInformation("Successfully obtained OAuth2 token for Integration {IntegrationId}", integrationId);
-                return accessToken;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting OAuth2 token for Integration {IntegrationId}", integrationId);
-                return null;
-            }
         }
 
         #endregion
