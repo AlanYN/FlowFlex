@@ -113,9 +113,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Sort by order and execute sequentially, with chain data passing
                 JToken previousActionResult = null;
+                var accumulatedPrevFields = new Dictionary<string, object>();
                 foreach (var action in actions.OrderBy(a => a.Order))
                 {
-                    var actionResult = await ExecuteActionAsync(action, context, previousActionResult);
+                    var actionResult = await ExecuteActionAsync(action, context, previousActionResult, accumulatedPrevFields);
                     result.Details.Add(actionResult);
 
                     if (!actionResult.Success)
@@ -125,11 +126,16 @@ namespace FlowFlex.Application.Services.OW
                         // Continue with next action even if one fails
                     }
 
-                    // Save TriggerAction execution result for chain passing to next action
+                // Save TriggerAction execution result for chain passing to next action
                     if (actionResult.Success && actionResult.ResultData != null
                         && actionResult.ResultData.ContainsKey("executionResult"))
                     {
-                        previousActionResult = actionResult.ResultData["executionResult"] as JToken;
+                        var currentResult = actionResult.ResultData["executionResult"] as JToken;
+                        if (currentResult != null)
+                        {
+                            previousActionResult = currentResult;
+                            AccumulatePrevFields(currentResult, accumulatedPrevFields);
+                        }
                     }
                 }
 
@@ -162,22 +168,69 @@ namespace FlowFlex.Application.Services.OW
             return result;
         }
 
+        /// <summary>
+        /// Extract prev_ fields from an action result and accumulate them.
+        /// Earlier fields are preserved; later actions with same field name overwrite.
+        /// </summary>
+        private static void AccumulatePrevFields(JToken actionResult, Dictionary<string, object> accumulated)
+        {
+            try
+            {
+                var responseStr = actionResult?["response"]?.ToString();
+                if (string.IsNullOrEmpty(responseStr)) return;
+
+                JObject responseObj;
+                try { responseObj = JObject.Parse(responseStr); }
+                catch { return; }
+
+                var dataObj = responseObj["data"] as JObject;
+                if (dataObj != null)
+                {
+                    foreach (var prop in dataObj.Properties())
+                    {
+                        if (prop.Value.Type == JTokenType.Null) continue;
+                        var key = $"prev_{prop.Name}";
+                        var value = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                            ? prop.Value.ToString()
+                            : (object)prop.Value.ToObject<object>();
+                        accumulated[key] = value;
+                    }
+                }
+
+                foreach (var prop in responseObj.Properties())
+                {
+                    if (prop.Name == "data" || prop.Name == "success" || prop.Name == "code" || prop.Name == "msg") continue;
+                    var key = $"prev_{prop.Name}";
+                    if (!accumulated.ContainsKey(key) && prop.Value.Type != JTokenType.Null)
+                    {
+                        accumulated[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                            ? prop.Value.ToString()
+                            : (object)prop.Value.ToObject<object>();
+                    }
+                }
+            }
+            catch
+            {
+                // Silently ignore parse errors
+            }
+        }
+
         #region Private Methods
 
         /// <summary>
         /// Execute a single action with proper error handling and timeout control
         /// </summary>
-        private async Task<ActionExecutionDetail> ExecuteActionAsync(ConditionAction action, ActionExecutionContext context, JToken previousActionResult = null)
+        private async Task<ActionExecutionDetail> ExecuteActionAsync(ConditionAction action, ActionExecutionContext context, JToken previousActionResult = null, Dictionary<string, object> accumulatedPrevFields = null)
         {
             var actionType = action.Type?.ToLower() ?? string.Empty;
-            
+
             // Determine timeout based on action type
             var timeoutSeconds = GetActionTimeout(actionType);
-            
+
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-                
+
                 var executeTask = actionType switch
                 {
                     StageConditionConstants.ActionTypeGoToStage => ExecuteGoToStageAsync(action, context),
@@ -185,7 +238,7 @@ namespace FlowFlex.Application.Services.OW
                     StageConditionConstants.ActionTypeEndWorkflow => ExecuteEndWorkflowAsync(action, context),
                     StageConditionConstants.ActionTypeSendNotification => ExecuteSendNotificationAsync(action, context),
                     StageConditionConstants.ActionTypeUpdateField => ExecuteUpdateFieldAsync(action, context),
-                    StageConditionConstants.ActionTypeTriggerAction => ExecuteTriggerActionAsync(action, context, previousActionResult),
+                    StageConditionConstants.ActionTypeTriggerAction => ExecuteTriggerActionAsync(action, context, previousActionResult, accumulatedPrevFields),
                     StageConditionConstants.ActionTypeAssignUser => ExecuteAssignUserAsync(action, context),
                     _ => Task.FromResult(new ActionExecutionDetail
                     {
@@ -993,7 +1046,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Execute TriggerAction action - execute predefined action with StaticFieldValue and Integration token injection
         /// </summary>
-        private async Task<ActionExecutionDetail> ExecuteTriggerActionAsync(ConditionAction action, ActionExecutionContext context, JToken previousActionResult = null)
+        private async Task<ActionExecutionDetail> ExecuteTriggerActionAsync(ConditionAction action, ActionExecutionContext context, JToken previousActionResult = null, Dictionary<string, object> accumulatedPrevFields = null)
         {
             var result = new ActionExecutionDetail
             {
@@ -1030,6 +1083,18 @@ namespace FlowFlex.Application.Services.OW
                     action.ActionDefinitionId.Value,
                     action.IntegrationId,
                     previousActionResult);
+
+                // Inject accumulated prev_ fields from all prior actions
+                if (accumulatedPrevFields != null)
+                {
+                    foreach (var kvp in accumulatedPrevFields)
+                    {
+                        if (!contextData.ContainsKey(kvp.Key))
+                        {
+                            contextData[kvp.Key] = kvp.Value;
+                        }
+                    }
+                }
 
                 // Get current user ID
                 long? currentUserId = null;
