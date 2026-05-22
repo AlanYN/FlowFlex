@@ -529,7 +529,12 @@ namespace FlowFlex.Application.Services.Action
                 var valueToken = token.SelectToken(sourceField);
                 if (valueToken != null && valueToken.Type != JTokenType.Null)
                 {
-                    return valueToken.Type == JTokenType.Object || valueToken.Type == JTokenType.Array
+                    if (valueToken.Type == JTokenType.Array)
+                    {
+                        var items = valueToken.Select(t => t.ToString()).ToArray();
+                        return string.Join(",", items);
+                    }
+                    return valueToken.Type == JTokenType.Object
                         ? valueToken.ToString(Formatting.None)
                         : valueToken.ToString();
                 }
@@ -582,12 +587,33 @@ namespace FlowFlex.Application.Services.Action
 
             if (value is JToken token)
             {
-                return token.Type == JTokenType.Object || token.Type == JTokenType.Array
+                if (token.Type == JTokenType.Array)
+                {
+                    var items = token.Select(t => t.ToString()).ToArray();
+                    return string.Join(",", items);
+                }
+                return token.Type == JTokenType.Object
                     ? token.ToString(Formatting.None)
                     : token.ToString();
             }
 
-            return value.ToString();
+            var str = value.ToString();
+            // Handle case where value is already a serialized JSON array string
+            if (str != null && str.TrimStart().StartsWith("["))
+            {
+                try
+                {
+                    var arr = JArray.Parse(str);
+                    var items = arr.Select(t => t.ToString()).ToArray();
+                    return string.Join(",", items);
+                }
+                catch
+                {
+                    // Not valid JSON array, return as-is
+                }
+            }
+
+            return str;
         }
 
         /// <summary>
