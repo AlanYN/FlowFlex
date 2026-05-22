@@ -40,7 +40,12 @@ namespace FlowFlex.Application.Services.Action
                     _logger.LogWarning("Template variable not found: {Path}", path);
                     return string.Empty;
                 }
-                return resolved.Type == JTokenType.Object || resolved.Type == JTokenType.Array
+                if (resolved.Type == JTokenType.Array)
+                {
+                    var items = resolved.Select(t => t.ToString()).ToArray();
+                    return string.Join(",", items);
+                }
+                return resolved.Type == JTokenType.Object
                     ? resolved.ToString(Formatting.None)
                     : resolved.ToString();
             });
@@ -61,6 +66,14 @@ namespace FlowFlex.Application.Services.Action
 
         private JToken? ResolvePathFromToken(JToken root, string path)
         {
+            // Try exact flat key first (e.g. "questionnaireAnswerByQuestionId.123" as a single key)
+            if (root is JObject rootObj)
+            {
+                var flat = rootObj[path];
+                if (flat != null)
+                    return flat;
+            }
+
             var segments = path.Split('.');
             var current = root;
 

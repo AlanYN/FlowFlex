@@ -170,7 +170,7 @@ namespace FlowFlex.Application.Services.Integration
                     DurationMs = stopwatch.ElapsedMilliseconds
                 };
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
             {
                 stopwatch.Stop();
 
@@ -186,7 +186,7 @@ namespace FlowFlex.Application.Services.Integration
                     DurationMs = stopwatch.ElapsedMilliseconds
                 };
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException e)
             {
                 stopwatch.Stop();
                 return new IntegrationHttpResponse
