@@ -261,14 +261,63 @@ namespace FlowFlex.Application.Services.OW
                                         if (response is Newtonsoft.Json.Linq.JObject responseObj)
                                         {
                                             var questionId = responseObj["questionId"]?.ToString();
-                                            var answerValue = responseObj["answer"]?.ToString();
-                                            if (!string.IsNullOrEmpty(questionId))
+                                            var questionType = responseObj["type"]?.ToString();
+                                            if (string.IsNullOrEmpty(questionId))
+                                                continue;
+
+                                            if (questionType == "short_answer_grid" || questionType == "multiple_choice_grid" || questionType == "checkbox_grid")
                                             {
+                                                // Grid types: parse responseText into nested {rowId: {columnId: value}}
+                                                var responseText = responseObj["responseText"]?.ToString();
+                                                if (!string.IsNullOrEmpty(responseText))
+                                                {
+                                                    try
+                                                    {
+                                                        var gridData = Newtonsoft.Json.Linq.JObject.Parse(responseText);
+                                                        // Merge into existing nested dict if multiple rows share the same questionId
+                                                        Dictionary<string, Dictionary<string, string>> nested;
+                                                        if (answerDict.TryGetValue(questionId, out var existing) && existing is Dictionary<string, Dictionary<string, string>> existingNested)
+                                                        {
+                                                            nested = existingNested;
+                                                        }
+                                                        else
+                                                        {
+                                                            nested = new Dictionary<string, Dictionary<string, string>>();
+                                                        }
+                                                        foreach (var prop in gridData.Properties())
+                                                        {
+                                                            // Key format: questionId_columnId_rowId
+                                                            var parts = prop.Name.Split('_', 3);
+                                                            if (parts.Length == 3)
+                                                            {
+                                                                var colId = parts[1];
+                                                                var rowId = parts[2];
+                                                                if (!nested.ContainsKey(rowId))
+                                                                    nested[rowId] = new Dictionary<string, string>();
+                                                                nested[rowId][colId] = prop.Value?.ToString() ?? string.Empty;
+                                                            }
+                                                        }
+                                                        answerDict[questionId] = nested;
+                                                    }
+                                                    catch (Exception gridEx)
+                                                    {
+                                                        _logger.LogWarning(gridEx, "Failed to parse grid responseText for question {QuestionId}", questionId);
+                                                        answerDict[questionId] = responseText;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    answerDict[questionId] = string.Empty;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                var answerValue = responseObj["answer"]?.ToString();
                                                 answerDict[questionId] = answerValue ?? string.Empty;
                                             }
                                         }
                                     }
-                                    _logger.LogDebug("Parsed questionnaire {QuestionnaireId} responses array with {KeyCount} questions: [{Keys}]", 
+                                    _logger.LogDebug("Parsed questionnaire {QuestionnaireId} responses array with {KeyCount} questions: [{Keys}]",
                                         questionnaireIdStr, answerDict.Count, string.Join(", ", answerDict.Keys));
                                 }
                                 else

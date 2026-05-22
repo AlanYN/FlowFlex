@@ -179,7 +179,7 @@ namespace FlowFlex.Application.Services.Action
                             foreach (var qItem in questionsDict)
                             {
                                 var questionId = qItem.Key;
-                                var answer = qItem.Value;
+                                var answer = NormalizeAnswerValue(qItem.Value);
 
                                 answerMap[questionnaireId][questionId] = answer;
                                 // Later stage overwrites earlier stage (ordered by CompletionTime)
@@ -201,9 +201,10 @@ namespace FlowFlex.Application.Services.Action
                             foreach (var prop in jObj.Properties())
                             {
                                 var questionId = prop.Name;
-                                var answer = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
-                                    ? prop.Value.ToString()
-                                    : (object)(prop.Value.ToString());
+                                var answer = NormalizeAnswerValue(
+                                    prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                                        ? prop.Value.ToString()
+                                        : (object)(prop.Value.ToString()));
 
                                 answerMap[questionnaireId][questionId] = answer;
                                 answerByQuestionId[questionId] = answer;
@@ -228,6 +229,23 @@ namespace FlowFlex.Application.Services.Action
             }
 
             SetEmptyQuestionnaireContext(contextData, answersList, answerMap, answerByQuestionId);
+        }
+
+        private static object NormalizeAnswerValue(object value)
+        {
+            if (value is string str && str.TrimStart().StartsWith("["))
+            {
+                try
+                {
+                    var arr = JArray.Parse(str);
+                    return string.Join(",", arr.Select(t => t.ToString()));
+                }
+                catch
+                {
+                    // Not valid JSON array, return as-is
+                }
+            }
+            return value;
         }
 
         private static void SetEmptyQuestionnaireContext(
