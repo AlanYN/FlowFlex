@@ -25,11 +25,11 @@ Add Number type to the FlowFlex questionnaire system. The type is already ~70% w
   3. Clearing a number field results in null (not 0 or undefined errors)
   4. Submitting a non-numeric value for a Number field is rejected by the backend with a validation error
   5. Condition rules on Number fields compare numerically (e.g., 9 < 10, not "9" > "10")
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Frontend type registration and rendering
-- [ ] 01-02: Backend validation and parser
+- [ ] 01-01-PLAN.md — Frontend type registration and rendering (createQuestion.vue + dynamicForm.vue)
+- [ ] 01-02-PLAN.md — Backend validation and parser (QuestionnaireAnswerService.cs + QuestionnaireAnswerParser.cs)
 
 ## Progress
 
