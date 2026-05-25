@@ -15,9 +15,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Backend - Validation
 
-- [ ] **BVAL-01**: Backend validates Number-type answers are numeric via `double.TryParse` on submission
-- [ ] **BVAL-02**: QuestionnaireAnswerParser has explicit `number` case (not falling through to default)
-- [ ] **BVAL-03**: Rules engine correctly performs numeric comparison (not string comparison) for Number fields
+- [x] **BVAL-01**: Backend validates Number-type answers are numeric via `double.TryParse` on submission
+- [x] **BVAL-02**: QuestionnaireAnswerParser has explicit `number` case (not falling through to default)
+- [x] **BVAL-03**: Rules engine correctly performs numeric comparison (not string comparison) for Number fields
 
 ## v2 Requirements
 
@@ -48,9 +48,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | FREG-01 | Phase 1 | Pending |
 | FREG-02 | Phase 1 | Pending |
 | FREG-03 | Phase 1 | Pending |
-| BVAL-01 | Phase 1 | Pending |
-| BVAL-02 | Phase 1 | Pending |
-| BVAL-03 | Phase 1 | Pending |
+| BVAL-01 | Phase 1 | Complete |
+| BVAL-02 | Phase 1 | Complete |
+| BVAL-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 6 total
