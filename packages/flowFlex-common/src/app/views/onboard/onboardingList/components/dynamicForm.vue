@@ -285,7 +285,7 @@
 						v-model="formData[question.id]"
 						:placeholder="'Enter number'"
 						:controls="false"
-						class="w-full"
+						class="w-full text-left"
 						:disabled="questionIsDisabled(question.id)"
 						@change="handleInputChange(question.id, $event)"
 					/>
@@ -2049,5 +2049,9 @@ html.dark {
 
 .form-empty-text {
 	color: var(--el-text-color-secondary);
+}
+
+:deep(.el-input-number .el-input__inner) {
+	text-align: left;
 }
 </style>
