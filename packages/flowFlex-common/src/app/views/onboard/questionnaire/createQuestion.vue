@@ -475,6 +475,11 @@ const questionTypes = [
 		icon: 'ph:grid-nine-light',
 		isNew: true,
 	},
+	{
+		id: 'number',
+		name: 'Number',
+		icon: 'mdi:numeric',
+	},
 ];
 
 // 工作流数据

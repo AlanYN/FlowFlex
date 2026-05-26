@@ -216,6 +216,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Format and validate answer JSON
                 var formattedJson = string.IsNullOrWhiteSpace(input.AnswerJson) ? "{}" : input.AnswerJson.Trim();
+                // Validate number-type answers before persisting
+                ValidateNumberAnswers(formattedJson);
                 if (isUpdate)
                 {
                     // Process answer changes history
@@ -317,6 +319,39 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogError(ex, "Failed to save questionnaire answer for OnboardingId: {OnboardingId}, StageId: {StageId}", input.OnboardingId, input.StageId);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Validates that all responses with type "number" contain a parseable numeric value.
+        /// Throws ArgumentException if a non-numeric value is found.
+        /// </summary>
+        private static void ValidateNumberAnswers(string answerJson)
+        {
+            if (string.IsNullOrWhiteSpace(answerJson)) return;
+
+            using var doc = System.Text.Json.JsonDocument.Parse(answerJson);
+            if (!doc.RootElement.TryGetProperty("responses", out var responses)) return;
+
+            foreach (var response in responses.EnumerateArray())
+            {
+                if (response.TryGetProperty("type", out var typeEl) &&
+                    typeEl.GetString() == "number" &&
+                    response.TryGetProperty("answer", out var answerEl) &&
+                    answerEl.ValueKind != System.Text.Json.JsonValueKind.Null)
+                {
+                    var raw = answerEl.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? answerEl.GetString()
+                        : answerEl.ToString();
+
+                    if (!string.IsNullOrEmpty(raw) && !double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out _))
+                    {
+                        var questionId = response.TryGetProperty("questionId", out var qIdEl)
+                            ? qIdEl.GetString() : "unknown";
+                        throw new ArgumentException(
+                            $"Question '{questionId}' expects a numeric value but received: '{raw}'");
+                    }
+                }
             }
         }
 
