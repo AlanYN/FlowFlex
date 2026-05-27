@@ -311,6 +311,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 case "linear_scale":
                     return FormatLinearScaleAnswer(answer, questionConfig);
 
+                case "number":
+                    return answer?.ToString() ?? "No answer";
+
                 default:
                     return answer?.ToString() ?? "No answer";
             }

@@ -278,6 +278,17 @@
 						@change="handleInputChange(question.id, $event)"
 						:disabled="questionIsDisabled(question.id)"
 					/>
+
+					<!-- 数字输入 -->
+					<el-input-number
+						v-else-if="question.type === 'number'"
+						v-model="formData[question.id]"
+						:placeholder="'Enter number'"
+						:controls="false"
+						class="w-full text-left"
+						:disabled="questionIsDisabled(question.id)"
+						@change="handleInputChange(question.id, $event)"
+					/>
 					<!-- 评分 -->
 					<div v-else-if="question.type === 'rating'" class="flex items-center space-x-2">
 						<el-rate
@@ -870,6 +881,9 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 			// 确保数字类型的答案保持为数字
 			const numValue = Number(ans.answer);
 			formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
+		} else if (ans.type === 'number') {
+			const numValue = Number(ans.answer);
+			formData.value[ans.questionId] = isNaN(numValue) ? null : numValue;
 		} else {
 			formData.value[ans.questionId] = ans.answer;
 		}
@@ -1200,6 +1214,13 @@ const validateForm = (presentQuestionIndex?: number) => {
 							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
 						}
+					} else if (question.type === 'number') {
+						const value = formData.value[question.id];
+						if (value === null || value === undefined) {
+							isValid = false;
+							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
+							errors.push(errorMsg);
+						}
 					} else {
 						// 其他类型的验证  其他类型的验证也需要单独处理
 						if (question.type !== 'image' && question.type != 'video') {
@@ -1356,6 +1377,15 @@ const transformFormDataForAPI = () => {
 						answer: formData.value[question.id],
 						type: question.type,
 						responseText: JSON.stringify(responseText),
+					};
+					questionnaireData.answerJson.push(answer);
+				} else if (question.type === 'number') {
+					const answer: QuestionnaireAnswer = {
+						questionId: question.id,
+						question: question.question,
+						answer: formData.value[question.id] ?? null,
+						type: question.type,
+						responseText: '',
 					};
 					questionnaireData.answerJson.push(answer);
 				} else {
@@ -1631,6 +1661,11 @@ onMounted(async () => {
 							// 评分：初始化为0（数字类型）
 							if (!(question?.id in formData.value)) {
 								formData.value[question?.id] = 0;
+							}
+						} else if (question.type === 'number') {
+							// Initialize to null, not 0 — avoids showing 0 for unanswered fields
+							if (!(question?.id in formData.value)) {
+								formData.value[question?.id] = null;
 							}
 						} else {
 							// 其他类型：初始化为空字符串
@@ -2014,5 +2049,9 @@ html.dark {
 
 .form-empty-text {
 	color: var(--el-text-color-secondary);
+}
+
+:deep(.el-input-number .el-input__inner) {
+	text-align: left;
 }
 </style>
