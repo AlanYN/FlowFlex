@@ -32,7 +32,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [Route("ow/checklists/v{version:apiVersion}")]
     [Display(Name = "Checklist Management")]
     [Tags("OW-Checklist", "Onboard Workflow", "Task Management")]
-    [Authorize] // 添加授权特性，要求所有checklist API都需要认证
+    [Authorize] // Require authentication for all checklist APIs
     public class ChecklistController : Controllers.ControllerBase
     {
         private readonly IChecklistService _checklistService;

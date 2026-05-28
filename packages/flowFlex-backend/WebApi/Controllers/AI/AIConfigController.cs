@@ -14,8 +14,7 @@ using System.Threading.Tasks;
 namespace FlowFlex.WebApi.Controllers.AI
 {
     /// <summary>
-    /// AI Model Configuration API
-    /// 提供AI模型配置管理功能
+    /// AI Model Configuration API - Provides AI model configuration management
     /// </summary>
     [ApiController]
     [Route("ai/config/v{version:apiVersion}")]
@@ -39,9 +38,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 获取当前租户的所有AI模型配置
+        /// Get all AI model configurations for the current tenant
         /// </summary>
-        /// <returns>AI模型配置列表</returns>
+        /// <returns>List of AI model configurations</returns>
         [HttpGet("models")]
         [ProducesResponseType<SuccessResponse<List<AIModelConfig>>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -49,9 +48,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 使用租户隔离查询，只返回当前租户的配置
-                // 服务层通过UserContext自动获取租户信息，不再依赖用户ID
-                var userId = GetCurrentUserId(); // 保留用于兼容性，但服务层实际使用租户隔离
+                // Tenant-isolated query, only returns configurations for the current tenant
+                // Service layer automatically gets tenant info from UserContext
+                var userId = GetCurrentUserId(); // Kept for compatibility, service layer uses tenant isolation
                 var configs = await _configService.GetUserAIModelConfigsAsync(userId);
                 return Success(configs);
             }
@@ -63,9 +62,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 获取当前租户的默认AI模型配置
+        /// Get the default AI model configuration for the current tenant
         /// </summary>
-        /// <returns>默认AI模型配置</returns>
+        /// <returns>Default AI model configuration</returns>
         [HttpGet("models/default")]
         [ProducesResponseType<SuccessResponse<AIModelConfig>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -73,9 +72,9 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 使用租户隔离查询，只返回当前租户的默认配置
-                // 服务层通过UserContext自动获取租户信息，不再依赖用户ID
-                var userId = GetCurrentUserId(); // 保留用于兼容性，但服务层实际使用租户隔离
+                // Tenant-isolated query, only returns the default config for the current tenant
+                // Service layer automatically gets tenant info from UserContext
+                var userId = GetCurrentUserId(); // Kept for compatibility, service layer uses tenant isolation
                 var config = await _configService.GetUserDefaultConfigAsync(userId);
                 if (config == null)
                 {
@@ -91,10 +90,10 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 创建AI模型配置
+        /// Create AI model configuration
         /// </summary>
-        /// <param name="config">AI模型配置</param>
-        /// <returns>创建结果</returns>
+        /// <param name="config">AI model configuration</param>
+        /// <returns>Created configuration ID</returns>
         [HttpPost("models")]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -102,13 +101,13 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 使用租户隔离，UserContext会自动处理租户信息
-                // 服务层会从UserContext自动获取TenantId和AppCode
+                // Tenant-isolated, UserContext handles tenant info automatically
+                // Service layer gets TenantId and AppCode from UserContext automatically
                 var operatorId = _operatorContextService.GetOperatorId();
                 var operatorName = _operatorContextService.GetOperatorDisplayName();
                 var currentTime = DateTime.UtcNow;
 
-                config.UserId = operatorId; // 保留用于审计追踪
+                config.UserId = operatorId; // Kept for audit trail
                 config.CreatedBy = operatorId;
                 config.CreatedByName = operatorName;
                 config.CreatedTime = currentTime;
@@ -127,11 +126,11 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 更新AI模型配置
+        /// Update AI model configuration
         /// </summary>
-        /// <param name="id">配置ID</param>
-        /// <param name="config">AI模型配置</param>
-        /// <returns>更新结果</returns>
+        /// <param name="id">Configuration ID</param>
+        /// <param name="config">AI model configuration</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("models/{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -140,7 +139,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 config.Id = id;
-                // 使用租户隔离，UserContext会自动处理租户信息
+                // Tenant-isolated, UserContext handles tenant info automatically
                 var operatorId = _operatorContextService.GetOperatorId();
                 var operatorName = _operatorContextService.GetOperatorDisplayName();
                 var currentTime = DateTime.UtcNow;
@@ -161,10 +160,10 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 删除AI模型配置
+        /// Delete AI model configuration
         /// </summary>
-        /// <param name="id">配置ID</param>
-        /// <returns>删除结果</returns>
+        /// <param name="id">Configuration ID</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("models/{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -172,7 +171,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 使用租户隔离，不需要手动获取用户ID
+                // Tenant-isolated, no need to manually get user ID
                 var result = await _configService.DeleteConfigAsync(id);
                 return Success(result);
             }
@@ -184,10 +183,10 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 设置为默认配置
+        /// Set configuration as default
         /// </summary>
-        /// <param name="id">配置ID</param>
-        /// <returns>设置结果</returns>
+        /// <param name="id">Configuration ID</param>
+        /// <returns>Whether setting was successful</returns>
         [HttpPut("models/{id}/default")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -206,10 +205,10 @@ namespace FlowFlex.WebApi.Controllers.AI
         }
 
         /// <summary>
-        /// 测试AI模型配置连接
+        /// Test AI model configuration connection
         /// </summary>
-        /// <param name="config">AI模型配置</param>
-        /// <returns>测试结果</returns>
+        /// <param name="config">AI model configuration to test</param>
+        /// <returns>Connection test result</returns>
         [HttpPost("models/test")]
         [ProducesResponseType<SuccessResponse<AIModelTestResult>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
@@ -219,7 +218,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 var result = await _configService.TestConnectionAsync(config);
 
-                // 如果有配置ID，获取更新后的配置状态返回给前端
+                // If config has an ID, get the updated config status to return to frontend
                 if (config.Id > 0)
                 {
                     var updatedConfig = await _configService.GetConfigByIdAsync(config.Id);
@@ -311,42 +310,42 @@ namespace FlowFlex.WebApi.Controllers.AI
     }
 
     /// <summary>
-    /// AI提供商信息
+    /// AI Provider information
     /// </summary>
     public class AIProviderInfo
     {
         /// <summary>
-        /// 提供商名称
+        /// Provider name (identifier)
         /// </summary>
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// 显示名称
+        /// Display name
         /// </summary>
         public string DisplayName { get; set; } = string.Empty;
 
         /// <summary>
-        /// 图标
+        /// Icon emoji
         /// </summary>
         public string Icon { get; set; } = string.Empty;
 
         /// <summary>
-        /// 描述
+        /// Provider description
         /// </summary>
         public string Description { get; set; } = string.Empty;
 
         /// <summary>
-        /// 官网地址
+        /// Official website URL
         /// </summary>
         public string Website { get; set; } = string.Empty;
 
         /// <summary>
-        /// 默认BaseURL地址
+        /// Default base URL for API calls
         /// </summary>
         public string DefaultBaseUrl { get; set; } = string.Empty;
 
         /// <summary>
-        /// 支持的模型列表
+        /// List of supported model names
         /// </summary>
         public string[] SupportedModels { get; set; } = Array.Empty<string>();
     }

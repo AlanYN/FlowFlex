@@ -9,7 +9,8 @@ using System.Net;
 namespace FlowFlex.WebApi.Controllers.DynamicData;
 
 /// <summary>
-/// Property group management API
+/// Property group management API - Manages groups/categories for organizing dynamic field definitions.
+/// Groups provide a logical structure for displaying and managing properties in the UI.
 /// </summary>
 [ApiController]
 [Route("ow/dynamic-data/v{version:apiVersion}/groups")]
@@ -26,8 +27,9 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get all groups
+    /// Get all property groups (without field details)
     /// </summary>
+    /// <returns>List of all property groups</returns>
     [HttpGet]
     [ProducesResponseType<SuccessResponse<List<PropertyGroupDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetAll()
@@ -53,8 +55,9 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get groups with fields
+    /// Get all property groups with their associated field definitions
     /// </summary>
+    /// <returns>List of groups each containing their field definitions</returns>
     [HttpGet("with-fields")]
     [ProducesResponseType<SuccessResponse<List<PropertyGroupDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetWithFields()
@@ -64,9 +67,10 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Create group
+    /// Create a new property group
     /// </summary>
-    /// <param name="dto">Group definition</param>
+    /// <param name="dto">Group definition including name, description, and sort order</param>
+    /// <returns>Created group ID</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Create([FromBody] PropertyGroupDto dto)
@@ -76,10 +80,11 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update group
+    /// Update an existing property group
     /// </summary>
     /// <param name="id">Group ID</param>
-    /// <param name="dto">Group definition</param>
+    /// <param name="dto">Updated group definition</param>
+    /// <returns>Whether update was successful</returns>
     [HttpPut("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Update(long id, [FromBody] PropertyGroupDto dto)
@@ -90,9 +95,10 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Delete group
+    /// Delete a property group (fields in this group will become ungrouped)
     /// </summary>
-    /// <param name="id">Group ID</param>
+    /// <param name="id">Group ID to delete</param>
+    /// <returns>Whether deletion was successful</returns>
     [HttpDelete("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Delete(long id)
@@ -102,9 +108,10 @@ public class PropertyGroupController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update group sort order
+    /// Batch update group display sort order
     /// </summary>
-    /// <param name="sorts">Group ID to sort order mapping</param>
+    /// <param name="sorts">Dictionary mapping group ID to new sort order value</param>
+    /// <returns>Whether sort update was successful</returns>
     [HttpPut("sort")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UpdateSort([FromBody] Dictionary<long, int> sorts)

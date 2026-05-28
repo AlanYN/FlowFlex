@@ -20,6 +20,11 @@ public class PluginPriceListController : Controllers.ControllerBase
         _service = service;
     }
 
+    /// <summary>
+    /// Get plugin price list by case code
+    /// </summary>
+    /// <param name="caseCode">Case code identifier</param>
+    /// <returns>Plugin price list data</returns>
     [HttpGet]
     [ProducesResponseType<SuccessResponse<PluginPriceListOutputDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetAsync([FromQuery, Required] string caseCode)
@@ -28,6 +33,11 @@ public class PluginPriceListController : Controllers.ControllerBase
         return Success(result);
     }
 
+    /// <summary>
+    /// Save plugin price list (create or update)
+    /// </summary>
+    /// <param name="input">Plugin price list data to save</param>
+    /// <returns>Save result</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SaveAsync([FromBody] PluginPriceListInputDto input)
@@ -36,6 +46,11 @@ public class PluginPriceListController : Controllers.ControllerBase
         return Success(result);
     }
 
+    /// <summary>
+    /// Submit plugin price list for approval
+    /// </summary>
+    /// <param name="input">Plugin price list submission data</param>
+    /// <returns>Submission result</returns>
     [HttpPost("submit")]
     [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SubmitAsync([FromBody] PluginPriceListSubmitDto input)

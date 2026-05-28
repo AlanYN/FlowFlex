@@ -15,7 +15,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// Static field value management API - Includes static field value CRUD and content management functions
     /// </summary>
     [ApiController]
-    [Authorize] // 添加授权特性，要求所有 static field value API 都需要认证
+    [Authorize] // Require authentication for all static field value APIs
     [PortalAccess] // Allow Portal token access - Portal users can submit and view static field values
     [Route("ow/static-field-values/v{version:apiVersion}")]
     [Display(Name = "static field values")]

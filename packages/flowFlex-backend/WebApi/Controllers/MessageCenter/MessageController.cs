@@ -31,8 +31,10 @@ public class MessageController : Controllers.ControllerBase
     #region Message CRUD
 
     /// <summary>
-    /// Get paginated message list with filtering
+    /// Get paginated message list with filtering by folder, type, read status, etc.
     /// </summary>
+    /// <param name="query">Query parameters including folder, type, isRead, searchText, pageIndex, pageSize</param>
+    /// <returns>Paginated message list with summary information</returns>
     [HttpGet]
     [ProducesResponseType<SuccessResponse<PageModelDto<MessageListItemDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetPagedAsync([FromQuery] MessageQueryDto query)
@@ -42,8 +44,10 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get message detail by ID (auto-marks as read)
+    /// Get message detail by ID (automatically marks the message as read)
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Full message details including body, attachments, and thread information</returns>
     [HttpGet("{id}")]
     [ProducesResponseType<SuccessResponse<MessageDetailDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetByIdAsync(long id)
@@ -57,8 +61,10 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Create and send a message
+    /// Create and send a new message (Internal, Email via Outlook, or Portal message)
     /// </summary>
+    /// <param name="input">Message content including recipients, subject, body, type, and optional attachments</param>
+    /// <returns>Created message ID</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> CreateAsync([FromBody] MessageCreateDto input)
@@ -68,8 +74,11 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update a draft message
+    /// Update a draft message (only draft messages can be updated)
     /// </summary>
+    /// <param name="id">Draft message ID</param>
+    /// <param name="input">Updated message content</param>
+    /// <returns>Whether update was successful</returns>
     [HttpPut("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UpdateAsync(long id, [FromBody] MessageUpdateDto input)
@@ -79,8 +88,10 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Delete message (move to Trash)
+    /// Soft delete message (move to Trash folder, can be restored later)
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether deletion was successful</returns>
     [HttpDelete("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> DeleteAsync(long id)
@@ -90,8 +101,10 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Permanently delete message
+    /// Permanently delete a message (cannot be recovered)
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether permanent deletion was successful</returns>
     [HttpDelete("{id}/permanent")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> PermanentDeleteAsync(long id)
@@ -103,6 +116,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Restore message from Trash
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether restore was successful</returns>
     [HttpPost("{id}/restore")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> RestoreAsync(long id)
@@ -114,6 +129,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Move message to Inbox folder
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether move was successful</returns>
     [HttpPost("{id}/move-to-inbox")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> MoveToInboxAsync(long id)
@@ -125,6 +142,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Move message to Sent folder
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether move was successful</returns>
     [HttpPost("{id}/move-to-sent")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> MoveToSentAsync(long id)
@@ -141,6 +160,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Star a message
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether starring was successful</returns>
     [HttpPost("{id}/star")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> StarAsync(long id)
@@ -152,6 +173,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Unstar a message
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether unstarring was successful</returns>
     [HttpPost("{id}/unstar")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UnstarAsync(long id)
@@ -163,6 +186,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Archive a message
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether archiving was successful</returns>
     [HttpPost("{id}/archive")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ArchiveAsync(long id)
@@ -174,6 +199,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Unarchive a message
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether unarchiving was successful</returns>
     [HttpPost("{id}/unarchive")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UnarchiveAsync(long id)
@@ -185,6 +212,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Mark message as read
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether marking as read was successful</returns>
     [HttpPost("{id}/read")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> MarkAsReadAsync(long id)
@@ -196,6 +225,8 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Mark message as unread
     /// </summary>
+    /// <param name="id">Message ID</param>
+    /// <returns>Whether marking as unread was successful</returns>
     [HttpPost("{id}/unread")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> MarkAsUnreadAsync(long id)
@@ -209,8 +240,11 @@ public class MessageController : Controllers.ControllerBase
     #region Reply and Forward
 
     /// <summary>
-    /// Reply to a message
+    /// Reply to a message (creates a new message in the same thread)
     /// </summary>
+    /// <param name="id">Original message ID to reply to</param>
+    /// <param name="input">Reply content including body and optional attachments</param>
+    /// <returns>New reply message ID</returns>
     [HttpPost("{id}/reply")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ReplyAsync(long id, [FromBody] MessageReplyDto input)
@@ -220,8 +254,11 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Forward a message
+    /// Forward a message to new recipients
     /// </summary>
+    /// <param name="id">Message ID to forward</param>
+    /// <param name="input">Forward details including new recipients and optional additional content</param>
+    /// <returns>New forwarded message ID</returns>
     [HttpPost("{id}/forward")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ForwardAsync(long id, [FromBody] MessageForwardDto input)
@@ -235,8 +272,10 @@ public class MessageController : Controllers.ControllerBase
     #region Drafts
 
     /// <summary>
-    /// Save message as draft
+    /// Save a new message as draft (not sent, can be edited later)
     /// </summary>
+    /// <param name="input">Draft message content</param>
+    /// <returns>Draft message ID</returns>
     [HttpPost("archive")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SaveDraftAsync([FromBody] MessageCreateDto input)
@@ -246,8 +285,10 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Send a draft message
+    /// Send a previously saved draft message
     /// </summary>
+    /// <param name="id">Draft message ID</param>
+    /// <returns>Sent message ID</returns>
     [HttpPost("archive/{id}/send")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SendDraftAsync(long id)
@@ -261,8 +302,9 @@ public class MessageController : Controllers.ControllerBase
     #region Statistics and Sync
 
     /// <summary>
-    /// Get folder statistics
+    /// Get folder statistics including message count per folder and unread counts
     /// </summary>
+    /// <returns>List of folder stats with name, total count, and unread count</returns>
     [HttpGet("stats/folders")]
     [ProducesResponseType<SuccessResponse<List<FolderStatsDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetFolderStatsAsync()
@@ -272,8 +314,9 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get unread message count
+    /// Get total unread message count for current user across all folders
     /// </summary>
+    /// <returns>Total unread message count</returns>
     [HttpGet("stats/unread")]
     [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetUnreadCountAsync()

@@ -64,7 +64,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType(200)]
         public async Task StreamGenerateWorkflow([FromBody] AIWorkflowGenerationInput input)
         {
-            // 设置流式响应头
+            // Set streaming response headers
             Response.ContentType = "text/event-stream";
             Response.Headers.Append("Cache-Control", "no-cache");
             Response.Headers.Append("Connection", "keep-alive");
@@ -244,7 +244,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Modification description is required");
             }
 
-            // TODO: 验证workflow是否存在
+            // TODO: Verify workflow exists
             // var workflowExists = await _workflowService.ExistsAsync(workflowId);
             // if (!workflowExists)
             // {

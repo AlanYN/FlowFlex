@@ -14,7 +14,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 {
     /// <summary>
     /// AI Chat Conversation API
-    /// 提供AI对话和实时聊天功能
+    /// Provides AI conversation and real-time chat functionality
     /// </summary>
     [ApiController]
     [Route("ai/chat/v{version:apiVersion}")]
@@ -77,7 +77,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task StreamChatMessage([FromBody] AIChatInput input)
         {
-            // 设置流式响应头
+            // Set streaming response headers
             Response.ContentType = "text/event-stream";
             Response.Headers.Append("Cache-Control", "no-cache");
             Response.Headers.Append("Connection", "keep-alive");
@@ -154,7 +154,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         {
             try
             {
-                // 获取当前用户的默认AI配置
+                // Get current user's default AI configuration
                 var userId = GetCurrentUserId();
                 var userConfig = await _configService.GetUserDefaultConfigAsync(userId);
 
@@ -183,7 +183,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 _logger.LogError(ex, "Error getting chat service status");
 
-                // 返回默认状态
+                // Return default status
                 var defaultStatus = new AIChatServiceStatus
                 {
                     IsAvailable = true,

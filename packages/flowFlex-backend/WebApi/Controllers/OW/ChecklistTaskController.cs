@@ -32,7 +32,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [Route("ow/checklist-task/v{version:apiVersion}")] // Alternative route for compatibility
     [Display(Name = "ChecklistTask Management")]
     [Tags("ChecklistTask", "Onboard Workflow", "Task Items")]
-    [Authorize] // 添加授权特性，要求所有checklist task API都需要认证
+    [Authorize] // Require authentication for all checklist task APIs
     public class ChecklistTaskController : Controllers.ControllerBase
     {
         private readonly IChecklistTaskService _checklistTaskService;
@@ -46,6 +46,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Create checklist task
         /// Requires CHECKLIST:CREATE permission
         /// </summary>
+        /// <param name="input">Checklist task creation data</param>
+        /// <returns>Created task ID</returns>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Checklist.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -59,6 +61,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update checklist task
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <param name="input">Task update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -72,6 +77,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete checklist task (with confirmation)
         /// Requires CHECKLIST:DELETE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <param name="confirm">Confirmation flag to proceed with deletion</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("{id}")]
         [WFEAuthorize(PermissionConsts.Checklist.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -85,6 +93,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get checklist task by id
         /// Requires CHECKLIST:READ permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <returns>Task details</returns>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<ChecklistTaskOutputDto>>((int)HttpStatusCode.OK)]
@@ -98,6 +108,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get tasks by checklist id
         /// Requires CHECKLIST:READ permission
         /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <returns>List of tasks belonging to the checklist</returns>
         [HttpGet("checklist/{checklistId}")]
         [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [HttpGet("list/{checklistId}")] // Alternative route for compatibility
@@ -112,6 +124,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Complete task
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <param name="input">Completion details (notes, actual hours)</param>
+        /// <returns>Whether completion was successful</returns>
         [HttpPost("{id}/complete")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -125,6 +140,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Uncomplete task
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <returns>Whether uncomplete was successful</returns>
         [HttpPost("{id}/uncomplete")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -138,6 +155,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Batch complete tasks
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="input">Batch completion data including task IDs and completion details</param>
+        /// <returns>Whether batch completion was successful</returns>
         [HttpPost("batch-complete")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -160,6 +179,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Sort tasks within checklist
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <param name="taskOrders">Dictionary of task ID to sort order</param>
+        /// <returns>Whether sorting was successful</returns>
         [HttpPost("checklist/{checklistId}/sort")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -173,6 +195,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Assign task to user
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <param name="input">Assignment details (assignee ID and name)</param>
+        /// <returns>Whether assignment was successful</returns>
         [HttpPost("{id}/assign")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -186,6 +211,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Set structured assignee information for task (configuration stage)
         /// Requires CHECKLIST:UPDATE permission
         /// </summary>
+        /// <param name="id">Task ID</param>
+        /// <param name="assignee">Structured assignee information</param>
+        /// <returns>Whether assignee was set successfully</returns>
         [HttpPost("{id}/set-assignee")]
         [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -199,6 +227,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get pending tasks by assignee
         /// Requires CHECKLIST:READ permission
         /// </summary>
+        /// <param name="assigneeId">Assignee user ID</param>
+        /// <returns>List of pending tasks for the assignee</returns>
         [HttpGet("assignee/{assigneeId}/pending")]
         [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistTaskOutputDto>>>((int)HttpStatusCode.OK)]
@@ -212,6 +242,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get overdue tasks
         /// Requires CHECKLIST:READ permission
         /// </summary>
+        /// <returns>List of overdue tasks</returns>
         [HttpGet("overdue")]
         [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistTaskOutputDto>>>((int)HttpStatusCode.OK)]
@@ -225,6 +256,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get task dependencies for a checklist
         /// Requires CHECKLIST:READ permission
         /// </summary>
+        /// <param name="checklistId">Checklist ID</param>
+        /// <returns>Dictionary of task ID to list of dependent task IDs</returns>
         [HttpGet("{checklistId}/dependencies")]
         [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<Dictionary<long, List<long>>>>((int)HttpStatusCode.OK)]

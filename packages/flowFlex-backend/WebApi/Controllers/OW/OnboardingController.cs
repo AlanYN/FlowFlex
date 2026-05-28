@@ -27,7 +27,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [ApiController]
     [Route("ow/onboardings/v{version:apiVersion}")]
     [Display(Name = "onboarding")]
-    [Authorize] // 添加授权特性，要求所有onboarding API都需要认证
+    [Authorize] // Require authentication for all onboarding APIs
     [PortalAccess] // Allow Portal token access - Portal users can view and update onboarding information
     public class OnboardingController : Controllers.ControllerBase
     {
@@ -42,6 +42,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Create new onboarding
         /// Requires CASE:CREATE permission
         /// </summary>
+        /// <param name="input">Onboarding creation data</param>
+        /// <returns>Created onboarding ID</returns>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Case.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -80,6 +82,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Teams and Users are stored separately - data switches based on PermissionSubjectType
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Onboarding update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Operate)]
@@ -94,6 +99,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete onboarding (with confirmation)
         /// Requires CASE:DELETE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="confirm">Confirmation flag to proceed with deletion</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("{id}")]
         [WFEAuthorize(PermissionConsts.Case.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Delete)]
@@ -109,6 +117,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Requires CASE:READ permission
         /// Tenant isolation is enforced - only data belonging to the current tenant can be accessed
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>Onboarding details</returns>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.View)]
@@ -137,6 +147,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Example: {"leadId": "c", "caseName": "company1,company2", "updatedBy": "user1,user2"}
         /// Requires CASE:READ permission
         /// </summary>
+        /// <param name="query">Query parameters including pagination, sorting, and filters</param>
+        /// <returns>Paged onboarding list</returns>
         [HttpPost("query")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
@@ -150,6 +162,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Complete current stage with validation
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Stage completion input including validation options</param>
+        /// <returns>Whether stage completion was successful</returns>
         [HttpPost("{id}/complete-stage-with-validation")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -174,6 +189,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Pause onboarding
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>Whether pause was successful</returns>
         [HttpPost("{id}/pause")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -187,6 +204,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Resume onboarding
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>Whether resume was successful</returns>
         [HttpPost("{id}/resume")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -200,6 +219,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Reject onboarding application
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Rejection details including reason</param>
+        /// <returns>Whether rejection was successful</returns>
         [HttpPost("{id}/reject")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -213,6 +235,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Cancel onboarding
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="reason">Cancellation reason</param>
+        /// <returns>Whether cancellation was successful</returns>
         [HttpPost("{id}/cancel")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -226,6 +251,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Start onboarding (activate an inactive onboarding)
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Start onboarding parameters</param>
+        /// <returns>Whether start was successful</returns>
         [HttpPost("{id}/start")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -239,6 +267,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Abort onboarding (terminate the process)
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Abort details including reason</param>
+        /// <returns>Whether abort was successful</returns>
         [HttpPost("{id}/abort")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -252,6 +283,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Reactivate onboarding (restart an aborted onboarding)
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Reactivation parameters</param>
+        /// <returns>Whether reactivation was successful</returns>
         [HttpPost("{id}/reactivate")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -265,6 +299,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Resume onboarding with confirmation
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Resume confirmation parameters</param>
+        /// <returns>Whether resume was successful</returns>
         [HttpPost("{id}/resume-with-confirmation")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -278,6 +315,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Force complete onboarding (bypass normal validation and set to Force Completed status)
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Force completion parameters</param>
+        /// <returns>Whether force completion was successful</returns>
         [HttpPost("{id}/force-complete")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -291,6 +331,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get onboarding progress
         /// Requires CASE:READ permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>Onboarding progress details</returns>
         [HttpGet("{id}/progress")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<OnboardingProgressDto>>((int)HttpStatusCode.OK)]
@@ -306,6 +348,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// All text search queries are case-insensitive
         /// Requires CASE:READ permission
         /// </summary>
+        /// <param name="query">Query parameters for filtering export data</param>
+        /// <returns>Excel file containing onboarding data</returns>
         [HttpPost("export-excel")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]
@@ -379,6 +423,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Updates CustomEstimatedDays and CustomEndTime fields
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Custom fields update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPost("{id}/stage/update-custom-fields")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -394,6 +441,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
         /// Requires CASE:UPDATE permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="input">Save stage parameters including stage ID</param>
+        /// <returns>Whether save was successful</returns>
         [HttpPost("{id}/save")]
         [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -415,6 +465,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// If case has permission restrictions, returns only authorized users based on ViewPermissionMode and ViewPermissionSubjectType
         /// Requires CASE:READ permission
         /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>List of authorized user tree nodes</returns>
         [HttpGet("{id}/authorized-users")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]

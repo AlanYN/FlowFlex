@@ -68,7 +68,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<PagedResult<OperationChangeLogOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetLogsByOnboardingAsync(
             long onboardingId,
-            [FromQuery] long stageId, // 现在是必填参数
+            [FromQuery] long stageId, // Required parameter
             [FromQuery] int pageIndex = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] bool includeActionExecutions = true)

@@ -26,7 +26,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [ApiController]
     [Route("ow/stages/v{version:apiVersion}")]
     [Display(Name = "stage")]
-    [Authorize] // 添加授权特性，要求所有stage API都需要认证
+    [Authorize] // Require authentication for all stage APIs
     [PortalAccess] // Allow Portal token access - Portal users can view stage information and AI summaries
     public class StageController : Controllers.ControllerBase
     {
@@ -47,6 +47,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Create stage
         /// Requires WORKFLOW:CREATE permission
         /// </summary>
+        /// <param name="input">Stage creation data</param>
+        /// <returns>Created stage ID</returns>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -60,6 +62,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update stage
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <param name="input">Stage update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Operate)]
@@ -74,6 +79,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete stage (with confirmation)
         /// Requires WORKFLOW:DELETE permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <param name="confirm">Confirmation flag to proceed with deletion</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Delete)]
@@ -88,6 +96,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get stage by id
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <returns>Stage details</returns>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.View)]
@@ -102,6 +112,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Query stage (paged)
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="query">Query parameters including pagination and filters</param>
+        /// <returns>Paged stage results</returns>
         [HttpPost("query")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<PagedResult<StageOutputDto>>>((int)HttpStatusCode.OK)]
@@ -134,6 +146,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Sort stages
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="input">Sort order configuration</param>
+        /// <returns>Whether sorting was successful</returns>
         [HttpPost("sort")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -147,6 +161,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Combine stages
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="input">Combine stages configuration (source stage IDs and target name)</param>
+        /// <returns>New combined stage ID</returns>
         [HttpPost("combine")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -160,6 +176,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Set stage color
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <param name="input">Color configuration</param>
+        /// <returns>Whether color was set successfully</returns>
         [HttpPost("{id}/color")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -175,6 +194,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Duplicate stage
         /// Requires WORKFLOW:CREATE permission
         /// </summary>
+        /// <param name="id">Source stage ID to duplicate</param>
+        /// <param name="input">Duplication parameters</param>
+        /// <returns>New duplicated stage ID</returns>
         [HttpPost("{id}/duplicate")]
         [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -188,6 +210,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update stage components
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <param name="input">Components configuration data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPost("{id}/components")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -201,6 +226,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get stage components
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <returns>List of stage components</returns>
         [HttpGet("{id}/components")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<List<FlowFlex.Domain.Shared.Models.StageComponent>>>((int)HttpStatusCode.OK)]
@@ -214,6 +241,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Force sync stage assignments (debug/maintenance endpoint)
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Stage ID</param>
+        /// <returns>Sync result with details about synced components</returns>
         [HttpPost("{id}/sync-assignments")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
@@ -549,7 +578,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] long? onboardingId = null,
             [FromQuery] string? language = null)
         {
-            // 设置流式响应头 - 纯文本流
+            // Set streaming response headers - plain text stream
             Response.ContentType = "text/plain; charset=utf-8";
             Response.Headers.Append("Cache-Control", "no-cache");
             Response.Headers.Append("Connection", "keep-alive");
@@ -604,7 +633,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                     return;
                 }
 
-                // 准备AI Summary生成输入
+                // Prepare AI Summary generation input
                 var summaryOptions = new StageSummaryOptions
                 {
                     Language = language ?? "auto",
@@ -613,28 +642,28 @@ namespace FlowFlex.WebApi.Controllers.OW
                     IncludeQuestionnaireInsights = true
                 };
 
-                // 调用AI服务生成摘要 - 现在将结果存储到Onboarding stage progress
+                // Call AI service to generate summary - results stored in Onboarding stage progress
                 var summaryResult = await _stageService.GenerateAISummaryAsync(stageId, onboardingId, summaryOptions);
 
                 if (summaryResult.Success && !string.IsNullOrEmpty(summaryResult.Summary))
                 {
-                    // 直接以纯文本形式流式发送AI内容
+                    // Stream AI content directly as plain text
                     var fullContent = summaryResult.Summary;
-                    var chunkSize = Math.Max(5, fullContent.Length / 20); // 将内容分成20个左右的块，每块至少5个字符
+                    var chunkSize = Math.Max(5, fullContent.Length / 20); // Split content into ~20 chunks, minimum 5 characters each
 
                     for (int i = 0; i < fullContent.Length; i += chunkSize)
                     {
                         var chunk = fullContent.Substring(i, Math.Min(chunkSize, fullContent.Length - i));
 
-                        // 直接发送文本内容，不使用JSON格式
+                        // Send text content directly without JSON format
                         await Response.WriteAsync(chunk);
                         await Response.Body.FlushAsync();
 
-                        // 添加小延迟来模拟真实的AI流式响应
+                        // Add small delay to simulate real AI streaming response
                         await Task.Delay(100);
                     }
 
-                    // 异步更新数据库 - 存储到Onboarding stage progress
+                    // Async update database - store in Onboarding stage progress
                     var generatedAt = DateTime.UtcNow;
                     _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
@@ -650,7 +679,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 }
                 else
                 {
-                    // 发送错误信息，以纯文本形式
+                    // Send error message as plain text
                     var errorMessage = summaryResult?.Message ?? "Failed to generate AI summary";
                     await Response.WriteAsync($"Error: {errorMessage}");
                 }
@@ -659,14 +688,14 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
             catch (Exception ex)
             {
-                // 发送错误信息，以纯文本形式
+                // Send error message as plain text
                 await Response.WriteAsync($"Error: Stream error: {ex.Message}");
                 await Response.Body.FlushAsync();
             }
         }
 
         /// <summary>
-        /// 异步更新AI Summary到数据库
+        /// Async update AI Summary to database
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="onboardingId">Onboarding ID (optional)</param>

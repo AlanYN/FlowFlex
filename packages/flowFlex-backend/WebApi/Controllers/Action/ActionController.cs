@@ -73,15 +73,18 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <summary>
         /// Get action definitions
         /// </summary>
-        /// <param name="actionName"></param>
-        /// <param name="actionType"></param>
-        /// <param name="pageIndex"></param>
-        /// <param name="pageSize"></param>
-        /// <param name="isAssignmentStage"></param>
-        /// <param name="isAssignmentChecklist"></param>
-        /// <param name="isAssignmentQuestionnaire"></param>
-        /// <param name="isTools"></param>
-        /// <returns></returns>
+        /// <param name="search">Search keyword for action name</param>
+        /// <param name="actionType">Filter by action type</param>
+        /// <param name="pageIndex">Page index (default: 1)</param>
+        /// <param name="pageSize">Page size (optional, defaults to 1000)</param>
+        /// <param name="isAssignmentStage">Filter by stage assignment</param>
+        /// <param name="isAssignmentChecklist">Filter by checklist assignment</param>
+        /// <param name="isAssignmentQuestionnaire">Filter by questionnaire assignment</param>
+        /// <param name="isAssignmentWorkflow">Filter by workflow assignment</param>
+        /// <param name="isTools">Filter by tools flag</param>
+        /// <param name="isSystemTools">Filter by system tools (overrides actionType to System)</param>
+        /// <param name="integrationId">Filter by integration ID</param>
+        /// <returns>Paged list of action definitions</returns>
         /// Requires TOOL:READ permission
         [HttpGet("definitions")]
         [WFEAuthorize(PermissionConsts.Tool.Read)]
@@ -479,8 +482,8 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <summary>
         /// Get action trigger mappings by trigger source id
         /// </summary>
-        /// <param name="triggerSourceId"></param>
-        /// <returns></returns>
+        /// <param name="triggerSourceId">Trigger source ID</param>
+        /// <returns>List of action trigger mappings with action info</returns>
         /// Requires TOOL:READ permission
         [HttpGet("mappings/trigger-source/{triggerSourceId}")]
         [WFEAuthorize(PermissionConsts.Tool.Read)]
@@ -635,7 +638,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         [HttpGet("executions/trigger-source/{triggerSourceId}")]
         [WFEAuthorize(PermissionConsts.Case.Read, PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetExecutionsByTriggerSourceId(
+        public async Task<IActionResult> GetExecutionsByTriggerSourceId(etExecutionsByTriggerSourceId(
             long triggerSourceId,
             int pageIndex = 1,
             int pageSize = 10)
@@ -685,7 +688,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "CompleteStage",
                     DisplayName = "Complete Stage",
                     Description = "Complete a specific stage in the workflow",
-                    TriggerType = TriggerTypeEnum.Task, // 在Task完成时触发
+                    TriggerType = TriggerTypeEnum.Task, // Triggered on Task completion
                      ConfigSchema = new
                      {
                          actionName = "CompleteStage",
@@ -705,7 +708,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "MoveToStage",
                     DisplayName = "Move to Stage",
                     Description = "Move onboarding to a specific stage",
-                    TriggerType = TriggerTypeEnum.Stage, // 在Stage完成时触发
+                    TriggerType = TriggerTypeEnum.Stage, // Triggered on Stage completion
                     ConfigSchema = new
                     {
                         actionName = "MoveToStage",
@@ -724,7 +727,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionName = "AssignOnboarding",
                     DisplayName = "Assign Onboarding",
                     Description = "Assign an onboarding to a specific user",
-                    TriggerType = TriggerTypeEnum.Workflow, // 在Workflow级别触发
+                    TriggerType = TriggerTypeEnum.Workflow, // Triggered at Workflow level
                     ConfigSchema = new
                     {
                         actionName = "AssignOnboarding",

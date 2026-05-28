@@ -16,7 +16,7 @@ namespace FlowFlex.WebApi.Controllers.OW;
 [ApiController]
 [Route("ow/checklist-task-notes/v{version:apiVersion}")]
 [Display(Name = "checklist-task-note")]
-[Authorize] // 添加授权特性，要求所有note API都需要认证
+[Authorize] // Require authentication for all note APIs
 [PortalAccess]
 public class ChecklistTaskNoteController : Controllers.ControllerBase
 {
@@ -28,8 +28,10 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Create a new note for a task
+    /// Create a new note for a checklist task
     /// </summary>
+    /// <param name="input">Note content including taskId, onboardingId, content, priority, etc.</param>
+    /// <returns>Created note ID</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> CreateNote([FromBody] ChecklistTaskNoteInputDto input)
@@ -49,8 +51,11 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update an existing note
+    /// Update an existing note content or metadata
     /// </summary>
+    /// <param name="id">Note ID</param>
+    /// <param name="input">Updated note data</param>
+    /// <returns>Whether update was successful</returns>
     [HttpPut("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UpdateNote(long id, [FromBody] ChecklistTaskNoteUpdateDto input)
@@ -71,8 +76,10 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Delete a note
+    /// Delete a note by ID (soft delete)
     /// </summary>
+    /// <param name="id">Note ID to delete</param>
+    /// <returns>Whether deletion was successful</returns>
     [HttpDelete("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> DeleteNote(long id)
@@ -82,8 +89,10 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get a specific note by ID
+    /// Get a specific note by its ID
     /// </summary>
+    /// <param name="id">Note ID</param>
+    /// <returns>Note details including content, author, timestamps, priority, and pin status</returns>
     [HttpGet("{id}")]
     [ProducesResponseType<SuccessResponse<ChecklistTaskNoteOutputDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetNoteById(long id)
@@ -97,8 +106,12 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get all notes for a specific task
+    /// Get all notes for a specific task within an onboarding context
     /// </summary>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="onboardingId">Onboarding ID</param>
+    /// <param name="includeDeleted">Whether to include soft-deleted notes (default: false)</param>
+    /// <returns>List of notes ordered by creation time</returns>
     [HttpGet("task/{taskId}/onboarding/{onboardingId}")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskNoteOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetNotesByTask(long taskId, long onboardingId, [FromQuery] bool includeDeleted = false)
@@ -108,8 +121,11 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get notes summary for a task
+    /// Get notes summary for a task (total count, pinned count, latest note preview)
     /// </summary>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="onboardingId">Onboarding ID</param>
+    /// <returns>Summary including total notes count, pinned count, and latest note info</returns>
     [HttpGet("task/{taskId}/onboarding/{onboardingId}/summary")]
     [ProducesResponseType<SuccessResponse<ChecklistTaskNotesSummaryDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetNotesSummary(long taskId, long onboardingId)
@@ -119,8 +135,11 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Pin or unpin a note
+    /// Pin or unpin a note (pinned notes appear at the top of the list)
     /// </summary>
+    /// <param name="id">Note ID</param>
+    /// <param name="request">Pin status request</param>
+    /// <returns>Whether the operation was successful</returns>
     [HttpPost("{id}/toggle-pin")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ToggleNotePin(long id, [FromBody] ToggleNotePinRequest request)
@@ -130,8 +149,11 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get all pinned notes for a task
+    /// Get all pinned notes for a specific task
     /// </summary>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="onboardingId">Onboarding ID</param>
+    /// <returns>List of pinned notes</returns>
     [HttpGet("task/{taskId}/onboarding/{onboardingId}/pinned")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskNoteOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetPinnedNotes(long taskId, long onboardingId)
@@ -141,8 +163,12 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Search notes by content
+    /// Search notes by content keyword within a specific task
     /// </summary>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="onboardingId">Onboarding ID</param>
+    /// <param name="searchTerm">Search keyword (required, searches in note content)</param>
+    /// <returns>List of matching notes</returns>
     [HttpGet("task/{taskId}/onboarding/{onboardingId}/search")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskNoteOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SearchNotes(long taskId, long onboardingId, [FromQuery] string searchTerm)
@@ -157,8 +183,12 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get notes by priority
+    /// Get notes filtered by priority level (e.g., High, Medium, Low)
     /// </summary>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="onboardingId">Onboarding ID</param>
+    /// <param name="priority">Priority level filter (e.g., "High", "Medium", "Low")</param>
+    /// <returns>List of notes with the specified priority</returns>
     [HttpGet("task/{taskId}/onboarding/{onboardingId}/priority/{priority}")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskNoteOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetNotesByPriority(long taskId, long onboardingId, string priority)
@@ -168,8 +198,10 @@ public class ChecklistTaskNoteController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Batch get notes summary for multiple tasks
+    /// Batch get notes summary for multiple tasks at once (reduces API calls)
     /// </summary>
+    /// <param name="request">Request containing list of task IDs and onboarding ID</param>
+    /// <returns>Dictionary mapping task ID to its notes summary</returns>
     [HttpPost("batch/summary")]
     [ProducesResponseType<SuccessResponse<Dictionary<long, ChecklistTaskNotesSummaryDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> BatchGetNotesSummary([FromBody] BatchNotesSummaryRequest request)

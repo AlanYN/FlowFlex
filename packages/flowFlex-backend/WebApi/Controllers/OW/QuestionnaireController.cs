@@ -26,7 +26,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [PortalAccess] // Allow Portal token access - Portal users can view and submit questionnaires
     [Route("ow/questionnaires/v{version:apiVersion}")]
     [Display(Name = "questionnaire")]
-    [Authorize] // 添加授权特性，要求所有questionnaire API都需要认证
+    [Authorize] // Require authentication for all questionnaire APIs
     public class QuestionnaireController : Controllers.ControllerBase
     {
         private readonly IQuestionnaireService _questionnaireService;
@@ -53,6 +53,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Create questionnaire
         /// Requires QUESTION:CREATE permission
         /// </summary>
+        /// <param name="input">Questionnaire creation data</param>
+        /// <returns>Created questionnaire ID</returns>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Question.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -81,6 +83,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update questionnaire
         /// Requires QUESTION:UPDATE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <param name="input">Questionnaire update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -105,6 +110,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete questionnaire (with confirmation)
         /// Requires QUESTION:DELETE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <param name="confirm">Confirmation flag to proceed with deletion</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("{id}")]
         [WFEAuthorize(PermissionConsts.Question.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -118,6 +126,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get questionnaire by id
         /// Requires QUESTION:READ permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Questionnaire details</returns>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<QuestionnaireOutputDto>>((int)HttpStatusCode.OK)]
@@ -131,6 +141,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get questionnaire list by category
         /// Requires QUESTION:READ permission
         /// </summary>
+        /// <param name="category">Category filter (optional)</param>
+        /// <returns>List of questionnaires</returns>
         [HttpGet]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
@@ -144,6 +156,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get questionnaires by stage ID
         /// Requires QUESTION:READ permission
         /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>List of questionnaires for the stage</returns>
         [HttpGet("by-stage/{stageId}")]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
@@ -158,6 +172,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
         /// This is a shared query API accessible by any module with read permission
         /// </summary>
+        /// <param name="ids">List of questionnaire IDs</param>
+        /// <returns>List of questionnaires</returns>
         [HttpPost("batch/by-ids")]
         [WFEAuthorize(
             PermissionConsts.Workflow.Read,
@@ -180,6 +196,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
         /// This is a shared query API accessible by any module with read permission
         /// </summary>
+        /// <param name="query">Query parameters including pagination and filters</param>
+        /// <returns>List of matching questionnaires</returns>
         [HttpPost("query")]
         [WFEAuthorize(
             PermissionConsts.Workflow.Read,
@@ -198,6 +216,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Duplicate questionnaire
         /// Requires QUESTION:CREATE permission
         /// </summary>
+        /// <param name="id">Source questionnaire ID to duplicate</param>
+        /// <param name="input">Duplication parameters</param>
+        /// <returns>New duplicated questionnaire ID</returns>
         [HttpPost("{id}/duplicate")]
         [WFEAuthorize(PermissionConsts.Question.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -211,6 +232,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Preview questionnaire
         /// Requires QUESTION:READ permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Questionnaire preview data</returns>
         [HttpGet("{id}/preview")]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<QuestionnaireOutputDto>>((int)HttpStatusCode.OK)]
@@ -224,6 +247,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Publish questionnaire
         /// Requires QUESTION:UPDATE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Whether publish was successful</returns>
         [HttpPost("{id}/publish")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -237,6 +262,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Archive questionnaire
         /// Requires QUESTION:UPDATE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Whether archive was successful</returns>
         [HttpPost("{id}/archive")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -254,6 +281,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Validate questionnaire structure
         /// Requires QUESTION:UPDATE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Whether structure is valid</returns>
         [HttpPost("{id}/validate")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -267,6 +296,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update questionnaire statistics
         /// Requires QUESTION:UPDATE permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>Whether statistics update was successful</returns>
         [HttpPost("{id}/update-statistics")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -281,6 +312,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
         /// This is a shared query API accessible by any module with read permission
         /// </summary>
+        /// <param name="request">Batch request containing stage IDs</param>
+        /// <returns>Batch questionnaire response grouped by stage</returns>
         [HttpPost("batch/by-stages")]
         [WFEAuthorize(
             PermissionConsts.Workflow.Read,
@@ -453,6 +486,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Debug endpoint: Find which stages contain a specific questionnaire
         /// Requires QUESTION:READ permission
         /// </summary>
+        /// <param name="id">Questionnaire ID</param>
+        /// <returns>List of stages containing the questionnaire</returns>
         [HttpGet("{id}/debug/stages")]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
@@ -472,12 +507,12 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Sync component mappings (初始化映射表数据)
+        /// Sync component mappings (initialize mapping table data)
         /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("sync-mappings")]
         [WFEAuthorize(PermissionConsts.Question.Update)]
-        [ApiExplorerSettings(IgnoreApi = true)] // 隐藏在 Swagger 中，仅用于管理
+        [ApiExplorerSettings(IgnoreApi = true)] // Hidden from Swagger, admin use only
         public async Task<IActionResult> SyncMappings()
         {
             try
