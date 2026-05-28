@@ -293,112 +293,113 @@ After logout, the current token will be revoked and can no longer be used.
 
 For server-to-server integrations, automated systems, or AI Agents that need to call Workflow APIs without user interaction, the system supports **Client Credentials** (OAuth2 `client_credentials` grant type) authentication.
 
-### How It Works
+### Authentication Token (Authorization)
 
-Client Credentials tokens are issued by the ItemIAM identity management system. When a request carries a Client Credentials token, the system:
+All Workflow API requests must include a valid Client Token, obtained from the IAM service.
 
-1. Identifies the token as `client_credentials` type (via `grant_type` claim or `token_category: "Client"`)
-2. Sets the authentication scheme to `ItemIamClientIdentification`
-3. **Automatically bypasses all `[WFEAuthorize]` permission checks** — no specific permissions (e.g., WORKFLOW:CREATE, CASE:READ) are required
-4. Extracts tenant context from the `X-Tenant-Id` header
+For detailed steps on obtaining a Token, refer to: [get iam client token - Workflow](https://id-dev.item.pub)
 
-### Obtain Client Credentials Token
+Here is a quick example of obtaining a Token:
 
-Contact your system administrator to obtain a `client_id` and `client_secret` for your application.
-
-**Endpoint:** ItemIAM Token Endpoint
-
-```http
-POST /oauth2/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials&client_id={your_client_id}&client_secret={your_client_secret}
+```bash
+curl --location --request POST 'https://id-dev.item.pub/oauth2/token' \
+--header 'Authorization: Basic VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'grant_type=client_credentials'
 ```
 
-**Response:**
+> `VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==` is the Base64 encoded value of `ClientId:ClientSecret`. Replace with your own credentials.
 
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1NiIs...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
+After obtaining the Token, add it to the Authorization header in subsequent API requests:
+
+```
+Authorization: Bearer eyJraWQiOiJ1OWVkOWRmMi05OTI5... (your access_token)
 ```
 
-### Required Headers for Client Credentials Requests
+**Token validity:** 24 hours (86399 seconds). It is recommended to proactively refresh before expiration.
 
-| Header          | Required          | Description                     | Example                          |
-| --------------- | ----------------- | ------------------------------- | -------------------------------- |
-| `Authorization` | ✅ Yes            | Client Credentials Bearer Token | `Bearer eyJhbGciOiJSUzI1NiIs...` |
-| `X-Tenant-Id`   | ✅ Yes            | Target tenant ID (numeric)      | `1000`                           |
-| `X-App-Code`    | ⚠️ Recommended    | Application identifier          | `default`                        |
-| `Content-Type`  | ✅ Yes (POST/PUT) | Request body format             | `application/json`               |
+### Required Headers for All Workflow API Requests
 
-> ⚠️ **Important**: `X-Tenant-Id` is **mandatory** for Client Credentials requests. Without it, tenant isolation will fail and the request will be rejected.
+```bash
+--header 'authorization: Bearer YOUR_TOKEN'
+--header 'x-tenant-id: YOUR_TENANT_ID'
+--header 'content-type: application/json;charset=UTF-8'
+```
+
+| Header          | Required       | Description                     | Example                          |
+| --------------- | -------------- | ------------------------------- | -------------------------------- |
+| `Authorization` | ✅ Yes         | Bearer Token                    | `Bearer eyJraWQiOiJ1OWVk...`     |
+| `X-Tenant-Id`   | ✅ Yes         | Tenant ID (**must be numeric**) | `1000`                           |
+| `Content-Type`  | ✅ Yes         | Request body format             | `application/json;charset=UTF-8` |
+| `X-App-Code`    | ⚠️ Recommended | Application identifier          | `default`                        |
+
+> ⚠️ **Important**: `X-Tenant-Id` **must be a pure numeric value** (e.g., `1000`, `1005`). String values like `"default"` or empty values are not accepted. Missing or incorrectly formatted `X-Tenant-Id` will cause tenant isolation failure and the request will be rejected.
 
 ### Permission Behavior
 
-| Aspect                             | Behavior                             |
-| ---------------------------------- | ------------------------------------ |
-| `[WFEAuthorize]` permission checks | ✅ Automatically bypassed            |
-| `[Authorize]` authentication check | ✅ Passes (token is valid)           |
-| Tenant data isolation              | ✅ Enforced via `X-Tenant-Id`        |
-| `UserContext.UserId`               | Set to `"0"` (no user identity)      |
-| `UserContext.UserName`             | Set to client name from token claims |
-| `UserContext.SystemSource`         | Set to `Client`                      |
+When using Client Token, the system automatically bypasses user-level permission checks:
 
-### Example: AI Agent Calling Workflow API
+| Aspect                             | Behavior                                                   |
+| ---------------------------------- | ---------------------------------------------------------- |
+| `[WFEAuthorize]` permission checks | ✅ Automatically bypassed (no WORKFLOW:CREATE etc. needed) |
+| `[Authorize]` authentication check | ✅ Passes (valid token is sufficient)                      |
+| Tenant data isolation              | ✅ Enforced via `X-Tenant-Id`                              |
+| `UserContext.UserId`               | Set to `"0"` (no user identity)                            |
+| `UserContext.UserName`             | Set to client name from token claims                       |
+| `UserContext.SystemSource`         | Set to `Client`                                            |
+
+### Full Call Example
 
 ```bash
-# 1. Obtain Client Credentials Token from ItemIAM
-CLIENT_TOKEN=$(curl -s -X POST https://iam.item.pub/oauth2/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=ai-agent-001&client_secret=your_secret" \
-  | jq -r '.access_token')
+# 1. Obtain Client Token
+curl --location --request POST 'https://id-dev.item.pub/oauth2/token' \
+--header 'Authorization: Basic VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'grant_type=client_credentials'
 
-# 2. Call Workflow API with Client Token
-curl -X GET https://workflow-dev.item.pub/api/ow/workflows/v1 \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "X-Tenant-Id: 1000" \
-  -H "X-App-Code: default"
+# 2. Call Workflow API with Token
+curl --location --request GET 'https://workflow-dev.item.pub/api/ow/workflows/v1' \
+--header 'authorization: Bearer YOUR_ACCESS_TOKEN' \
+--header 'x-tenant-id: 1000' \
+--header 'content-type: application/json;charset=UTF-8'
 
 # 3. Create a workflow
-curl -X POST https://workflow-dev.item.pub/api/ow/workflows/v1 \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "X-Tenant-Id: 1000" \
-  -H "X-App-Code: default" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Auto-configured Workflow", "description": "Created by AI Agent"}'
+curl --location --request POST 'https://workflow-dev.item.pub/api/ow/workflows/v1' \
+--header 'authorization: Bearer YOUR_ACCESS_TOKEN' \
+--header 'x-tenant-id: 1000' \
+--header 'content-type: application/json;charset=UTF-8' \
+--data-raw '{"name": "Auto-configured Workflow", "description": "Created by AI Agent"}'
 ```
 
 ### Example: Python AI Agent
 
 ```python
 import requests
+import base64
 
-IAM_URL = "https://iam.item.pub"
+IAM_URL = "https://id-dev.item.pub"
 WFE_URL = "https://workflow-dev.item.pub"
-CLIENT_ID = "ai-agent-001"
-CLIENT_SECRET = "your_secret"
+CLIENT_ID = "YOUR_CLIENT_ID"
+CLIENT_SECRET = "YOUR_CLIENT_SECRET"
 TENANT_ID = "1000"
 
-# Step 1: Get Client Credentials Token
+# Step 1: Obtain Client Token
+credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
 token_response = requests.post(
     f"{IAM_URL}/oauth2/token",
-    data={
-        "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    }
+    headers={
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    },
+    data="grant_type=client_credentials"
 )
 access_token = token_response.json()["access_token"]
 
 # Step 2: Call Workflow APIs (no user permissions needed)
 headers = {
-    "Authorization": f"Bearer {access_token}",
-    "X-Tenant-Id": TENANT_ID,
-    "X-App-Code": "default",
-    "Content-Type": "application/json"
+    "authorization": f"Bearer {access_token}",
+    "x-tenant-id": TENANT_ID,
+    "content-type": "application/json;charset=UTF-8"
 }
 
 # List workflows
@@ -409,7 +410,7 @@ print(workflows.json())
 checklist = requests.post(
     f"{WFE_URL}/api/ow/checklists/v1",
     headers=headers,
-    json={"name": "Device Intake Checklist", "description": "Auto-created by AI Agent"}
+    json={"name": "Device Intake Checklist", "description": "AI Agent auto-created"}
 )
 print(f"Created checklist ID: {checklist.json()['data']}")
 ```
@@ -422,7 +423,7 @@ print(f"Created checklist ID: {checklist.json()['data']}")
 | Has user identity   | ✅ Full user context        | ❌ UserId = "0"                         |
 | Permission checks   | ✅ Enforced per endpoint    | ❌ Bypassed                             |
 | Suitable for        | Web UI, user-facing apps    | AI Agents, server-to-server, automation |
-| Token lifetime      | Shorter (user session)      | Configurable (typically longer)         |
+| Token lifetime      | Shorter (user session)      | 24 hours (86399 seconds)                |
 | Refresh mechanism   | Refresh token               | Re-request with credentials             |
 
 ### Security Considerations

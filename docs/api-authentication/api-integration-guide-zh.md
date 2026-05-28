@@ -293,112 +293,113 @@ X-Tenant-Id: 1000
 
 对于服务端到服务端的集成、自动化系统或 AI Agent 等无需用户交互即可调用 Workflow API 的场景，系统支持 **Client Credentials**（OAuth2 `client_credentials` 授权类型）认证方式。
 
-### 工作原理
+### 认证令牌 (Authorization)
 
-Client Credentials Token 由 ItemIAM 身份管理系统签发。当请求携带 Client Credentials Token 时，系统会：
+所有 Workflow API 请求都需要包含有效的 Client Token，通过 IAM 服务获取。
 
-1. 识别 Token 类型为 `client_credentials`（通过 `grant_type` claim 或 `token_category: "Client"`）
-2. 设置认证方案为 `ItemIamClientIdentification`
-3. **自动绕过所有 `[WFEAuthorize]` 权限检查** — 无需具体权限（如 WORKFLOW:CREATE、CASE:READ）
-4. 从 `X-Tenant-Id` 请求头提取租户上下文
+获取 Token 的详细步骤请参考：[get iam client token - Workflow](https://id-dev.item.pub)
 
-### 获取 Client Credentials Token
+以下是一个获取 Token 的快速示例：
 
-联系系统管理员获取应用的 `client_id` 和 `client_secret`。
-
-**接口：** ItemIAM Token 端点
-
-```http
-POST /oauth2/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials&client_id={your_client_id}&client_secret={your_client_secret}
+```bash
+curl --location --request POST 'https://id-dev.item.pub/oauth2/token' \
+--header 'Authorization: Basic VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'grant_type=client_credentials'
 ```
 
-**响应：**
+> `VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==` 是 `ClientId:ClientSecret` 的 Base64 编码值，请替换为你自己的凭据。
 
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1NiIs...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
+获取到 Token 后，在后续的 API 请求中添加到 Authorization 请求头：
+
+```
+Authorization: Bearer eyJraWQiOiJ1OWVkOWRmMi05OTI5... (你的 access_token)
 ```
 
-### Client Credentials 请求必需的请求头
+**Token 有效期：** 24 小时（86399 秒），建议在过期前主动刷新。
 
-| Header          | 必填             | 说明                            | 示例                             |
-| --------------- | ---------------- | ------------------------------- | -------------------------------- |
-| `Authorization` | ✅ 是            | Client Credentials Bearer Token | `Bearer eyJhbGciOiJSUzI1NiIs...` |
-| `X-Tenant-Id`   | ✅ 是            | 目标租户 ID（数字）             | `1000`                           |
-| `X-App-Code`    | ⚠️ 推荐          | 应用标识                        | `default`                        |
-| `Content-Type`  | ✅ 是 (POST/PUT) | 请求体格式                      | `application/json`               |
+### 所有 Workflow API 请求的必要请求头
 
-> ⚠️ **重要**：Client Credentials 请求**必须**携带 `X-Tenant-Id`。缺少此头部将导致租户隔离失败，请求会被拒绝。
+```bash
+--header 'authorization: Bearer YOUR_TOKEN'
+--header 'x-tenant-id: YOUR_TENANT_ID'
+--header 'content-type: application/json;charset=UTF-8'
+```
+
+| Header          | 必填    | 说明                        | 示例                             |
+| --------------- | ------- | --------------------------- | -------------------------------- |
+| `Authorization` | ✅ 是   | Bearer Token                | `Bearer eyJraWQiOiJ1OWVk...`     |
+| `X-Tenant-Id`   | ✅ 是   | 租户 ID（**必须为纯数字**） | `1000`                           |
+| `Content-Type`  | ✅ 是   | 请求体格式                  | `application/json;charset=UTF-8` |
+| `X-App-Code`    | ⚠️ 推荐 | 应用标识                    | `default`                        |
+
+> ⚠️ **重要**：`X-Tenant-Id` **必须为纯数字**（如 `1000`、`1005`），不能传字符串（如 `"default"`）或空值。缺少此头部或格式不正确将导致租户隔离失败，请求会被拒绝。
 
 ### 权限行为
 
-| 方面                       | 行为                               |
-| -------------------------- | ---------------------------------- |
-| `[WFEAuthorize]` 权限检查  | ✅ 自动绕过                        |
-| `[Authorize]` 认证检查     | ✅ 通过（Token 有效）              |
-| 租户数据隔离               | ✅ 通过 `X-Tenant-Id` 强制执行     |
-| `UserContext.UserId`       | 设为 `"0"`（无用户身份）           |
-| `UserContext.UserName`     | 设为 Token claims 中的 client name |
-| `UserContext.SystemSource` | 设为 `Client`                      |
+Client Token 调用时，系统自动绕过用户级别的权限检查：
 
-### 示例：AI Agent 调用 Workflow API
+| 方面                       | 行为                                       |
+| -------------------------- | ------------------------------------------ |
+| `[WFEAuthorize]` 权限检查  | ✅ 自动绕过（无需 WORKFLOW:CREATE 等权限） |
+| `[Authorize]` 认证检查     | ✅ 通过（Token 有效即可）                  |
+| 租户数据隔离               | ✅ 通过 `X-Tenant-Id` 强制执行             |
+| `UserContext.UserId`       | 设为 `"0"`（无用户身份）                   |
+| `UserContext.UserName`     | 设为 Token claims 中的 client name         |
+| `UserContext.SystemSource` | 设为 `Client`                              |
+
+### 完整调用示例
 
 ```bash
-# 1. 从 ItemIAM 获取 Client Credentials Token
-CLIENT_TOKEN=$(curl -s -X POST https://iam.item.pub/oauth2/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=ai-agent-001&client_secret=your_secret" \
-  | jq -r '.access_token')
+# 1. 获取 Client Token
+curl --location --request POST 'https://id-dev.item.pub/oauth2/token' \
+--header 'Authorization: Basic VU5JUzM5MEMtNjE1Qjo2ZWFkOWExYg==' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'grant_type=client_credentials'
 
-# 2. 使用 Client Token 调用 Workflow API
-curl -X GET https://workflow-dev.item.pub/api/ow/workflows/v1 \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "X-Tenant-Id: 1000" \
-  -H "X-App-Code: default"
+# 2. 使用 Token 调用 Workflow API
+curl --location --request GET 'https://workflow-dev.item.pub/api/ow/workflows/v1' \
+--header 'authorization: Bearer YOUR_ACCESS_TOKEN' \
+--header 'x-tenant-id: 1000' \
+--header 'content-type: application/json;charset=UTF-8'
 
 # 3. 创建工作流
-curl -X POST https://workflow-dev.item.pub/api/ow/workflows/v1 \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "X-Tenant-Id: 1000" \
-  -H "X-App-Code: default" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Auto-configured Workflow", "description": "Created by AI Agent"}'
+curl --location --request POST 'https://workflow-dev.item.pub/api/ow/workflows/v1' \
+--header 'authorization: Bearer YOUR_ACCESS_TOKEN' \
+--header 'x-tenant-id: 1000' \
+--header 'content-type: application/json;charset=UTF-8' \
+--data-raw '{"name": "Auto-configured Workflow", "description": "Created by AI Agent"}'
 ```
 
 ### 示例：Python AI Agent
 
 ```python
 import requests
+import base64
 
-IAM_URL = "https://iam.item.pub"
+IAM_URL = "https://id-dev.item.pub"
 WFE_URL = "https://workflow-dev.item.pub"
-CLIENT_ID = "ai-agent-001"
-CLIENT_SECRET = "your_secret"
+CLIENT_ID = "YOUR_CLIENT_ID"
+CLIENT_SECRET = "YOUR_CLIENT_SECRET"
 TENANT_ID = "1000"
 
-# 第1步：获取 Client Credentials Token
+# 第1步：获取 Client Token
+credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
 token_response = requests.post(
     f"{IAM_URL}/oauth2/token",
-    data={
-        "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    }
+    headers={
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    },
+    data="grant_type=client_credentials"
 )
 access_token = token_response.json()["access_token"]
 
 # 第2步：调用 Workflow API（无需用户权限）
 headers = {
-    "Authorization": f"Bearer {access_token}",
-    "X-Tenant-Id": TENANT_ID,
-    "X-App-Code": "default",
-    "Content-Type": "application/json"
+    "authorization": f"Bearer {access_token}",
+    "x-tenant-id": TENANT_ID,
+    "content-type": "application/json;charset=UTF-8"
 }
 
 # 查询工作流列表
@@ -409,7 +410,7 @@ print(workflows.json())
 checklist = requests.post(
     f"{WFE_URL}/api/ow/checklists/v1",
     headers=headers,
-    json={"name": "Device Intake Checklist", "description": "AI Agent 自动创建"}
+    json={"name": "Device Intake Checklist", "description": "AI Agent auto-created"}
 )
 print(f"Created checklist ID: {checklist.json()['data']}")
 ```
