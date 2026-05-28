@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -27,6 +29,11 @@ namespace FlowFlex.Application.Services.OW
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly UserContext _userContext;
         private readonly ILogger<ComponentDataService> _logger;
+        private static readonly JsonSerializerOptions ComponentJsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
 
         public ComponentDataService(
             ISqlSugarClient db,
@@ -68,40 +75,17 @@ namespace FlowFlex.Application.Services.OW
                     return result;
                 }
 
-                // Get all checklist IDs from components_json
-                var checklistIds = new List<long>();
-                
-                // First try to get from components_json
-                if (!string.IsNullOrEmpty(stage.ComponentsJson))
-                {
-                    try
-                    {
-                        var components = System.Text.Json.JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(
-                            stage.ComponentsJson, 
-                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        
-                        if (components != null)
-                        {
-                            foreach (var component in components)
-                            {
-                                if (component.Key == "checklist" && component.ChecklistIds != null)
-                                {
-                                    checklistIds.AddRange(component.ChecklistIds);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse components_json for stage {StageId}", stageId);
-                    }
-                }
+                // Get all checklist IDs from components_json and mapping table.
+                var checklistIds = GetChecklistIdsFromStageComponents(stage, stageId);
+                checklistIds.AddRange(await GetChecklistIdsFromMappingAsync(stageId, tenantId));
 
                 // Fallback to stage.ChecklistId if no checklists found in components_json
                 if (!checklistIds.Any() && stage.ChecklistId.HasValue)
                 {
                     checklistIds.Add(stage.ChecklistId.Value);
                 }
+
+                checklistIds = checklistIds.Distinct().ToList();
 
                 if (!checklistIds.Any())
                 {
@@ -159,40 +143,19 @@ namespace FlowFlex.Application.Services.OW
                     return result;
                 }
 
-                // Get all questionnaire IDs from components_json
-                var questionnaireIds = new List<long>();
-                
-                // First try to get from components_json
-                if (!string.IsNullOrEmpty(stage.ComponentsJson))
-                {
-                    try
-                    {
-                        var components = System.Text.Json.JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(
-                            stage.ComponentsJson, 
-                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        
-                        if (components != null)
-                        {
-                            foreach (var component in components)
-                            {
-                                if (component.Key == "questionnaires" && component.QuestionnaireIds != null)
-                                {
-                                    questionnaireIds.AddRange(component.QuestionnaireIds);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse components_json for stage {StageId}", stageId);
-                    }
-                }
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+
+                // Get all questionnaire IDs from components_json and mapping table.
+                var questionnaireIds = GetQuestionnaireIdsFromStageComponents(stage, stageId);
+                questionnaireIds.AddRange(await GetQuestionnaireIdsFromMappingAsync(stageId, tenantId));
 
                 // Fallback to stage.QuestionnaireId if no questionnaires found in components_json
                 if (!questionnaireIds.Any() && stage.QuestionnaireId.HasValue)
                 {
                     questionnaireIds.Add(stage.QuestionnaireId.Value);
                 }
+
+                questionnaireIds = questionnaireIds.Distinct().ToList();
 
                 if (!questionnaireIds.Any())
                 {
@@ -217,7 +180,6 @@ namespace FlowFlex.Application.Services.OW
 
                 // Get questionnaire answers for all questionnaires
                 // Build nested structure: answers[questionnaireId][questionId] = value
-                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var answers = await _db.Queryable<QuestionnaireAnswer>()
                     .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId.HasValue && questionnaireIds.Contains(a.QuestionnaireId.Value) && a.IsValid)
                     .Where(a => a.TenantId == tenantId)
@@ -373,6 +335,131 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogError(ex, "Error getting questionnaire data for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
                 return new QuestionnaireData();
             }
+        }
+
+        private List<long> GetChecklistIdsFromStageComponents(Stage stage, long stageId)
+        {
+            var ids = ParseStageComponents(stage.ComponentsJson, stageId)
+                .Where(c => string.Equals(c.Key, "checklist", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(c.Key, "checklists", StringComparison.OrdinalIgnoreCase))
+                .SelectMany(c => c.ChecklistIds ?? new List<long>())
+                .ToList();
+
+            if (!ids.Any() && stage.ChecklistId.HasValue)
+            {
+                ids.Add(stage.ChecklistId.Value);
+            }
+
+            return ids;
+        }
+
+        private List<long> GetQuestionnaireIdsFromStageComponents(Stage stage, long stageId)
+        {
+            var ids = ParseStageComponents(stage.ComponentsJson, stageId)
+                .Where(c => string.Equals(c.Key, "questionnaires", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(c.Key, "questionnaire", StringComparison.OrdinalIgnoreCase))
+                .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
+                .ToList();
+
+            if (!ids.Any() && stage.QuestionnaireId.HasValue)
+            {
+                ids.Add(stage.QuestionnaireId.Value);
+            }
+
+            return ids;
+        }
+
+        private async Task<List<long>> GetChecklistIdsFromMappingAsync(long stageId, string tenantId)
+        {
+            try
+            {
+                return await _db.Queryable<ChecklistStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid)
+                    .Where(m => m.TenantId == tenantId)
+                    .Select(m => m.ChecklistId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load checklist mappings for stage {StageId}", stageId);
+                return new List<long>();
+            }
+        }
+
+        private async Task<List<long>> GetQuestionnaireIdsFromMappingAsync(long stageId, string tenantId)
+        {
+            try
+            {
+                return await _db.Queryable<QuestionnaireStageMapping>()
+                    .Where(m => m.StageId == stageId && m.IsValid)
+                    .Where(m => m.TenantId == tenantId)
+                    .Select(m => m.QuestionnaireId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load questionnaire mappings for stage {StageId}", stageId);
+                return new List<long>();
+            }
+        }
+
+        private List<StageComponent> ParseStageComponents(string componentsJson, long stageId)
+        {
+            if (string.IsNullOrWhiteSpace(componentsJson))
+            {
+                return new List<StageComponent>();
+            }
+
+            try
+            {
+                var normalizedJson = NormalizeComponentsJson(componentsJson);
+                return System.Text.Json.JsonSerializer.Deserialize<List<StageComponent>>(normalizedJson, ComponentJsonOptions)
+                       ?? new List<StageComponent>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse components_json for stage {StageId}", stageId);
+                return new List<StageComponent>();
+            }
+        }
+
+        private static string NormalizeComponentsJson(string componentsJson)
+        {
+            var current = componentsJson.Trim();
+
+            for (var i = 0; i < 3; i++)
+            {
+                if (string.IsNullOrWhiteSpace(current) || current.StartsWith("[") || current.StartsWith("{"))
+                {
+                    return current;
+                }
+
+                if (current.StartsWith("\"") && current.EndsWith("\""))
+                {
+                    try
+                    {
+                        var inner = System.Text.Json.JsonSerializer.Deserialize<string>(current);
+                        if (!string.IsNullOrWhiteSpace(inner))
+                        {
+                            current = inner.Trim();
+                            continue;
+                        }
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        // Try the unescape fallback below.
+                    }
+                }
+
+                if (!current.Contains("\\\""))
+                {
+                    return current;
+                }
+
+                current = current.Replace("\\\"", "\"").Trim();
+            }
+
+            return current;
         }
 
         /// <summary>
