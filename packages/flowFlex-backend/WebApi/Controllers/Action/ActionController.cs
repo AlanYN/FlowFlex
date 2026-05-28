@@ -638,7 +638,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         [HttpGet("executions/trigger-source/{triggerSourceId}")]
         [WFEAuthorize(PermissionConsts.Case.Read, PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetExecutionsByTriggerSourceId(etExecutionsByTriggerSourceId(
+        public async Task<IActionResult> GetExecutionsByTriggerSourceId(
             long triggerSourceId,
             int pageIndex = 1,
             int pageSize = 10)
