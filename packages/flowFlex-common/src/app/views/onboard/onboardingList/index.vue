@@ -290,30 +290,6 @@
 							</template>
 						</el-table-column>
 						<el-table-column
-							prop="contactPerson"
-							sortable="custom"
-							label="Contact Name"
-							width="220"
-						>
-							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.contactPerson">
-									{{ row.contactPerson }}
-								</div>
-							</template>
-						</el-table-column>
-						<el-table-column
-							prop="lifeCycleStageName"
-							label="Life Cycle Stage"
-							sortable="custom"
-							width="170"
-						>
-							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.lifeCycleStageName">
-									{{ row.lifeCycleStageName }}
-								</div>
-							</template>
-						</el-table-column>
-						<el-table-column
 							prop="workflowName"
 							label="Workflow"
 							sortable="custom"
