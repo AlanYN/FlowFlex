@@ -323,9 +323,9 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
 
-            // If condition actions were executed (e.g. GoToStage), the action may have updated
-            // CurrentStageId/CurrentStageOrder directly in DB. We must refresh entity to avoid
-            // SaveOnboardingChangesAsync overwriting those changes with stale values.
+            // If condition actions were executed (e.g. GoToStage/SkipStage), the action may have
+            // updated current stage and stages progress directly in DB. Refresh those fields before
+            // the normal completion flow serializes progress again.
             if (conditionActionExecuted)
             {
                 var refreshed = await _onboardingRepository.GetByIdAsync(id);
@@ -333,6 +333,17 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 {
                     entity.CurrentStageId = refreshed.CurrentStageId;
                     entity.CurrentStageOrder = refreshed.CurrentStageOrder;
+                    entity.CurrentStageStartTime = refreshed.CurrentStageStartTime;
+                    entity.Status = refreshed.Status;
+                    entity.ActualCompletionDate = refreshed.ActualCompletionDate;
+                    entity.CompletionRate = Math.Max(entity.CompletionRate, refreshed.CompletionRate);
+                    entity.Notes = refreshed.Notes;
+
+                    if (!string.IsNullOrWhiteSpace(refreshed.StagesProgressJson))
+                    {
+                        entity.StagesProgressJson = refreshed.StagesProgressJson;
+                        _stageProgressService.LoadStagesProgressFromJson(entity);
+                    }
                 }
             }
 
