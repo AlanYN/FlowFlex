@@ -65,27 +65,27 @@ Deferred to future milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOG-01 | — | Pending |
-| LOG-02 | — | Pending |
-| LOG-03 | — | Pending |
-| LOG-04 | — | Pending |
-| LOG-05 | — | Pending |
-| COMP-01 | — | Pending |
-| COMP-02 | — | Pending |
-| COMP-03 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| PERM-01 | — | Pending |
+| LOG-01 | Phase 2 | Pending |
+| LOG-02 | Phase 2 | Pending |
+| LOG-03 | Phase 2 | Pending |
+| LOG-04 | Phase 2 | Pending |
+| UX-01 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| UX-02 | Phase 3 | Pending |
+| UX-03 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Pending |
+| DATA-02 | Phase 3 | Pending |
+| COMP-01 | Phase 4 | Pending |
+| COMP-02 | Phase 4 | Pending |
+| COMP-03 | Phase 4 | Pending |
+| LOG-05 | Phase 4 | Pending |
+| PERM-01 | Phase 5 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-02*
-*Last updated: 2026-06-02 after initial definition*
+*Last updated: 2026-06-02 after roadmap creation (v1.1)*
