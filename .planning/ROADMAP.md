@@ -48,8 +48,11 @@ Plans:
   4. Checklist task comment count reflects only Notes — Change Log entries are excluded from the count
   5. Clicking Next on a questionnaire scrolls the page to the top before rendering the next question set
   6. The Workflow dropdown when creating a Case shows Active/Inactive status matching the Workflow management page
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Log text fixes + StageSave removal + questionnaire scroll (ChecklistLogService.cs, OnboardingStageProgressService.cs, dynamicForm.vue)
+- [ ] 02-02-PLAN.md — Notes count filter + Workflow status sync (ChecklistTaskNoteRepository.cs, WorkflowService.cs)
 
 ---
 
@@ -99,7 +102,7 @@ Phases execute in numeric order. Plans within a phase may run in parallel (paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Number Type Support | 2/2 | Complete | 2026-05-25 |
-| 2. Log & Audit Fixes | 0/? | Not started | - |
+| 2. Log & Audit Fixes | 0/2 | Not started | - |
 | 3. Frontend UX & Data | 0/? | Not started | - |
 | 4. Component Lifecycle & Propagation | 0/? | Not started | - |
 | 5. Permission Fix | 0/? | Not started | - |
