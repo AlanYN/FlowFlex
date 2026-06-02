@@ -1,136 +1,143 @@
 ---
 inclusion: always
 ---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Development Commands
 
-### Frontend (Vue.js)
+### Frontend (Vue.js) — working directory: `packages/flowFlex-common/`
 ```bash
-# Development
 pnpm dev                    # Start development server
-pnpm serve                  # Start development server (alias)
 pnpm serve:local           # Start with localhost config
 pnpm serve:staging         # Start with staging config
-pnpm serve:preview         # Start with preview config
-
-# Build
 pnpm build:production      # Build for production
-pnpm build:preview         # Build for preview environment
-pnpm build:development     # Build for development
-pnpm build:stage           # Build for staging
-
-# Code Quality
 pnpm lint                  # Run all linters in parallel
-pnpm lint:eslint          # Run ESLint with auto-fix
-pnpm lint:prettier        # Format code with Prettier
-pnpm lint:stylelint       # Lint and fix styles
 pnpm type:check           # TypeScript type checking
-
-# Testing
-pnpm test                  # Run tests (if configured)
+pnpm test                  # Run Jest tests
 ```
 
-### Backend (.NET)
+### Backend (.NET) — working directory: `packages/flowFlex-backend/`
 ```bash
-# Development
 dotnet restore             # Restore NuGet packages
 dotnet build              # Build the solution
 dotnet run --project WebApi  # Run the WebApi project
-
-# Testing
-dotnet test               # Run all tests
-dotnet test tests/Unit.Tests  # Run unit tests
-dotnet test tests/Integration.Tests  # Run integration tests
-
-# Database
-# Run migrations from SqlSugarDB project
-dotnet run --project SqlSugarDB migrate  # Apply migrations
+dotnet test               # Run all tests (xUnit)
+dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 ```
 
 ## Architecture Overview
 
-### Solution Structure
-FlowFlex is a monorepo containing both frontend and backend applications:
+### System Overview
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Frontend (Vue 3 SPA)                          │
+│              packages/flowFlex-common/src/                           │
+│   Views → Stores (Pinia) → API Layer (Axios) → Backend REST API     │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ HTTP/REST (JWT Bearer)
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     WebApi Layer                                      │
+│         packages/flowFlex-backend/WebApi/                            │
+│  Controllers → Middleware Pipeline → Auth (JWT + IDM + ItemIAM)      │
+└──────────┬──────────────────────────────────────────────────────────┘
+           │ Constructor Injection (IService interfaces)
+           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              Application Layer (Business Logic)                       │
+│  packages/flowFlex-backend/Application/                              │
+│  packages/flowFlex-backend/Application.Contracts/                    │
+│   IServices (interfaces) ← Services (implementations)               │
+│   DTOs · AutoMapper Profiles · Notification Handlers                 │
+└──────────┬──────────────────────────────────────────────────────────┘
+           │ Repository Interfaces
+           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Domain Layer                                       │
+│         packages/flowFlex-backend/Domain/                            │
+│   Entities · Repository Interfaces · Abstracts · Shared Enums        │
+└──────────┬──────────────────────────────────────────────────────────┘
+           │ SqlSugar ORM
+           ▼
+┌──────────────────────┬──────────────────────────────────────────────┐
+│  SqlSugarDB Layer    │  Infrastructure Layer                         │
+│  BaseRepository<T>   │  Cross-cutting: Logging, Encryption,          │
+│  Migrations          │  GlobalExceptionHandling, BackgroundTasks      │
+│  PostgreSQL          │  packages/flowFlex-backend/Infrastructure/     │
+└──────────────────────┴──────────────────────────────────────────────┘
+```
 
-- **Frontend**: Vue.js 3 SPA located in `packages/flowFlex-common/`
-- **Backend**: .NET 8 Web API located in `packages/flowFlex-backend/`
+### Request Data Flow
 
-### Backend Architecture
-The backend follows Clean Architecture principles with clear layer separation:
+**Backend API Request:**
+1. HTTP → Kestrel → `GlobalExceptionHandlingMiddleware`
+2. → `AppIsolationMiddleware` (extracts `AppCode` + `TenantId` from headers/JWT)
+3. → `TenantMiddleware` → JWT authentication → `WFEAuthorize` permission check
+4. → Controller → `IService` method → Repository → SqlSugar → PostgreSQL
+5. → AutoMapper (entity → DTO) → Controller returns `Success<T>(data)`
 
-1. **WebApi Layer** (`WebApi/`)
-   - Entry point and API controllers
-   - Middleware for authentication, exception handling, and app isolation
-   - JWT-based authentication with multi-tenancy support
-
-2. **Application Layer** (`Application/` & `Application.Contracts/`)
-   - Business logic and service implementations
-   - DTOs and service interfaces
-   - AutoMapper profiles for entity-DTO mapping
-   - Notification handlers and workflow helpers
-
-3. **Domain Layer** (`Domain/` & `Domain.Shared/`)
-   - Core business entities and domain logic
-   - Repository interfaces
-   - Shared enums, constants, and domain events
-   - Value objects and domain-specific exceptions
-
-4. **Infrastructure Layer** (`Infrastructure/`)
-   - Cross-cutting concerns and technical implementations
-   - Database configuration and extensions
-   - Third-party service integrations
-
-5. **Data Access Layer** (`SqlSugarDB/`)
-   - SqlSugar ORM implementation
-   - Repository implementations
-   - Database migrations (timestamp-based)
-   - PostgreSQL as primary database
-
-### Frontend Architecture
-Vue.js 3 application with TypeScript:
-
-- **State Management**: Pinia with persisted state
-- **Routing**: Vue Router for SPA navigation
-- **UI Framework**: Element Plus + Tailwind CSS
-- **API Communication**: Axios with interceptors
-- **Build Tool**: Vite with auto-imports and component registration
+**Frontend Request:**
+1. Component calls API function (e.g., `getWorkflows()`)
+2. → Axios instance adds JWT token + `AppCode` + timezone headers
+3. → `transformResponseHook` unwraps `SuccessResponse` envelope
+4. → Result to Pinia store or component directly
 
 ### Key Technical Decisions
 
-1. **Multi-Tenancy**: App-level isolation using `AppCode` field throughout entities
-2. **Authentication**: JWT Bearer tokens with email-based authentication
-3. **Database**: PostgreSQL with JSONB columns for flexible data storage
-4. **ORM**: SqlSugar for database operations with custom filters
-5. **API Documentation**: Swagger/OpenAPI for API documentation
-6. **Validation**: FluentValidation for request validation
-7. **Logging**: Serilog with structured logging
-
-### Workflow System Components
-
-The core workflow system consists of:
-- **Workflows**: Main workflow definitions with stages
-- **Stages**: Individual steps in a workflow with components
-- **Components**: Questionnaires, Checklists, Actions linked to stages
-- **Stage Progress**: Tracks user progress through workflow stages
-- **Events**: Event sourcing for workflow state changes
+- **Multi-Tenancy**: `AppCode` + `TenantId` on every entity; SqlSugar global filter auto-applies
+- **Authentication**: 3 JWT schemes simultaneously — local JWT, IdentityHub (IDM), ItemIAM
+- **ID Strategy**: Snowflake `long` IDs, serialized as strings via `LongToStringConverter` (JS precision)
+- **Soft Deletes**: `IsValid` flag (not `IsDeleted`); SqlSugar global filter via `IValidFilter`
+- **DI Auto-Registration**: Services implement `IScopedService`/`ISingletonService`/`ITransientService` markers
+- **ORM**: SqlSugar with `SqlSugarScope` per-request (not singleton)
+- **Micro-Frontend**: Supports Wujie sub-app mode (`window.__POWERED_BY_WUJIE__`)
 
 ### Database Conventions
-- All tables prefixed with `ff_` (FlowFlex)
-- Snowflake IDs for primary keys
+- All tables prefixed with `ff_` (e.g., `ff_workflow`, `ff_onboarding_stage_progress`)
+- Columns: snake_case (auto-converted from PascalCase by SqlSugar `ToUnderLine()`)
+- Primary keys: `id` (snowflake long)
+- Audit fields: `create_date`, `modify_date`, `create_by`, `modify_by`, `create_user_id`, `modify_user_id`
+- Soft delete: `is_valid` (bool, true = active)
+- Multi-tenancy: `app_code`, `tenant_id`
 - JSONB columns for flexible/dynamic data
-- Soft deletes using `IsDeleted` flag
-- Multi-tenancy via `AppCode` field
-- Audit fields: `CreatedAt`, `UpdatedAt`, `CreatedBy`, `UpdatedBy`
 
 ### API Patterns
-- RESTful API design
-- Consistent response format with `ApiResponse<T>`
-- Pagination support with `PagedResult<T>`
-- Global exception handling
-- Request/response validation
+- Controllers extend `ControllerBase` — use `Success<T>(data)`, never raw `Ok()`
+- Business errors: throw `CRMException(ErrorCodeEnum, message)`
+- Validation: FluentValidation on request DTOs
+- Response envelope: `SuccessResponse` wrapper (frontend unwraps automatically)
+
+### Workflow System Components
+- **Workflows**: Main definitions with ordered stages
+- **Stages**: Steps with components (Questionnaires, Checklists, Actions)
+- **Stage Progress**: Tracks user progress through stages
+- **Condition Actions**: Rules that trigger on stage transitions (GoToStage, SkipStage, SendNotification, etc.)
+
+## Where to Add New Code
+
+### New Backend Feature (OW domain)
+1. Entity: `Domain/Entities/OW/{Entity}.cs` — extend `EntityBaseCreateInfo`
+2. Repository interface: `Domain/Repository/OW/I{Entity}Repository.cs` — extend `IBaseRepository<{Entity}>`
+3. Repository impl: `SqlSugarDB/Repositories/OW/{Entity}Repository.cs` — extend `BaseRepository<{Entity}>`
+4. DTOs: `Application.Contracts/Dtos/OW/{Entity}/`
+5. Service interface: `Application.Contracts/IServices/OW/I{Entity}Service.cs`
+6. Service impl: `Application/Services/OW/{Entity}Service.cs` — implement `I{Entity}Service, IScopedService`
+7. AutoMapper profile: `Application/Maps/{Entity}MapProfile.cs` — register in `Program.cs`
+8. Controller: `WebApi/Controllers/OW/{Entity}Controller.cs` — extend `ControllerBase`
+9. Migration (if needed): `SqlSugarDB/Migrations/{timestamp}_{description}.sql`
+
+### New Frontend Feature
+1. API module: `src/app/apis/{domain}/{feature}.ts`
+2. View: `src/app/views/{feature}/index.vue`
+3. Route: `src/app/router/routers/modules/{feature}.ts`
+4. Store (if needed): `src/app/stores/modules/{feature}.ts` — ID prefix `item-wfe-app-`
+
+### New Shared UI Component
+- Reusable: `src/app/components/global/{ComponentName}/index.vue`
+- Form input: `src/app/components/form/{componentName}/`
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
@@ -148,316 +155,89 @@ The core workflow system consists of:
 - **数据库**: 无需 migration，Number 类型作为枚举值添加即可
 <!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
-## Languages
-- C# 12 (.NET 8) - Backend API, all server-side logic
-- TypeScript 5.3 - Frontend SPA, all client-side logic
-- SQL (PostgreSQL dialect) - Database migrations in `packages/flowFlex-backend/SqlSugarDB/Migrations/*.sql`
-- SCSS - Frontend styles in `packages/flowFlex-common/src/styles/`
-- HTML - Email templates in `packages/flowFlex-backend/Application/Templates/Email/*.html`
-## Runtime
-- .NET 8.0 (ASP.NET Core Web API)
-- Docker container: `mcr.microsoft.com/dotnet/aspnet:8.0`
-- Exposed port: 8080
-- Node.js >= 18.12.0
-- Browser targets: > 1%, last 2 versions, not dead (ES2015 build target)
-- Frontend: pnpm 8.10.0 (enforced via `preinstall` hook)
-- Lockfile: `packages/flowFlex-common/pnpm-lock.yaml` (present)
-- Backend: NuGet (local packages folder at `packages/flowFlex-backend/packages/`)
-## Frameworks
-- ASP.NET Core 8.0 - Web API framework (`packages/flowFlex-backend/WebApi/WebApi.csproj`)
-- Clean Architecture with 6 layers: WebApi, Application, Application.Contracts, Domain, Domain.Shared, Infrastructure, SqlSugarDB
-- Vue 3.5.12 - SPA framework (`packages/flowFlex-common/`)
-- Vue Router 4.4.5 - Client-side routing
-- Pinia 2.2.6 - State management with `pinia-plugin-persistedstate` 3.2.3
-- Vite 5.4.18 - Frontend build tool (`packages/flowFlex-common/vite.config.ts`)
-- Turbo 1.13.4 - Monorepo task runner
-- Terser - Production minification (configured in `vite.config.ts`)
-- Backend: xUnit 2.6.2 + Moq 4.20.70 + FluentAssertions 6.12.0 (`packages/flowFlex-backend/Tests/FlowFlex.Tests/`)
-- Frontend: Jest 29.7.0 + `@vue/test-utils` 2.4.6 (`packages/flowFlex-common/jest.config.ts`)
-## Key Dependencies
-- `SqlSugarCore` 5.1.4.159-preview23 - Primary ORM for PostgreSQL (`SqlSugarDB/SqlSugarDB.csproj`)
-- `Microsoft.AspNetCore.Authentication.JwtBearer` 8.0.2 - JWT auth (`WebApi/WebApi.csproj`)
-- `AutoMapper` 12.0.1 - Entity-DTO mapping (`Application/Application.csproj`)
-- `FluentValidation.AspNetCore` 11.3.0 - Request validation (`Application/Application.csproj`)
-- `Hangfire.AspNetCore` 1.8.12 + `Hangfire.PostgreSql` 1.20.9 - Background job scheduling (`WebApi/WebApi.csproj`)
-- `Serilog.AspNetCore` 8.0.3 - Structured logging (`WebApi/WebApi.csproj`)
-- `Polly` 8.2.0 + `Polly.Extensions.Http` 3.0.0 - HTTP resilience/retry (`Infrastructure/Infrastructure.csproj`)
-- `RulesEngine` 5.0.3 - Business rules evaluation (`WebApi/WebApi.csproj`, `Application.Contracts/Application.Contracts.csproj`)
-- `Newtonsoft.Json` 13.0.3 - JSON serialization (`Infrastructure/Infrastructure.csproj`)
-- `Scrutor` 5.0.2 - Assembly scanning for DI auto-registration (`WebApi/WebApi.csproj`)
-- `DotLiquid` 2.2.717 - Template engine for email rendering (`Application/Application.csproj`)
-- `BCrypt.Net-Next` 4.0.3 - Password hashing (`Application/Application.csproj`)
-- `NETCore.Encrypt` 2.1.1 - AES encryption (`Infrastructure/Infrastructure.csproj`)
-- `EPPlus` 8.0.5 + `ClosedXML` 0.104.1 + `MiniExcel` 1.36.0 - Excel processing (`Application/Application.csproj`)
-- `DocumentFormat.OpenXml` 3.2.0 - Word/Office document processing
-- `Item.BlobProvider` 8.0.0 - Blob/file storage abstraction
-- `Item.Internal.Framework` 8.0.3 - Internal framework base
-- `Item.Internal.Nacos` 8.0.0 - Nacos service discovery/config
-- `Item.Internal.StandardApi` 8.0.4 - Standard API conventions
-- `Item.Common.Lib` 8.0.7 - Shared utilities
-- `Item.Message.RabbitMq` 8.0.0 - RabbitMQ messaging
-- `Item.Message.Kafka` 8.0.4 - Kafka messaging (`Application.Contracts/Application.Contracts.csproj`)
-- `Item.Redis` 8.0.1 - Redis client wrapper
-- `Item.Email.Lib` 8.0.0 - Email sending
-- `Item.Internal.Auth` 8.0.0 - Internal auth/IAM
-- `Item.ThirdParty` 8.0.6 - Third-party integrations
-- `Item.Excel.Lib` 8.0.2 - Excel utilities
-- `element-plus` 2.9.1 - Primary UI component library
-- `axios` 1.7.7 - HTTP client with interceptors (`src/app/apis/axios/`)
-- `@vueuse/core` 10.11.1 - Vue composition utilities
-- `vue-i18n` 9.14.1 - Internationalization
-- `dayjs` 1.11.13 - Date manipulation
-- `lodash-es` 4.17.21 - Utility functions
-- `echarts` 5.5.1 + `chart.js` 4.4.6 - Data visualization
-- `@vue-flow/core` 1.48.1 - Workflow canvas/diagram
-- `pinia-plugin-persistedstate` 3.2.3 - Persisted Pinia stores
-- `crypto-js` 4.2.0 - Client-side encryption
-- `dompurify` 3.3.1 - XSS sanitization
-- `markdown-it` 14.1.0 - Markdown rendering
-- `@monaco-editor/loader` 1.5.0 - Code editor
-- `vuedraggable` 4.1.0 - Drag-and-drop
-- `gsap` 3.12.7 - Animations
-- `xlsx-js-style` 1.2.0 - Excel export
-- `jspdf` 3.0.1 + `html2canvas` 1.4.1 - PDF generation
-- `unplugin-auto-import` 0.17.8 - Auto-imports for Vue/Pinia APIs
-- `unplugin-vue-components` 0.27.4 - Auto component registration
-- `unplugin-icons` 22.1.0 - Icon auto-import
-- `tailwindcss` 3.4.14 - Utility CSS framework
-- `eslint` 8.57.1 + `prettier` 3.0.3 - Linting and formatting
-- `husky` 8.0.3 + `lint-staged` 15.2.10 - Git hooks
-## Configuration
-- `appsettings.json` - Base config (`packages/flowFlex-backend/WebApi/appsettings.json`)
-- `appsettings.Development.json` - Dev overrides (DB, Redis, IDM, Outlook, BlobStore)
-- `appsettings.{Environment}.json` - Per-environment overrides
-- Key config sections: `Database`, `Redis`, `Cache`, `Security`, `Global`, `BlobStore`, `AI`, `Email`, `FileStorage`, `IdmApis`, `IdentityHubConfig`, `ItemIamConfig`, `OutlookApis`
-- `.env` - Base vars (`packages/flowFlex-common/.env`)
-- `.env.development`, `.env.localhost`, `.env.stage`, `.env.preview`, `.env.production` - Per-environment
-- Key vars: `VITE_GLOB_API_URL`, `VITE_PROXY_URL`, `VITE_GLOB_IDM_URL`, `VITE_GLOB_DOMAIN_URL`, `VITE_GLOB_SSOURL`, `VITE_GLOB_CODE`, `VITE_USE_MOCK`, `VITE_BUILD_COMPRESS`
-- `packages/flowFlex-common/vite.config.ts` - Vite build config
-- `packages/flowFlex-common/tailwind.config.ts` - Tailwind theme (CSS variable-based)
-- `packages/flowFlex-common/tsconfig.json` - TypeScript config
-- `packages/flowFlex-backend/Dockerfile` - Docker multi-stage build (SDK 8.0 → aspnet 8.0 runtime)
-## Platform Requirements
-- Node.js >= 18.12.0
-- pnpm >= 8.10.0
-- .NET 8.0 SDK
-- PostgreSQL instance
-- Redis instance
-- Docker (multi-stage build defined in `packages/flowFlex-backend/Dockerfile`)
-- PostgreSQL database
-- Redis cluster
-- Blob storage: Aliyun OSS or AWS S3 (configurable via `Global.BlobStoreType`: Local/OSS/AWS)
-- ASPNETCORE_ENVIRONMENT=Production, port 8080
-<!-- GSD:stack-end -->
+**Languages:** C# 12 (.NET 8), TypeScript 5.3, SQL (PostgreSQL), SCSS, HTML
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
+**Backend Core:**
+- ASP.NET Core 8.0, SqlSugar ORM, AutoMapper, FluentValidation, Hangfire, Serilog
+- Internal packages: `Item.Redis`, `Item.Internal.Auth`, `Item.Message.RabbitMq`, `Item.Message.Kafka`, `Item.BlobProvider`, `Item.Internal.Nacos`
+
+**Frontend Core:**
+- Vue 3.5, Vite 5.4, Element Plus 2.9, Pinia 2.2, Tailwind CSS 3.4, Axios
+- Dev tools: unplugin-auto-import, unplugin-vue-components, ESLint + Prettier, Husky
+
+**Testing:** xUnit + Moq + FluentAssertions (backend), Jest + @vue/test-utils (frontend)
+
+**Configuration:**
+- Backend: `appsettings.json` → sections: `Database`, `Redis`, `Cache`, `Security`, `Global`, `BlobStore`, `AI`, `Email`, `IdmApis`, `OutlookApis`
+- Frontend: `.env.{mode}` → vars: `VITE_GLOB_API_URL`, `VITE_PROXY_URL`, `VITE_GLOB_IDM_URL`, `VITE_GLOB_CODE`
+
+**Platform:** Node.js >= 18.12, pnpm >= 8.10, .NET 8 SDK, PostgreSQL, Redis, Docker (port 8080)
+
 ## Conventions
 
-## Naming Patterns
-- API modules: camelCase, grouped by domain in `src/app/apis/<domain>/index.ts` (e.g., `src/app/apis/action/index.ts`)
-- Vue components: PascalCase filenames (e.g., `ActionResultDialog.vue`, `ActionTag.vue`)
-- Store modules: camelCase (e.g., `user.ts`, `workflowCanvas.ts`)
-- Utility files: camelCase (e.g., `axiosCancel.ts`, `storageCache.ts`)
-- Type definition files: camelCase, placed in `types/` at project root
-- C# files: PascalCase matching the class name (e.g., `ActionExecutionService.cs`, `OnboardingStageManagementService.cs`)
-- Test files: `<ClassName>Tests.cs` (e.g., `ActionExecutorTests.cs`, `WorkflowPermissionServiceTests.cs`)
-- Map profiles: `<Entity>MapProfile.cs` (e.g., `OnboardingMapProfile.cs`)
-- Repository interfaces: `I<Entity>Repository.cs`
-- Service interfaces: `I<Name>Service.cs`
-- Exported API functions: camelCase verbs (e.g., `addAction`, `getActionDefinitions`, `deleteAction`, `updateAction`)
-- Vue composables/hooks: `use` prefix (e.g., `useUserStore`, `useGlobSetting`, `useI18n`)
-- Event handlers: `handle` prefix (e.g., `handleClick`)
-- Computed properties: descriptive nouns (e.g., `displayAction`, `isMultipleActions`, `sizeClasses`)
-- Public methods: PascalCase with `Async` suffix for async methods (e.g., `ExecuteActionAsync`, `GetActionDefinitionAsync`)
-- Private helpers: PascalCase (e.g., `CreateAxios`, `GetTransform`)
-- Test methods: `MethodName_Scenario_ExpectedBehavior` (e.g., `ExecuteActionsAsync_WithEmptyActions_ShouldReturnSuccess`)
-- Frontend: camelCase (`actionsJson`, `dialogVisible`, `userContext`)
-- Backend: camelCase for locals, `_camelCase` for private fields (e.g., `_actionDefinitionRepository`, `_logger`)
-- Backend constants: PascalCase in static classes (e.g., `DefaultUserId`, `TeamA`)
-- TypeScript interfaces: PascalCase (e.g., `ActionInfo`, `TestResult`, `Props`)
-- Enums: PascalCase name, SCREAMING_SNAKE_CASE values (e.g., `ActionType.PYTHON_SCRIPT`)
-- Const maps: SCREAMING_SNAKE_CASE (e.g., `ACTION_TYPE_MAPPING`, `FRONTEND_TO_BACKEND_TYPE_MAPPING`)
-- Classes, interfaces, enums: PascalCase (e.g., `ActionExecutionService`, `IActionManagementService`, `ActionExecutionStatusEnum`)
-- Enum names end with `Enum` suffix (e.g., `ViewPermissionModeEnum`, `OperationTypeEnum`)
-- Namespaces mirror directory structure: `FlowFlex.<Layer>.<Domain>` (e.g., `FlowFlex.Application.Services.Action`)
-## Code Style
-- Tabs for indentation, tab width 4
-- Print width: 100 characters
-- Single quotes
-- Trailing commas: ES5
-- Semicolons: required
-- End of line: auto
-- HTML whitespace sensitivity: ignore
-- Extends `@uni/eslint-config/strict`
-- Vue HTML self-closing: void elements always, normal elements never, components always
-- `@typescript-eslint/no-unused-vars`: error on all vars, ignore function args and rest siblings
-- Duplicate enum values: disabled
-- 4-space indentation
-- `#region` / `#endregion` blocks used to group related methods (e.g., `#region Helper Methods`, `#region ExecuteActionsAsync Tests`)
-- XML doc comments (`/// <summary>`) on all public classes and methods
-- `ArgumentNullException` guard clauses in constructors for required dependencies
-- `nullable enable` and `ImplicitUsings enable` in all projects
-## Import Organization
-- `@/` → `src/app/`
-- `@assets/` → `src/assets/`
-- `@apis/` → `src/app/apis/`
-- `@components/` → `src/app/components/`
-- `@hooks/` → `src/app/hooks/`
-- `@models/` → `src/app/models/`
-- `@stores/` → `src/app/stores/`
-- `@utils/` → `src/app/utils/`
-- `@views/` → `src/app/views/`
-- `#/` → `types/` (type definitions)
-- System namespaces first, then third-party, then internal `FlowFlex.*`
-- No explicit ordering enforced beyond convention
-## Error Handling
-- Axios errors caught in `requestCatchHook` and `responseInterceptorsCatch` in `src/app/apis/axios/Axios.ts`
-- Promise rejections propagate via `reject(e)` in the request wrapper
-- HTTP status errors handled in `src/app/apis/axios/checkStatus.ts`
-- UI errors shown via `ElMessage.error(...)` from Element Plus
-- Services return domain objects or throw exceptions; controllers wrap in `Success(result)` or `NotFound()`
-- Constructor guard clauses: `?? throw new ArgumentNullException(nameof(dep))`
-- Structured logging with `_logger.LogWarning(...)` / `_logger.LogError(...)` using message templates
-- Action execution results use a `Success`/`ErrorMessage` result object pattern rather than exceptions
-## Logging
-- Inject `ILogger<T>` via constructor
-- Use structured logging with named placeholders: `_logger.LogWarning("Action definition not found: {ActionId}", actionDefinitionId)`
-- Log at `Warning` for expected missing data, `Error` for unexpected failures
-- Frontend has a `console.log('signal', conf.signal)` debug statement in `src/app/apis/axios/Axios.ts` (line 241) — not a pattern to follow
-## Comments
-- XML doc comments required on all public API surface (classes, methods, properties) in backend
-- Inline comments for non-obvious logic, especially JSON parsing and permission checks
-- Chinese-language inline comments are common throughout the codebase (both frontend and backend)
-- Test methods use `// Arrange`, `// Act`, `// Assert` structure consistently
-- Not used in frontend TypeScript files; type safety via TypeScript interfaces instead
-- Backend uses XML `/// <summary>` / `/// <param>` / `/// <returns>` on public members
-## Function Design
-- Frontend API functions return `Promise<T>` via `defHttp.get/post/put/delete`
-- Backend async methods return `Task<T>` or `Task`
-- Action execution returns a result object with `Success`, `Details`, and `ErrorMessage` fields rather than throwing
-## Module Design
-- API modules export named functions directly (no default export)
-- Stores use `defineStore` with a string ID prefixed `item-wfe-app-<name>`
-- Barrel files (`index.ts`) used in API and store directories
-- Services registered via DI; interfaces in `Application.Contracts/IServices/`
-- Implementations in `Application/Services/`
-- `IScopedService` marker interface used to auto-register scoped services (e.g., `OnboardingStageManagementService : IOnboardingStageManagementService, IScopedService`)
-## Vue Component Conventions
-- Composition API with `<script setup lang="ts">` — no Options API
-- Props defined with TypeScript interfaces and `withDefaults(defineProps<Props>(), {...})`
-- Emits typed with `defineEmits<{ eventName: [argType] }>()`
-- Computed properties used extensively for derived display state
-- Scoped SCSS styles with `<style scoped lang="scss">`
-- Tailwind utility classes used inline alongside Element Plus components
-- Template uses `v-if`/`v-else`, `:class` binding with arrays/objects, `@click.stop` for event isolation
-<!-- GSD:conventions-end -->
+### Naming Patterns
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
-## Architecture
+**Frontend:**
+- API modules: `src/app/apis/<domain>/index.ts`, camelCase function names (`getWorkflows`, `addAction`)
+- Components: PascalCase `.vue` files
+- Stores: `defineStore('item-wfe-app-<name>', ...)`
+- Composables: `use` prefix
+- Event handlers: `handle` prefix
+- Path aliases: `@/` → `src/app/`, `#/` → `types/`
 
-## System Overview
-```text
-```
-## Component Responsibilities
-| Component | Responsibility | Path |
-|-----------|----------------|------|
-| WebApi Controllers | HTTP routing, request/response mapping, auth enforcement | `packages/flowFlex-backend/WebApi/Controllers/` |
-| Application Services | Business logic, orchestration, workflow rules | `packages/flowFlex-backend/Application/Services/` |
-| Application.Contracts | DTOs, service interfaces, options | `packages/flowFlex-backend/Application.Contracts/` |
-| Domain Entities | Core business objects, table mappings | `packages/flowFlex-backend/Domain/Entities/` |
-| Domain Repository Interfaces | Data access contracts | `packages/flowFlex-backend/Domain/Repository/` |
-| SqlSugarDB | Repository implementations, migrations | `packages/flowFlex-backend/SqlSugarDB/` |
-| Infrastructure | Logging, encryption, exception handling, background tasks | `packages/flowFlex-backend/Infrastructure/` |
-| Frontend Views | Page-level UI components | `packages/flowFlex-common/src/app/views/` |
-| Frontend Stores | Pinia state management | `packages/flowFlex-common/src/app/stores/` |
-| Frontend APIs | Axios-based HTTP client modules | `packages/flowFlex-common/src/app/apis/` |
-## Pattern Overview
-- Dependency inversion: controllers depend on `IService` interfaces, not concrete implementations
-- Auto-registration: services implement `IScopedService`, `ISingletonService`, or `ITransientService` marker interfaces for DI scanning
-- Multi-tenancy: every entity carries `AppCode` + `TenantId`; `AppIsolationMiddleware` extracts these per-request
-- Soft deletes: `IsValid` flag on all entities via `IValidFilter` interface; SqlSugar applies global filter
-- Snowflake IDs: all primary keys are `long` generated via `SnowFlakeSingle.Instance.NextId()`
-## Layers
-- Purpose: HTTP entry point, authentication, authorization, middleware pipeline
-- Location: `packages/flowFlex-backend/WebApi/`
-- Contains: Controllers, Middlewares, Filters, Authentication handlers, Converters
-- Depends on: Application.Contracts (IServices, DTOs)
-- Used by: Frontend, external API consumers
-- Purpose: Business logic, service orchestration, AutoMapper profiles
-- Location: `packages/flowFlex-backend/Application/`
-- Contains: Service implementations, Maps (AutoMapper profiles), Helpers, Notification handlers, Email templates
-- Depends on: Application.Contracts, Domain, Infrastructure
-- Used by: WebApi
-- Purpose: Shared contracts between WebApi and Application
-- Location: `packages/flowFlex-backend/Application.Contracts/`
-- Contains: DTOs (organized by domain), IService interfaces, Options classes
-- Depends on: Domain.Shared
-- Used by: WebApi, Application
-- Purpose: Core business entities and repository contracts
-- Location: `packages/flowFlex-backend/Domain/`
-- Contains: Entities (OW, Action, DynamicData, Integration), Repository interfaces, Abstracts
-- Depends on: Domain.Shared only
-- Used by: Application, SqlSugarDB
-- Purpose: Data access implementation using SqlSugar ORM
-- Location: `packages/flowFlex-backend/SqlSugarDB/`
-- Contains: `BaseRepository<T>`, concrete repository implementations, migrations, context setup
-- Depends on: Domain
-- Used by: Application (via injected repository interfaces)
-- Purpose: Cross-cutting technical concerns
-- Location: `packages/flowFlex-backend/Infrastructure/`
-- Contains: `GlobalExceptionHandlingMiddleware`, `ApplicationLogger`, `EncryptionService`, `BackgroundTaskQueue`, `BackgroundTaskService`
-- Depends on: Domain.Shared
-- Used by: WebApi, Application
-## Data Flow
-### Primary API Request Path
-### Frontend Request Path
-### Background Task Flow
-- Pinia stores in `packages/flowFlex-common/src/app/stores/modules/` handle: `user`, `permission`, `locale`, `multipleTab`, `menuFunction`, `workflowCanvas`
-- Persisted state via `pinia-plugin-persistedstate`
-## Key Abstractions
-- Purpose: Base class for all domain entities; provides `Id` (snowflake), `AppCode`, `TenantId`, `IsValid`, audit fields
-- Examples: `packages/flowFlex-backend/Domain/Entities/Base/OwEntityBase.cs`, `packages/flowFlex-backend/Domain/Entities/Base/EntityBaseCreateInfo.cs`
-- Pattern: All OW entities extend `EntityBaseCreateInfo` which extends `EntityBase` → `AbstractEntityBase`
-- Purpose: Generic CRUD contract for all repositories
-- Examples: `packages/flowFlex-backend/Domain/Repository/IBaseRepository.cs`
-- Pattern: Domain defines interface; `BaseRepository<T>` in SqlSugarDB implements it; specific repos (e.g., `IWorkflowRepository`) extend it
-- Purpose: Marker interfaces for automatic DI registration scanning
-- Pattern: Services implement the appropriate marker; `AddService()` in `packages/flowFlex-backend/WebApi/Extensions/ServiceCollectionExtensions.cs` scans and registers
-- Purpose: Entity ↔ DTO mapping
-- Examples: `packages/flowFlex-backend/Application/Maps/WorkflowMapProfile.cs`, `packages/flowFlex-backend/Application/Maps/OnboardingMapProfile.cs`
-- Pattern: One profile per aggregate root; registered explicitly in `Program.cs`
-- Purpose: Per-request user identity (userId, email, tenantId, appCode)
-- Location: `packages/flowFlex-backend/Domain/Shared/Models/`
-- Pattern: Scoped service populated by middleware; injected into services via constructor
-## Entry Points
-- Location: `packages/flowFlex-backend/WebApi/Program.cs`
-- Triggers: Kestrel HTTP server
-- Responsibilities: DI registration, middleware pipeline, database initialization, hosted services startup
-- Location: `packages/flowFlex-common/src/main.ts`
-- Triggers: Browser load or Wujie micro-app mount (`window.__WUJIE_MOUNT`)
-- Responsibilities: App bootstrap, i18n setup, Pinia store setup, router guard setup, Element Plus registration
-- Location: `packages/flowFlex-backend/SqlSugarDB/Migrations/`
-- Triggers: `app.Services.InitializeDatabase()` called at startup in `Program.cs`
-## Architectural Constraints
-- **Threading:** ASP.NET Core async/await throughout; `SqlSugarScope` (not singleton) used per-request to avoid concurrency conflicts
-- **Global state:** `SnowFlakeSingle.Instance` is a module-level singleton for ID generation (`packages/flowFlex-backend/Domain/Shared/`); `UserContext` is scoped (per-request)
-- **Multi-tenancy filter:** SqlSugar global filter applies `AppCode` + `IsValid` automatically on all queries; bypassing requires explicit `.Filter(null, true)`
-- **Long → string serialization:** All `long` IDs are serialized as strings in JSON responses via `LongToStringConverter` to avoid JavaScript precision loss
-- **Wujie micro-frontend:** The Vue app supports running as a Wujie sub-app; `window.__POWERED_BY_WUJIE__` controls mount/unmount lifecycle
-## Anti-Patterns
-### Duplicate using directives in service files
-### Distributed cache fallback to memory in production
-### Token blacklist validation disabled
-## Error Handling
-- `GlobalExceptionHandlingMiddleware` in `packages/flowFlex-backend/Infrastructure/Exceptions/` converts exceptions to structured JSON responses
-- Services throw `CRMException(ErrorCodeEnum, message)` for business rule violations
-- Controllers use `Success<T>(data)` helper from `packages/flowFlex-backend/WebApi/Controllers/ControllerBase.cs` — never return raw `Ok()`
-- Frontend `transformResponseHook` in `packages/flowFlex-common/src/app/apis/axios/index.ts` handles non-success codes and shows `ElMessage` errors
-## Cross-Cutting Concerns
-<!-- GSD:architecture-end -->
+**Backend:**
+- Files: PascalCase matching class name
+- Async methods: `PascalCaseAsync` suffix
+- Private fields: `_camelCase`
+- Tests: `MethodName_Scenario_ExpectedBehavior`
+- Enums: PascalCase with `Enum` suffix (e.g., `ViewPermissionModeEnum`)
+- Namespaces: `FlowFlex.<Layer>.<Domain>`
+
+### Code Style
+
+**Frontend (.prettierrc):** Tabs (width 4), single quotes, semicolons, trailing commas ES5, print width 100
+
+**Backend:** 4-space indent, `#region` blocks, XML doc comments on public API, `nullable enable`, guard clauses with `?? throw new ArgumentNullException(nameof(dep))`
+
+### Vue Component Conventions
+- `<script setup lang="ts">` only — no Options API
+- Props: `withDefaults(defineProps<Props>(), {...})`
+- Emits: `defineEmits<{ eventName: [argType] }>()`
+- Styles: `<style scoped lang="scss">` + Tailwind utilities
+
+### Error Handling
+- Backend: services throw `CRMException(ErrorCodeEnum, message)`, global middleware catches all
+- Frontend: Axios interceptors → `ElMessage.error(...)`, promise rejections propagate
+
+### Testing Patterns
+- Backend: constructor-based mock setup, `// Arrange / Act / Assert` in every test
+- Shared helpers: `MockHelper.cs` (mock factories), `TestDataBuilder.cs` (entity builders)
+- What to mock: all repository interfaces, external services, `ISqlSugarClient`, `ILogger<T>`
+- What NOT to mock: value objects, DTOs, `PermissionHelpers`
+
+## External Integrations
+
+| Integration | Purpose | Config Key |
+|-------------|---------|-----------|
+| Item IDM | User auth, team queries | `IdmApis` |
+| Microsoft Graph | Outlook email sync | `OutlookApis` |
+| AI Providers | Workflow/questionnaire generation | `AI` (per-user apiKey in DB) |
+| Nacos | Service discovery/config | via `Item.Internal.Nacos` |
+| Mailgun SMTP | Email sending | `Email` |
+| Aliyun OSS / AWS S3 | File storage | `BlobStore` + `Global:BlobStoreType` |
+| RabbitMQ / Kafka | Messaging | via `Item.Message.*` |
+| Hangfire | Background jobs | PostgreSQL-backed |
+
+## Known Pitfalls
+
+- **Bypassing multi-tenancy filter:** must use `.Filter(null, true)` explicitly — forgetting causes silent data isolation
+- **Mixed JSON libraries:** both `System.Text.Json` and `Newtonsoft.Json` coexist; use `System.Text.Json` for new code
+- **In-memory distributed cache:** `AddDistributedMemoryCache()` in non-dev — cache not shared across pods
+- **Large service files:** `BaseOperationLogService` (4,726 lines), `AIWorkflowGenerator.vue` (6,378 lines) — tread carefully
+- **XSS vectors:** some `v-html` bindings lack `DOMPurify.sanitize()` — always sanitize user/AI content
+- **StageService stubs:** 10 methods throw `NotImplementedException` — don't call them
 
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
