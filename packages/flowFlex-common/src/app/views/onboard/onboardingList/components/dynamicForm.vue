@@ -1552,9 +1552,10 @@ const findSectionIndexById = (sectionId: string) => {
 // 分页控制方法
 const scrollToTop = () => {
 	nextTick(() => {
-		const el = document.querySelector('.el-scrollbar__wrap');
-		if (el) {
-			el.scrollTo({ top: 0, behavior: 'smooth' });
+		const formEl = document.querySelector('.dynamic-form');
+		const scrollContainer = formEl?.closest('.el-scrollbar__wrap');
+		if (scrollContainer) {
+			scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
 		} else {
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}

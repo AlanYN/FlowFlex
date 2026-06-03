@@ -81,7 +81,7 @@
 													{{ note.createdByName || defaultStr }}
 												</span>
 												<span class="note-date">
-													on {{ timeZoneConvert(note.createdAt) }}
+													on {{ timeZoneConvert(note.createdAt, false, projectTenMinutesSsecondsDate) }}
 												</span>
 											</div>
 										</div>
@@ -320,6 +320,7 @@ import {
 	uploadCheckListTaskFile,
 } from '@/apis/ow/onboarding';
 import { timeZoneConvert } from '@/hooks/time';
+import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { useGlobSetting } from '@/settings';
 
 // 扩展的TaskData类型，包含本地需要的字段
