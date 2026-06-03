@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using OfficeOpenXml;
 
+
 namespace FlowFlex.Application.Services.DynamicData;
 
 /// <summary>
@@ -256,6 +257,16 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         return GenerateExcelWithEPPlus(exportData);
     }
 
+    private string GetOperatorDisplayName()
+    {
+        var firstName = _userContext.FirstName?.Trim();
+        var lastName = _userContext.LastName?.Trim();
+        var fullName = $"{firstName} {lastName}".Trim();
+        return !string.IsNullOrEmpty(fullName) ? fullName :
+               (!string.IsNullOrEmpty(_userContext.UserName) ? _userContext.UserName :
+               (!string.IsNullOrEmpty(_userContext.Email) ? _userContext.Email : "SYSTEM"));
+    }
+
     private static string GetDataTypeName(DataType dataType)
     {
         return dataType switch
@@ -356,16 +367,17 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext.UserId, out var userId);
+        var displayName = GetOperatorDisplayName();
 
         var entity = MapToDefineField(defineFieldDto);
         entity.ModuleId = DefaultModuleId;
         entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
         entity.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         entity.CreateDate = DateTimeOffset.UtcNow;
-        entity.CreateBy = _userContext.UserName ?? "SYSTEM";
+        entity.CreateBy = displayName;
         entity.CreateUserId = userId;
         entity.ModifyDate = DateTimeOffset.UtcNow;
-        entity.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        entity.ModifyBy = displayName;
         entity.ModifyUserId = userId;
 
         return await _defineFieldRepository.InsertReturnSnowflakeIdAsync(entity);
@@ -423,9 +435,9 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         {
             existing.AdditionalInfo["dropdownItems"] = JToken.FromObject(defineFieldDto.DropdownItems);
         }
-        
+
         existing.ModifyDate = DateTimeOffset.UtcNow;
-        existing.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        existing.ModifyBy = GetOperatorDisplayName();
         existing.ModifyUserId = userId;
 
         await _defineFieldRepository.UpdateAsync(existing);
@@ -445,7 +457,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         existing.IsValid = false;
         existing.ModifyDate = DateTimeOffset.UtcNow;
-        existing.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        existing.ModifyBy = GetOperatorDisplayName();
         existing.ModifyUserId = userId;
 
         await _defineFieldRepository.UpdateAsync(existing);
