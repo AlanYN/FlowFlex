@@ -1550,9 +1550,16 @@ const findSectionIndexById = (sectionId: string) => {
 };
 
 // 分页控制方法
+const scrollToTop = () => {
+	nextTick(() => {
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	});
+};
+
 const goToPreviousSection = () => {
 	if (!isFirstSection.value) {
 		currentSectionIndex.value--;
+		scrollToTop();
 	}
 };
 
@@ -1578,6 +1585,7 @@ const goToNextSection = async () => {
 				targetSectionIndex == currentSectionIndex.value
 					? targetSectionIndex + 1
 					: targetSectionIndex;
+			scrollToTop();
 			return;
 		}
 	}
@@ -1585,12 +1593,14 @@ const goToNextSection = async () => {
 	// 没有跳转规则或找不到目标section，使用默认的下一个section
 	if (!isLastSection.value) {
 		currentSectionIndex.value++;
+		scrollToTop();
 	}
 };
 
 const goToSection = (index: number) => {
 	if (index >= 0 && index < totalSections.value) {
 		currentSectionIndex.value = index;
+		scrollToTop();
 	}
 };
 
