@@ -340,6 +340,7 @@
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Please select'"
 								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+								filterable
 								:class="[
 									'w-full preview-select',
 									{ 'error-select': getFieldError(sectionIndex, itemIndex) },
