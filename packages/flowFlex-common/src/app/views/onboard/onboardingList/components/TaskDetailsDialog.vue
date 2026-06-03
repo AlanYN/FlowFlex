@@ -274,7 +274,7 @@
 												{{ note.createdByName || defaultStr }}
 											</span>
 											<span class="note-date">
-												on {{ timeZoneConvert(note.createdAt) }}
+												on {{ timeZoneConvert(note.createdAt, false, projectTenMinutesSsecondsDate) }}
 											</span>
 										</div>
 									</div>

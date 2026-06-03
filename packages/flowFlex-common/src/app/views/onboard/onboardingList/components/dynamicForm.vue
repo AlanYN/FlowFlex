@@ -1553,11 +1553,8 @@ const findSectionIndexById = (sectionId: string) => {
 const scrollToTop = () => {
 	nextTick(() => {
 		const formEl = document.querySelector('.dynamic-form');
-		const scrollContainer = formEl?.closest('.el-scrollbar__wrap');
-		if (scrollContainer) {
-			scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-		} else {
-			window.scrollTo({ top: 0, behavior: 'smooth' });
+		if (formEl) {
+			formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		}
 	});
 };
