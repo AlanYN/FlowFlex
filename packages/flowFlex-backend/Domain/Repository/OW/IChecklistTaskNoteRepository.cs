@@ -50,5 +50,5 @@ public interface IChecklistTaskNoteRepository : IBaseRepository<ChecklistTaskNot
     /// <summary>
     /// Count notes by task ID (without onboarding filter)
     /// </summary>
-    Task<int> CountByTaskIdAsync(long taskId);
+    Task<int> CountByTaskIdAsync(long taskId, string noteType = null);
 }

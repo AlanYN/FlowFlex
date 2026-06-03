@@ -121,11 +121,12 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         /// <summary>
         /// Count notes by task ID (without onboarding filter, but exclude deleted onboardings)
         /// </summary>
-        public async Task<int> CountByTaskIdAsync(long taskId)
+        public async Task<int> CountByTaskIdAsync(long taskId, string noteType = null)
         {
             return await base.db.Queryable<ChecklistTaskNote>()
                 .LeftJoin<Onboarding>((ctn, ob) => ctn.OnboardingId == ob.Id)
                 .Where((ctn, ob) => ctn.TaskId == taskId && !ctn.IsDeleted && ob.IsValid)
+                .WhereIF(!string.IsNullOrEmpty(noteType), (ctn, ob) => ctn.NoteType == noteType)
                 .CountAsync();
         }
     }

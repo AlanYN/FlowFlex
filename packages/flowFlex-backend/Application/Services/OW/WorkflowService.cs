@@ -240,6 +240,9 @@ namespace FlowFlex.Application.Services.OW
             // This field is set during creation and should remain unchanged
             entity.IsAIGenerated = originalIsAIGenerated;
 
+            // Sync IsActive from Status to keep them consistent
+            entity.IsActive = string.Equals(entity.Status, "active", StringComparison.OrdinalIgnoreCase);
+
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
 
