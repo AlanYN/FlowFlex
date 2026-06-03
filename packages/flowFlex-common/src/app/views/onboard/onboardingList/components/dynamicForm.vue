@@ -1553,7 +1553,8 @@ const findSectionIndexById = (sectionId: string) => {
 // 分页控制方法
 const scrollToTop = () => {
 	nextTick(() => {
-		dynamicFormRootRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		const parent = dynamicFormRootRef.value?.closest('.wfe-global-block-bg');
+		(parent || dynamicFormRootRef.value)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	});
 };
 
