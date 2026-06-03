@@ -412,19 +412,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         private string BuildTaskCompletionDescription(string taskName, string completionNotes, int actualHours)
         {
-            var description = $"Task '{taskName}' has been marked as completed by {GetOperatorDisplayName()}";
-
-            if (!string.IsNullOrEmpty(completionNotes))
-            {
-                description += $" with notes: {completionNotes}";
-            }
-
-            if (actualHours > 0)
-            {
-                description += $". Actual time spent: {actualHours} hours";
-            }
-
-            return description;
+            return "Completed the task";
         }
 
         /// <summary>
@@ -432,15 +420,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         private string BuildTaskUncompletionDescription(string taskName, string reason)
         {
-            var description = $"Task '{taskName}' has been marked as uncompleted by {GetOperatorDisplayName()}";
-
-            // Remove the "with reason" part for cleaner description
-            // if (!string.IsNullOrEmpty(reason))
-            // {
-            //     description += $" with reason: {reason}";
-            // }
-
-            return description;
+            return "Cancelled the task";
         }
 
         // LogIndependentOperationAsync method has been moved to base class to eliminate code duplication

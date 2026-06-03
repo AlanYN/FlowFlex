@@ -1066,7 +1066,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         foreach (var taskId in taskIds)
         {
-            var count = await _noteRepository.CountByTaskIdAsync(taskId);
+            var count = await _noteRepository.CountByTaskIdAsync(taskId, "General");
             notesCountMap[taskId] = count;
         }
 

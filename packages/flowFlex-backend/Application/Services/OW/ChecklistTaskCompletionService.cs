@@ -621,7 +621,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             completionDto.FilesCount = GetFilesCountFromJson(completionDto.FilesJson);
 
             // Get notes count from ChecklistTaskNote
-            completionDto.NotesCount = await _noteRepository.CountNotesAsync(completionDto.TaskId, onboardingId, false);
+            completionDto.NotesCount = await _noteRepository.CountNotesAsync(completionDto.TaskId, onboardingId, false, "General");
         }
     }
 
@@ -653,10 +653,9 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         try
         {
-            var userName = GetCurrentUserName();
             var content = completion.IsCompleted
-                ? $"Assigning {userName} to complete the task"
-                : $"Assigning {userName} to cancel the task";
+                ? "Completed the task"
+                : "Cancelled the task";
 
             var noteInput = new Contracts.Dtos.OW.ChecklistTask.ChecklistTaskNoteInputDto
             {

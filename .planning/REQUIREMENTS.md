@@ -1,29 +1,51 @@
-# Requirements: FlowFlex Question Number Type
+# Requirements: OW-621 Workflow Component Enhancements
 
-**Defined:** 2026-05-25
-**Core Value:** 问卷字段能通过 Number 类型约束用户只输入数字，确保数据质量。
+**Defined:** 2026-06-02
+**Core Value:** Workflow 组件功能完善且交互流畅，用户操作日志准确、组件生命周期正确维护、权限配置生效。
 
-## v1 Requirements
+## v1.1 Requirements
 
-Requirements for initial release. Each maps to roadmap phases.
+Requirements for milestone v1.1. Each maps to roadmap phases.
 
-### Frontend - Type Registration
+### Change Log & Audit
 
-- [ ] **FREG-01**: User can select Number type when creating a question in questionnaire editor
-- [ ] **FREG-02**: Number type renders with `el-input-number` in dynamicForm.vue for form filling
-- [ ] **FREG-03**: Number field initializes to null (not 0) and handles undefined on clear gracefully
+- [ ] **LOG-01**: Checklist Done 操作日志显示 "Completed the task" + 时间精确到秒 (MM/DD/YYYY HH:mm:ss)
+- [ ] **LOG-02**: Checklist Cancel 操作日志显示 "Cancelled the task" + 时间精确到秒
+- [ ] **LOG-03**: StageSave 类型的 Change Log 不再写入（移除 LogStageSaveAsync 调用）
+- [ ] **LOG-04**: Checklist Task 的 comment 计数只统计 Notes 类型，不计入 Change Log 条目
+- [ ] **LOG-05**: 更新 Stage 或 Component 时，所属 Workflow 的 UpdatedBy/UpdateDate 同步更新
 
-### Backend - Validation
+### Component Lifecycle
 
-- [x] **BVAL-01**: Backend validates Number-type answers are numeric via `double.TryParse` on submission
-- [x] **BVAL-02**: QuestionnaireAnswerParser has explicit `number` case (not falling through to default)
-- [x] **BVAL-03**: Rules engine correctly performs numeric comparison (not string comparison) for Number fields
+- [ ] **COMP-01**: 删除 Checklist 时，自动清除关联 Stage 的 ChecklistId 引用和 ComponentsJson 中的对应条目
+- [ ] **COMP-02**: 删除 Questionnaire 时，自动清除关联 Stage 的 QuestionnaireId 引用和 ComponentsJson 中的对应条目
+- [ ] **COMP-03**: Duplicate Workflow 时，新 Stage 的 ComponentsJson、ViewPermissionMode、ViewTeams、OperateTeams 完整复制，并调用 SyncStageMappingsAsync
 
-## v2 Requirements
+### Frontend UX
 
-Deferred to future release. Tracked but not in current roadmap.
+- [ ] **UX-01**: 问卷点击 Next 后页面自动滚动到顶部
+- [ ] **UX-02**: Case 状态 Tag 移到 Case Name 右侧（缩短顶部高度）
+- [ ] **UX-03**: Stage Detail 区域支持展开/收缩交互，收缩后仅保留关键标题信息
 
-### Number Configuration
+### Data & Validation
+
+- [ ] **DATA-01**: 文件上传后记录上传人 (UploadedBy) 和上传时间 (UploadDate)，前端展示在文件名右侧
+- [ ] **DATA-02**: Short Answer Grid 必填校验改为"填入一个单元格即算填写"，允许 Submit
+- [ ] **DATA-03**: 创建 Case 选择 Workflow 时，下拉框中的 Active/Inactive 状态与 Workflow 管理页面一致
+
+### Permissions
+
+- [ ] **PERM-01**: User Group 配置 Case 编辑权限后，对应用户可正常编辑 Case（排查并修复权限链路问题）
+
+## Future Requirements
+
+Deferred to future milestones.
+
+### IDM Integration
+
+- **IDM-01**: 创建 Team 时查重限定当前租户（需 IDM 团队配合修复）
+
+### Number Configuration (from v1.0)
 
 - **NCFG-01**: User can set min/max range constraints for Number fields
 - **NCFG-02**: User can configure step size for Number fields
@@ -33,30 +55,37 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Min/Max range validation | Keep scope minimal — only type constraint needed now |
-| Integer/Decimal distinction | Adds config complexity; allow any number for now |
-| Number formatting (locale, thousands separator) | Display concern, not input validation |
-| Calculated fields / formulas | Different feature entirely; massive scope |
-| Slider/Range input variant | System already has `linear_scale` for that |
-| Data export format conversion | Only doing form input validation |
-| Number-specific config editor component | No configurable properties in scope |
+| Team 创建跨租户查重 (#10) | IDM 外部系统 Bug，FlowFlex 无法独立修复 |
+| 深度克隆 Component 实体（新建 Checklist/Questionnaire 副本） | 产品确认仅复制引用，不新建实体 |
+| 回溯删除历史 StageSave 日志 | 只停止新写入，不清理历史数据 |
+| 实时 IDM 同步 | 超出本次范围 |
+| Grid 表格 min/max 校验 | 不需要范围约束 |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FREG-01 | Phase 1 | Pending |
-| FREG-02 | Phase 1 | Pending |
-| FREG-03 | Phase 1 | Pending |
-| BVAL-01 | Phase 1 | Complete |
-| BVAL-02 | Phase 1 | Complete |
-| BVAL-03 | Phase 1 | Complete |
+| LOG-01 | Phase 2 | Pending |
+| LOG-02 | Phase 2 | Pending |
+| LOG-03 | Phase 2 | Pending |
+| LOG-04 | Phase 2 | Pending |
+| UX-01 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| UX-02 | Phase 3 | Pending |
+| UX-03 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Pending |
+| DATA-02 | Phase 3 | Pending |
+| COMP-01 | Phase 4 | Pending |
+| COMP-02 | Phase 4 | Pending |
+| COMP-03 | Phase 4 | Pending |
+| LOG-05 | Phase 4 | Pending |
+| PERM-01 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 6 total
-- Mapped to phases: 6
+- v1.1 requirements: 15 total
+- Mapped to phases: 15
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-05-25*
-*Last updated: 2026-05-25 after initial definition*
+*Requirements defined: 2026-06-02*
+*Last updated: 2026-06-02 after roadmap creation (v1.1)*

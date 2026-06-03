@@ -1278,12 +1278,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
 
-                // Log stage save to operation_change_log
-                if (result)
-                {
-                    await LogStageSaveAsync(onboarding, stageId, stageProgress);
-                }
-
                 return result;
             }
             catch (CRMException)
@@ -1293,65 +1287,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             catch (Exception ex)
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save stage {stageId} in onboarding {onboardingId}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Log stage save operation to operation change log
-        /// </summary>
-        private async Task LogStageSaveAsync(Domain.Entities.OW.Onboarding onboarding, long stageId, OnboardingStageProgress stageProgress)
-        {
-            try
-            {
-                var stage = await _stageRepository.GetByIdAsync(stageId);
-                var beforeData = new
-                {
-                    StageId = stageId,
-                    StageName = stage?.Name,
-                    IsSaved = false,
-                    SaveTime = (DateTimeOffset?)null
-                };
-
-                var afterData = new
-                {
-                    StageId = stageId,
-                    StageName = stage?.Name,
-                    IsSaved = true,
-                    SaveTime = stageProgress.SaveTime,
-                    SavedBy = stageProgress.SavedBy,
-                    StartTime = stageProgress.StartTime
-                };
-
-                var extendedData = new
-                {
-                    WorkflowId = onboarding.WorkflowId,
-                    IsCurrentStage = stageProgress.StageId == onboarding.CurrentStageId,
-                    CurrentStageStartTime = onboarding.CurrentStageStartTime,
-                    Source = "manual_save"
-                };
-
-                await _operationChangeLogService.LogOperationAsync(
-                    operationType: OperationTypeEnum.StageSave,
-                    businessModule: BusinessModuleEnum.Stage,
-                    businessId: stageId,
-                    onboardingId: onboarding.Id,
-                    stageId: stageId,
-                    operationTitle: $"Stage Saved: {stage?.Name ?? "Unknown"}",
-                    operationDescription: $"Stage '{stage?.Name}' has been saved by {stageProgress.SavedBy}",
-                    beforeData: JsonSerializer.Serialize(beforeData, JsonOptions),
-                    afterData: JsonSerializer.Serialize(afterData, JsonOptions),
-                    changedFields: new List<string> { "IsSaved", "SaveTime", "SavedBy" },
-                    extendedData: JsonSerializer.Serialize(extendedData, JsonOptions)
-                );
-
-                _logger.LogInformation("Stage save log recorded: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
-                    onboarding.Id, stageId, stage?.Name);
-            }
-            catch (Exception logEx)
-            {
-                _logger.LogError(logEx, "Failed to record Stage save log: OnboardingId={OnboardingId}, StageId={StageId}",
-                    onboarding.Id, stageId);
-                // Don't re-throw to avoid breaking the main flow
             }
         }
 
