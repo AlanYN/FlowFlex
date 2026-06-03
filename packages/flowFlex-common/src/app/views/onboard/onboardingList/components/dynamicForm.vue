@@ -246,6 +246,7 @@
 						v-model="formData[question.id]"
 						:placeholder="'Select ' + question.question"
 						class="w-full"
+						filterable
 						@change="handleInputChange(question.id, $event)"
 						:disabled="questionIsDisabled(question.id)"
 					>
