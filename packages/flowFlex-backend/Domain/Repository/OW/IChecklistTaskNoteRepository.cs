@@ -35,7 +35,7 @@ public interface IChecklistTaskNoteRepository : IBaseRepository<ChecklistTaskNot
     /// <summary>
     /// Count notes for a task
     /// </summary>
-    Task<int> CountNotesAsync(long taskId, long onboardingId, bool includeDeleted = false);
+    Task<int> CountNotesAsync(long taskId, long onboardingId, bool includeDeleted = false, string noteType = null);
 
     /// <summary>
     /// Count pinned notes for a task
@@ -50,5 +50,5 @@ public interface IChecklistTaskNoteRepository : IBaseRepository<ChecklistTaskNot
     /// <summary>
     /// Count notes by task ID (without onboarding filter)
     /// </summary>
-    Task<int> CountByTaskIdAsync(long taskId);
+    Task<int> CountByTaskIdAsync(long taskId, string noteType = null);
 }

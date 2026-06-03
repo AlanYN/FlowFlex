@@ -1,5 +1,5 @@
 <template>
-	<div class="dynamic-form">
+	<div class="dynamic-form" ref="dynamicFormRootRef">
 		<div v-loading="loading" class="">
 			<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
 				<el-alert
@@ -711,6 +711,7 @@ const props = defineProps<Props>();
 const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
+const dynamicFormRootRef = ref<HTMLElement>();
 const currentSectionIndex = ref(0);
 
 // 内部维护被跳过的问题集合（用于响应式更新）
@@ -1551,9 +1552,17 @@ const findSectionIndexById = (sectionId: string) => {
 };
 
 // 分页控制方法
+const scrollToTop = () => {
+	nextTick(() => {
+		const parent = dynamicFormRootRef.value?.closest('.wfe-global-block-bg');
+		(parent || dynamicFormRootRef.value)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	});
+};
+
 const goToPreviousSection = () => {
 	if (!isFirstSection.value) {
 		currentSectionIndex.value--;
+		scrollToTop();
 	}
 };
 
@@ -1579,6 +1588,7 @@ const goToNextSection = async () => {
 				targetSectionIndex == currentSectionIndex.value
 					? targetSectionIndex + 1
 					: targetSectionIndex;
+			scrollToTop();
 			return;
 		}
 	}
@@ -1586,12 +1596,14 @@ const goToNextSection = async () => {
 	// 没有跳转规则或找不到目标section，使用默认的下一个section
 	if (!isLastSection.value) {
 		currentSectionIndex.value++;
+		scrollToTop();
 	}
 };
 
 const goToSection = (index: number) => {
 	if (index >= 0 && index < totalSections.value) {
 		currentSectionIndex.value = index;
+		scrollToTop();
 	}
 };
 
