@@ -1552,7 +1552,12 @@ const findSectionIndexById = (sectionId: string) => {
 // 分页控制方法
 const scrollToTop = () => {
 	nextTick(() => {
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		const el = document.querySelector('.el-scrollbar__wrap');
+		if (el) {
+			el.scrollTo({ top: 0, behavior: 'smooth' });
+		} else {
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		}
 	});
 };
 

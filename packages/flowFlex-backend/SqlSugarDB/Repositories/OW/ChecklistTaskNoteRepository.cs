@@ -76,7 +76,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         /// <summary>
         /// Count notes for a task
         /// </summary>
-        public async Task<int> CountNotesAsync(long taskId, long onboardingId, bool includeDeleted = false)
+        public async Task<int> CountNotesAsync(long taskId, long onboardingId, bool includeDeleted = false, string noteType = null)
         {
             var query = base.db.Queryable<ChecklistTaskNote>()
                 .Where(x => x.TaskId == taskId && x.OnboardingId == onboardingId);
@@ -84,6 +84,11 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
             if (!includeDeleted)
             {
                 query = query.Where(x => !x.IsDeleted);
+            }
+
+            if (!string.IsNullOrEmpty(noteType))
+            {
+                query = query.Where(x => x.NoteType == noteType);
             }
 
             return await query.CountAsync();
