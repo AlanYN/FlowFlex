@@ -1162,23 +1162,17 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type === 'short_answer_grid') {
 						if (question.rows && question.columns && question.columns.length > 0) {
-							let allRowsCompleted = true;
-							question.rows.forEach((row: any, rowIndex: number) => {
-								// 检查该行是否至少有一个单元格有内容
-								let rowHasValue = false;
-								question.columns.forEach((column: any, columnIndex: number) => {
+							let anyCellFilled = false;
+							question.rows.forEach((row: any) => {
+								question.columns.forEach((column: any) => {
 									const gridKey = `${question.id}_${column.id}_${row.id}`;
 									const gridValue = formData.value[gridKey];
 									if (gridValue && gridValue.trim() !== '') {
-										rowHasValue = true;
+										anyCellFilled = true;
 									}
 								});
-								// 如果该行没有任何内容，则标记为未完成
-								if (!rowHasValue) {
-									allRowsCompleted = false;
-								}
 							});
-							if (!allRowsCompleted) {
+							if (!anyCellFilled) {
 								isValid = false;
 								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);

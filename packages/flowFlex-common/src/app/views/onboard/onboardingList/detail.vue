@@ -2,20 +2,20 @@
 	<div class="pb-6">
 		<!-- 页面头部 -->
 		<PageHeader
-			:title="`${onboardingData?.caseCode || ''} - ${onboardingData?.caseName || ''}`"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
-			<template #description>
-				<!-- 状态显示 -->
-				<div class="flex items-center" v-if="onboardingData?.status">
+			<template #title>
+				<span class="flex items-center gap-2">
+					<span>{{ onboardingData?.caseCode || '' }} - {{ onboardingData?.caseName || '' }}</span>
 					<GradientTag
+						v-if="onboardingData?.status"
 						:type="statusTagType"
 						:text="statusDisplayText"
 						:pulse="statusShouldPulse"
 						size="small"
 					/>
-				</div>
+				</span>
 			</template>
 			<template #actions>
 				<el-button
