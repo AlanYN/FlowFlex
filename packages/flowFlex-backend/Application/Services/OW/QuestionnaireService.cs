@@ -27,6 +27,8 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Domain.Shared.Events;
+using MediatR;
 using SqlSugar;
 
 namespace FlowFlex.Application.Services.OW
@@ -52,9 +54,8 @@ namespace FlowFlex.Application.Services.OW
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly ILogger<QuestionnaireService> _logger;
-        private readonly ISqlSugarClient _db;
-        private readonly IDistributedCacheService _cacheService;
         private readonly IWorkflowRepository _workflowRepository;
+        private readonly IMediator _mediator;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -67,9 +68,8 @@ namespace FlowFlex.Application.Services.OW
             IBackgroundTaskQueue backgroundTaskQueue,
             IOperationChangeLogService operationChangeLogService,
             ILogger<QuestionnaireService> logger,
-            ISqlSugarClient db,
-            IDistributedCacheService cacheService,
-            IWorkflowRepository workflowRepository)
+            IWorkflowRepository workflowRepository,
+            IMediator mediator)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -81,9 +81,8 @@ namespace FlowFlex.Application.Services.OW
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
             _logger = logger;
-            _db = db;
-            _cacheService = cacheService;
             _workflowRepository = workflowRepository;
+            _mediator = mediator;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -447,80 +446,13 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete published questionnaire");
             }
 
-            var questionnaireName = entity.Name; // Store name before deletion
+            var questionnaireName = entity.Name;
 
-            // Look up affected stage IDs BEFORE the transaction (avoids holding connection during lookup)
-            var affectedStageIds = await _mappingService.GetStagesUsingQuestionnaireFastAsync(id);
+            // Hard delete the questionnaire
+            await _questionnaireRepository.DeleteAsync(entity);
 
-            // Collect distinct workflow IDs for cache invalidation
-            List<long> affectedWorkflowIds = new List<long>();
-            if (affectedStageIds.Any())
-            {
-                var affectedStages = await _stageRepository.GetListAsync(s => affectedStageIds.Contains(s.Id));
-                affectedWorkflowIds = affectedStages.Select(s => s.WorkflowId).Distinct().ToList();
-            }
-
-            // CRITICAL: cascade cleanup runs BEFORE hard delete inside transaction (Risk 2 mitigation)
-            var transactionResult = await _db.Ado.UseTranAsync(async () =>
-            {
-                // Step 1: Cascade cleanup — null Stage.QuestionnaireId, patch ComponentsJson, sync mappings
-                foreach (var stageId in affectedStageIds)
-                {
-                    var stage = await _stageRepository.GetByIdAsync(stageId);
-                    if (stage == null) continue;
-
-                    // Null the FK
-                    stage.QuestionnaireId = null;
-
-                    // Patch ComponentsJson using StageJsonOptions (defined in this class)
-                    var components = new List<StageComponent>();
-                    if (!string.IsNullOrWhiteSpace(stage.ComponentsJson))
-                    {
-                        try
-                        {
-                            components = JsonSerializer.Deserialize<List<StageComponent>>(
-                                stage.ComponentsJson, StageJsonOptions) ?? new List<StageComponent>();
-                        }
-                        catch (JsonException)
-                        {
-                            components = new List<StageComponent>();
-                        }
-                    }
-
-                    foreach (var comp in components.Where(c => c.Key == "questionnaires"))
-                    {
-                        comp.QuestionnaireIds?.Remove(id);
-                        comp.QuestionnaireNames = comp.QuestionnaireNames ?? new List<string>();
-                    }
-
-                    // Remove questionnaire components that are now empty
-                    components.RemoveAll(c => c.Key == "questionnaires" &&
-                        (c.QuestionnaireIds == null || !c.QuestionnaireIds.Any()));
-
-                    stage.ComponentsJson = JsonSerializer.Serialize(components, StageJsonOptions);
-                    await _stageRepository.UpdateAsync(stage);
-
-                    // Sync mapping table inside transaction
-                    await _mappingService.SyncStageMappingsInTransactionAsync(stageId, _db);
-                }
-
-                // Step 2: Hard delete AFTER cleanup (per Risk 2: cleanup before delete)
-                await _questionnaireRepository.DeleteAsync(entity);
-
-                return affectedWorkflowIds;
-            });
-
-            if (!transactionResult.IsSuccess)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError,
-                    transactionResult.ErrorMessage ?? "Cascade delete transaction failed");
-            }
-
-            // Invalidate stage cache for each affected workflow (outside transaction per D-05)
-            foreach (var workflowId in transactionResult.Data ?? new List<long>())
-            {
-                await _cacheService.RemoveAsync($"ow:stage:workflow:{workflowId}");
-            }
+            // Publish event — handler cleans Stage references
+            await _mediator.Publish(new QuestionnaireDeletedEvent(id, questionnaireName));
 
             // Log questionnaire delete operation (fire-and-forget via background queue)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
@@ -532,7 +464,7 @@ namespace FlowFlex.Application.Services.OW
                 );
             });
 
-            return transactionResult.IsSuccess;
+            return true;
         }
 
         /// <summary>

@@ -1,19 +1,17 @@
 ﻿using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Domain.Entities.DynamicData;
-using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
-using Microsoft.Extensions.Caching.Distributed;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using OfficeOpenXml;
-using SqlSugar;
-using System.Text.Json;
 
 namespace FlowFlex.Application.Services.DynamicData;
 
@@ -27,8 +25,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
     private readonly IDefineFieldRepository _defineFieldRepository;
     private readonly IFieldGroupRepository _fieldGroupRepository;
     private readonly IStageRepository _stageRepository;
-    private readonly ISqlSugarClient _db;
-    private readonly IDistributedCache _cache;
+    private readonly IMediator _mediator;
     private readonly UserContext _userContext;
     private readonly ILogger<DynamicDataService> _logger;
 
@@ -41,8 +38,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         IDefineFieldRepository defineFieldRepository,
         IFieldGroupRepository fieldGroupRepository,
         IStageRepository stageRepository,
-        ISqlSugarClient db,
-        IDistributedCache cache,
+        IMediator mediator,
         UserContext userContext,
         ILogger<DynamicDataService> logger)
     {
@@ -51,8 +47,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         _defineFieldRepository = defineFieldRepository;
         _fieldGroupRepository = fieldGroupRepository;
         _stageRepository = stageRepository;
-        _db = db;
-        _cache = cache;
+        _mediator = mediator;
         _userContext = userContext;
         _logger = logger;
     }
@@ -460,74 +455,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         await _defineFieldRepository.UpdateAsync(existing);
 
-        // Cascade cleanup: remove from Stage ComponentsJson StaticFields
-        try
-        {
-            await CleanupStageStaticFieldsAsync(propertyId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to cleanup stage StaticFields for deleted property {PropertyId}", propertyId);
-        }
-    }
-
-    private async Task CleanupStageStaticFieldsAsync(long propertyId)
-    {
-        var idStr = propertyId.ToString();
-        var stages = await _db.Queryable<Stage>()
-            .Where(s => !string.IsNullOrEmpty(s.ComponentsJson) && s.ComponentsJson.Contains(idStr))
-            .ToListAsync();
-
-        if (!stages.Any()) return;
-
-        foreach (var stage in stages)
-        {
-            try
-            {
-                var components = JsonSerializer.Deserialize<List<JsonElement>>(stage.ComponentsJson);
-                if (components == null) continue;
-
-                var modified = false;
-                var updatedComponents = new List<JsonElement>();
-
-                foreach (var component in components)
-                {
-                    var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(component.GetRawText());
-                    if (dict == null) { updatedComponents.Add(component); continue; }
-
-                    if (dict.TryGetValue("StaticFields", out var fieldsElement) && fieldsElement.ValueKind == JsonValueKind.Array)
-                    {
-                        var fields = fieldsElement.EnumerateArray()
-                            .Where(f =>
-                            {
-                                if (f.TryGetProperty("Id", out var idProp))
-                                    return idProp.GetString() != idStr;
-                                return true;
-                            })
-                            .ToList();
-
-                        if (fields.Count < fieldsElement.GetArrayLength())
-                        {
-                            dict["StaticFields"] = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(fields));
-                            modified = true;
-                        }
-                    }
-
-                    updatedComponents.Add(JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(dict)));
-                }
-
-                if (modified)
-                {
-                    stage.ComponentsJson = JsonSerializer.Serialize(updatedComponents);
-                    await _stageRepository.UpdateAsync(stage);
-                    await _cache.RemoveAsync($"ow:stage:workflow:{stage.WorkflowId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to cleanup ComponentsJson StaticFields for stage {StageId}", stage.Id);
-            }
-        }
+        // Publish event — handler cleans Stage ComponentsJson StaticFields
+        await _mediator.Publish(new StaticFieldDeletedEvent(propertyId));
     }
 
     public async Task MovePropertyToGroupAsync(long[] propertyIds, long groupId)
