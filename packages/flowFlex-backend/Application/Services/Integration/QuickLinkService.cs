@@ -154,13 +154,11 @@ namespace FlowFlex.Application.Services.Integration
         private async Task CleanupStageComponentsAsync(long quickLinkId, string quickLinkName)
         {
             var idStr = quickLinkId.ToString();
-            var stages = await ((ISqlSugarClient)_db).Queryable<Stage>()
-                .Where(s => !string.IsNullOrEmpty(s.ComponentsJson) && s.ComponentsJson.Contains(idStr))
-                .ToListAsync();
+            var allStages = await _stageRepository.GetListAsync(s => !string.IsNullOrEmpty(s.ComponentsJson) && s.ComponentsJson.Contains(idStr));
 
-            if (!stages.Any()) return;
+            if (!allStages.Any()) return;
 
-            foreach (var stage in stages)
+            foreach (var stage in allStages)
             {
                 try
                 {
