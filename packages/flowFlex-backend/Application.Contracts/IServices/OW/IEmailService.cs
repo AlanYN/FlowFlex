@@ -80,5 +80,17 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="customEmailBody">Custom email body content (optional, uses default template if null)</param>
         /// <returns>Whether the email was sent successfully</returns>
         Task<bool> SendConditionStageNotificationAsync(string to, string caseId, string caseName, string previousStageName, string currentStageName, string caseUrl, string? customSubject, string? customEmailBody);
+
+        /// <summary>
+        /// Send stage assigned notification email
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="assigneeName">Name of the assigned user</param>
+        /// <param name="caseName">Case name</param>
+        /// <param name="stageName">Stage name</param>
+        /// <param name="priority">Case priority (or "N/A" if not set)</param>
+        /// <param name="caseLink">URL to view case details</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink);
     }
 }
