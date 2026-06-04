@@ -353,6 +353,22 @@
 								Accepted formats: {{ question.accept }}
 							</div>
 						</el-upload>
+						<!-- File upload metadata: uploader name and date -->
+						<div
+							v-if="formData[question.id] && formData[question.id].length > 0"
+							class="mt-1 space-y-1"
+						>
+							<div
+								v-for="file in formData[question.id]"
+								:key="file.uid || file.name"
+								class="flex items-center"
+							>
+								<span
+									v-if="file.uploadedBy || file.uploadDate"
+									class="text-xs text-gray-500 ml-2"
+								>Uploaded by {{ file.uploadedBy }}, {{ timeZoneConvert(file.uploadDate, false, projectTenMinutesSsecondsDate) }}</span>
+							</div>
+						</div>
 					</div>
 
 					<!-- 多选网格 -->
@@ -681,7 +697,10 @@ import {
 	projectDate,
 	notesPageTextraMaxLength,
 	questionMaxlength,
+	projectTenMinutesSsecondsDate,
 } from '@/settings/projectSetting';
+import { timeZoneConvert } from '@/hooks/time';
+import { uploadQuestionFile } from '@/apis/ow/questionnaire';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 
 // 使用 MDI 图标库
@@ -1090,10 +1109,45 @@ const handleJumpToQuestion = (jumpRule: any, currentQuestion: any) => {
 	});
 };
 
-// 处理文件变化
-const handleFileChange = (questionId: string, file: any, fileList: any[]) => {
+// 处理文件变化 — upload immediately and inject metadata
+const handleFileChange = async (questionId: string, file: any, fileList: any[]) => {
+	// Optimistically update the list first so the UI shows the file
 	formData.value[questionId] = fileList;
 	handleInputChange(questionId, fileList);
+
+	// Only upload new files that haven't been uploaded yet (no accessUrl)
+	if (!file?.raw || file?.uploadedBy !== undefined) return;
+
+	try {
+		const uploadParams = {
+			name: 'formFile',
+			file: file.raw,
+			filename: file.raw.name,
+			data: { category: 'QuestionnaireQuestion' },
+		};
+		const response = await uploadQuestionFile(uploadParams);
+		if (response?.data?.code === '200') {
+			const data = response.data.data;
+			// Enrich the file entry in formData with server-assigned metadata
+			const updatedList = (formData.value[questionId] as any[]).map((f: any) => {
+				if (f.uid === file.uid) {
+					return {
+						...f,
+						uploadedBy: data.uploadedBy ?? '',
+						uploadDate: data.uploadTime ?? '',
+						accessUrl: data.accessUrl ?? '',
+						fullAccessUrl: data.fullAccessUrl ?? '',
+						fileId: data.id,
+					};
+				}
+				return f;
+			});
+			formData.value[questionId] = updatedList;
+			handleInputChange(questionId, updatedList);
+		}
+	} catch {
+		// Upload error is non-blocking for the form; the file entry remains without metadata
+	}
 };
 
 // 验证表单
@@ -1162,23 +1216,17 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type === 'short_answer_grid') {
 						if (question.rows && question.columns && question.columns.length > 0) {
-							let allRowsCompleted = true;
-							question.rows.forEach((row: any, rowIndex: number) => {
-								// 检查该行是否至少有一个单元格有内容
-								let rowHasValue = false;
-								question.columns.forEach((column: any, columnIndex: number) => {
+							let anyCellFilled = false;
+							question.rows.forEach((row: any) => {
+								question.columns.forEach((column: any) => {
 									const gridKey = `${question.id}_${column.id}_${row.id}`;
 									const gridValue = formData.value[gridKey];
 									if (gridValue && gridValue.trim() !== '') {
-										rowHasValue = true;
+										anyCellFilled = true;
 									}
 								});
-								// 如果该行没有任何内容，则标记为未完成
-								if (!rowHasValue) {
-									allRowsCompleted = false;
-								}
 							});
-							if (!allRowsCompleted) {
+							if (!anyCellFilled) {
 								isValid = false;
 								const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 								errors.push(errorMsg);

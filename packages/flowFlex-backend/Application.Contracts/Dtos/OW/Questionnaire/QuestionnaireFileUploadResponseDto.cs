@@ -61,6 +61,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire
         public DateTime UploadTime { get; set; }
 
         /// <summary>
+        /// Display name of the user who uploaded the file
+        /// </summary>
+        public string UploadedBy { get; set; }
+
+        /// <summary>
         /// Error message if upload failed
         /// </summary>
         public string ErrorMessage { get; set; }
