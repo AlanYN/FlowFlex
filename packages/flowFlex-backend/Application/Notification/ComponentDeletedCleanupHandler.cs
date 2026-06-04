@@ -6,6 +6,7 @@ using FlowFlex.Domain.Shared.Models;
 using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using SqlSugar;
 
 namespace Application.Notification
 {
@@ -16,6 +17,7 @@ namespace Application.Notification
         INotificationHandler<StaticFieldDeletedEvent>
     {
         private readonly IStageRepository _stageRepository;
+        private readonly ISqlSugarClient _db;
         private readonly IDistributedCache _cache;
         private readonly ILogger<ComponentDeletedCleanupHandler> _logger;
 
@@ -27,10 +29,12 @@ namespace Application.Notification
 
         public ComponentDeletedCleanupHandler(
             IStageRepository stageRepository,
+            ISqlSugarClient db,
             IDistributedCache cache,
             ILogger<ComponentDeletedCleanupHandler> logger)
         {
             _stageRepository = stageRepository;
+            _db = db;
             _cache = cache;
             _logger = logger;
         }
@@ -142,8 +146,9 @@ namespace Application.Notification
             Func<List<StageComponent>, string, bool> patchComponents,
             Action<Stage> patchFk = null)
         {
-            var stages = await _stageRepository.GetListAsync(
-                s => !string.IsNullOrEmpty(s.ComponentsJson) && s.ComponentsJson.Contains(idStr));
+            var stages = await _db.Queryable<Stage>()
+                .Where(s => SqlFunc.ToString(s.ComponentsJson).Contains(idStr))
+                .ToListAsync();
 
             if (!stages.Any()) return;
 
@@ -177,12 +182,54 @@ namespace Application.Notification
             if (string.IsNullOrWhiteSpace(json)) return null;
             try
             {
-                return JsonSerializer.Deserialize<List<StageComponent>>(json, JsonOptions) ?? new List<StageComponent>();
+                var normalized = NormalizeJson(json);
+                if (string.IsNullOrWhiteSpace(normalized)) return null;
+                return JsonSerializer.Deserialize<List<StageComponent>>(normalized, JsonOptions) ?? new List<StageComponent>();
             }
             catch (JsonException)
             {
                 return new List<StageComponent>();
             }
+        }
+
+        private static string NormalizeJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return json;
+
+            var current = json.Trim();
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (string.IsNullOrWhiteSpace(current)) return current;
+
+                if (current.StartsWith("[") || current.StartsWith("{"))
+                    break;
+
+                if ((current.StartsWith("\"") && current.EndsWith("\"")) ||
+                    (current.StartsWith("'") && current.EndsWith("'")))
+                {
+                    try
+                    {
+                        var inner = JsonSerializer.Deserialize<string>(current);
+                        if (!string.IsNullOrWhiteSpace(inner))
+                        {
+                            current = inner.Trim();
+                            continue;
+                        }
+                    }
+                    catch { }
+                }
+
+                if (current.Contains("\\\""))
+                {
+                    current = current.Replace("\\\"", "\"").Trim();
+                    continue;
+                }
+
+                break;
+            }
+
+            return current;
         }
     }
 }
