@@ -17,8 +17,8 @@ Requirements for milestone v1.1. Each maps to roadmap phases.
 
 ### Component Lifecycle
 
-- [ ] **COMP-01**: 删除 Checklist 时，自动清除关联 Stage 的 ChecklistId 引用和 ComponentsJson 中的对应条目
-- [ ] **COMP-02**: 删除 Questionnaire 时，自动清除关联 Stage 的 QuestionnaireId 引用和 ComponentsJson 中的对应条目
+- [x] **COMP-01**: 删除 Checklist 时，自动清除关联 Stage 的 ChecklistId 引用和 ComponentsJson 中的对应条目
+- [x] **COMP-02**: 删除 Questionnaire 时，自动清除关联 Stage 的 QuestionnaireId 引用和 ComponentsJson 中的对应条目
 - [x] **COMP-03**: Duplicate Workflow 时，新 Stage 的 ComponentsJson、ViewPermissionMode、ViewTeams、OperateTeams 完整复制，并调用 SyncStageMappingsAsync
 
 ### Frontend UX
@@ -75,8 +75,8 @@ Deferred to future milestones.
 | UX-03 | Phase 3 | Pending |
 | DATA-01 | Phase 3 | Pending |
 | DATA-02 | Phase 3 | Pending |
-| COMP-01 | Phase 4 | Pending |
-| COMP-02 | Phase 4 | Pending |
+| COMP-01 | Phase 4 | Complete |
+| COMP-02 | Phase 4 | Complete |
 | COMP-03 | Phase 4 | Complete |
 | LOG-05 | Phase 4 | Complete |
 | PERM-01 | Phase 5 | Pending |

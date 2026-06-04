@@ -13,7 +13,7 @@ Comprehensive enhancements to the FlowFlex workflow system covering audit log ac
 - [x] **Phase 1: Number Type Support** - Register Number type in editor, render numeric input, validate on backend (completed 2026-05-25)
 - [ ] **Phase 2: Log & Audit Fixes** - Correct Checklist log messages, timestamp precision, remove StageSave noise, fix comment counts, and sync Workflow status display
 - [ ] **Phase 3: Frontend UX & Data** - Case page layout adjustments, Stage collapse, file upload metadata display, Short Answer Grid validation fix
-- [ ] **Phase 4: Component Lifecycle & Propagation** - Delete Checklist/Questionnaire cleans Stage refs, Duplicate deep-copies components, Stage/Component updates propagate Workflow UpdatedBy
+- [x] **Phase 4: Component Lifecycle & Propagation** - Delete Checklist/Questionnaire cleans Stage refs, Duplicate deep-copies components, Stage/Component updates propagate Workflow UpdatedBy (completed 2026-06-04)
 - [ ] **Phase 5: Permission Fix** - Investigate and fix User Group permission chain so configured users can edit Cases
 
 ## Phase Details
@@ -86,7 +86,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Workflow duplicate deep copy + TouchWorkflowAuditAsync repo method + StageService wire-up (WorkflowService.cs, IWorkflowRepository.cs, WorkflowRepository.cs, StageService.cs)
-- [ ] 04-02-PLAN.md — Cascade delete cleanup for Checklist + Questionnaire + ChecklistService/QuestionnaireService UpdateAsync audit touch (ChecklistService.cs, QuestionnaireService.cs)
+- [x] 04-02-PLAN.md — Cascade delete cleanup for Checklist + Questionnaire + ChecklistService/QuestionnaireService UpdateAsync audit touch (ChecklistService.cs, QuestionnaireService.cs)
 
 ---
 
@@ -111,5 +111,5 @@ Phases execute in numeric order. Plans within a phase may run in parallel (paral
 | 1. Number Type Support | 2/2 | Complete | 2026-05-25 |
 | 2. Log & Audit Fixes | 0/2 | Not started | - |
 | 3. Frontend UX & Data | 0/2 | Not started | - |
-| 4. Component Lifecycle & Propagation | 1/2 | In Progress|  |
+| 4. Component Lifecycle & Propagation | 2/2 | Complete   | 2026-06-04 |
 | 5. Permission Fix | 0/? | Not started | - |
