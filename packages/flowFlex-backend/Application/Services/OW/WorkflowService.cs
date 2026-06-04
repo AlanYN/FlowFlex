@@ -899,7 +899,17 @@ namespace FlowFlex.Application.Services.OW
                     ChecklistId = stage.ChecklistId,
                     QuestionnaireId = stage.QuestionnaireId,
                     Color = stage.Color,
-                    IsActive = stage.IsActive
+                    IsActive = stage.IsActive,
+                    ComponentsJson = stage.ComponentsJson,
+                    ViewPermissionMode = stage.ViewPermissionMode,
+                    ViewTeams = stage.ViewTeams,
+                    OperateTeams = stage.OperateTeams,
+                    PortalPermission = stage.PortalPermission,
+                    VisibleInPortal = stage.VisibleInPortal,
+                    UseSameTeamForOperate = stage.UseSameTeamForOperate,
+                    AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                    Required = stage.Required,
+                    CoAssignees = stage.CoAssignees
                 };
 
                 // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
@@ -907,6 +917,15 @@ namespace FlowFlex.Application.Services.OW
                 AuditHelper.ApplyCreateAudit(duplicatedStage, _operatorContextService);
 
                 await _stageRepository.InsertAsync(duplicatedStage);
+
+                try
+                {
+                    await _componentMappingService.SyncStageMappingsAsync(duplicatedStage.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to sync stage mappings for duplicated stage {StageId}", duplicatedStage.Id);
+                }
             }
 
             // Log duplicate operation

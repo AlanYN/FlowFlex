@@ -82,5 +82,11 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="appCode">应用代码</param>
         /// <returns>工作流列表</returns>
         Task<List<Workflow>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
+
+        /// <summary>
+        /// Update only ModifyBy and ModifyDate — lightweight audit touch.
+        /// Does NOT trigger change logging or IDM validation.
+        /// </summary>
+        Task<bool> TouchWorkflowAuditAsync(long workflowId, string modifyBy);
     }
 }
