@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Helpers;
@@ -47,6 +48,9 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IUserService _userService;
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
+    private readonly ISqlSugarClient _db;
+    private readonly IDistributedCacheService _cacheService;
+    private readonly IWorkflowRepository _workflowRepository;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -61,7 +65,10 @@ public class ChecklistService : IChecklistService, IScopedService
         ILogger<ChecklistService> logger,
         IUserService userService,
         IActionTriggerMappingRepository actionTriggerMappingRepository,
-        IActionDefinitionRepository actionDefinitionRepository)
+        IActionDefinitionRepository actionDefinitionRepository,
+        ISqlSugarClient db,
+        IDistributedCacheService cacheService,
+        IWorkflowRepository workflowRepository)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -76,6 +83,9 @@ public class ChecklistService : IChecklistService, IScopedService
         _userService = userService;
         _actionTriggerMappingRepository = actionTriggerMappingRepository;
         _actionDefinitionRepository = actionDefinitionRepository;
+        _db = db;
+        _cacheService = cacheService;
+        _workflowRepository = workflowRepository;
     }
 
     /// <summary>
@@ -308,6 +318,36 @@ public class ChecklistService : IChecklistService, IScopedService
             }
         }
 
+        // LOG-05: Touch parent workflow audit timestamps after checklist update
+        if (result)
+        {
+            try
+            {
+                var stageIds = await _mappingService.GetStagesUsingChecklistFastAsync(id);
+                if (stageIds.Any())
+                {
+                    var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                    var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+                    var modifyBy = _operatorContextService.GetOperatorDisplayName();
+                    foreach (var workflowId in workflowIds)
+                    {
+                        try
+                        {
+                            await _workflowRepository.TouchWorkflowAuditAsync(workflowId, modifyBy);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to touch workflow audit for workflow {WorkflowId} after checklist {ChecklistId} update", workflowId, id);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to touch workflow audits after checklist {ChecklistId} update", id);
+            }
+        }
+
         return result;
     }
 
@@ -329,28 +369,96 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var checklistName = checklist.Name; // Store name before deletion
 
-        // Soft delete
-        checklist.IsValid = false;
-        checklist.ModifyDate = DateTimeOffset.UtcNow;
+        // Look up affected stage IDs BEFORE the transaction (avoids holding connection during lookup)
+        var affectedStageIds = await _mappingService.GetStagesUsingChecklistFastAsync(id);
 
-        var result = await _checklistRepository.UpdateAsync(checklist);
-
-        // Log checklist delete operation if successful (via background queue)
-        if (result)
+        // Collect distinct workflow IDs for cache invalidation
+        List<long> affectedWorkflowIds = new List<long>();
+        if (affectedStageIds.Any())
         {
-            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
-            {
-                await _operationChangeLogService.LogChecklistDeleteAsync(
-                    checklistId: id,
-                    checklistName: checklistName,
-                    reason: "Checklist deleted via admin portal"
-                );
-            });
+            var affectedStages = await _stageRepository.GetListAsync(s => affectedStageIds.Contains(s.Id));
+            affectedWorkflowIds = affectedStages.Select(s => s.WorkflowId).Distinct().ToList();
         }
 
-        // Cache has been removed, no cleanup needed
+        // Wrap soft-delete + Stage FK nulling + ComponentsJson patch + mapping sync in one transaction
+        var transactionResult = await _db.Ado.UseTranAsync(async () =>
+        {
+            // Soft delete the checklist
+            checklist.IsValid = false;
+            checklist.ModifyDate = DateTimeOffset.UtcNow;
+            await _checklistRepository.UpdateAsync(checklist);
 
-        return result;
+            // Cascade cleanup: null Stage.ChecklistId, patch ComponentsJson, sync mappings
+            foreach (var stageId in affectedStageIds)
+            {
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null) continue;
+
+                // Null the FK
+                stage.ChecklistId = null;
+
+                // Patch ComponentsJson — remove the deleted checklist entry
+                var components = new List<StageComponent>();
+                if (!string.IsNullOrWhiteSpace(stage.ComponentsJson))
+                {
+                    try
+                    {
+                        components = JsonSerializer.Deserialize<List<StageComponent>>(
+                            stage.ComponentsJson,
+                            new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true,
+                                NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                            }) ?? new List<StageComponent>();
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        components = new List<StageComponent>();
+                    }
+                }
+
+                foreach (var comp in components.Where(c => c.Key == "checklist"))
+                {
+                    comp.ChecklistIds?.Remove(id);
+                    comp.ChecklistNames = comp.ChecklistNames ?? new List<string>();
+                }
+
+                // Remove checklist components that are now empty
+                components.RemoveAll(c => c.Key == "checklist" && (c.ChecklistIds == null || !c.ChecklistIds.Any()));
+
+                stage.ComponentsJson = JsonSerializer.Serialize(components);
+                await _stageRepository.UpdateAsync(stage);
+
+                // Sync mapping table inside transaction
+                await _mappingService.SyncStageMappingsInTransactionAsync(stageId, _db);
+            }
+
+            return affectedWorkflowIds;
+        });
+
+        if (!transactionResult.IsSuccess)
+        {
+            throw new CRMException(ErrorCodeEnum.SystemError,
+                transactionResult.ErrorMessage ?? "Cascade delete transaction failed");
+        }
+
+        // Invalidate stage cache for each affected workflow (outside transaction per D-05)
+        foreach (var workflowId in transactionResult.Data ?? new List<long>())
+        {
+            await _cacheService.RemoveAsync($"ow:stage:workflow:{workflowId}");
+        }
+
+        // Log checklist delete operation (fire-and-forget via background queue)
+        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+        {
+            await _operationChangeLogService.LogChecklistDeleteAsync(
+                checklistId: id,
+                checklistName: checklistName,
+                reason: "Checklist deleted via admin portal"
+            );
+        });
+
+        return transactionResult.IsSuccess;
     }
 
     /// <summary>

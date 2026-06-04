@@ -5,6 +5,7 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Shared;
@@ -51,6 +52,9 @@ namespace FlowFlex.Application.Services.OW
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly ILogger<QuestionnaireService> _logger;
+        private readonly ISqlSugarClient _db;
+        private readonly IDistributedCacheService _cacheService;
+        private readonly IWorkflowRepository _workflowRepository;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -62,7 +66,10 @@ namespace FlowFlex.Application.Services.OW
             IActionManagementService actionManagementService,
             IBackgroundTaskQueue backgroundTaskQueue,
             IOperationChangeLogService operationChangeLogService,
-            ILogger<QuestionnaireService> logger)
+            ILogger<QuestionnaireService> logger,
+            ISqlSugarClient db,
+            IDistributedCacheService cacheService,
+            IWorkflowRepository workflowRepository)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -74,6 +81,9 @@ namespace FlowFlex.Application.Services.OW
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
             _logger = logger;
+            _db = db;
+            _cacheService = cacheService;
+            _workflowRepository = workflowRepository;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -382,6 +392,36 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
 
+            // LOG-05: Touch parent workflow audit timestamps after questionnaire update
+            if (result)
+            {
+                try
+                {
+                    var stageIds = await _mappingService.GetStagesUsingQuestionnaireFastAsync(id);
+                    if (stageIds.Any())
+                    {
+                        var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                        var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+                        var modifyBy = _operatorContextService.GetOperatorDisplayName();
+                        foreach (var workflowId in workflowIds)
+                        {
+                            try
+                            {
+                                await _workflowRepository.TouchWorkflowAuditAsync(workflowId, modifyBy);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to touch workflow audit for workflow {WorkflowId} after questionnaire {QuestionnaireId} update", workflowId, id);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to touch workflow audits after questionnaire {QuestionnaireId} update", id);
+                }
+            }
+
             // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments
             // This would be similar to what we did for Checklist
 
@@ -409,28 +449,90 @@ namespace FlowFlex.Application.Services.OW
 
             var questionnaireName = entity.Name; // Store name before deletion
 
-            // Template validation removed - direct deletion allowed
+            // Look up affected stage IDs BEFORE the transaction (avoids holding connection during lookup)
+            var affectedStageIds = await _mappingService.GetStagesUsingQuestionnaireFastAsync(id);
 
-            // Sections module removed; nothing to delete
-
-            var result = await _questionnaireRepository.DeleteAsync(entity);
-
-            // Log questionnaire delete operation if successful (via background queue)
-            if (result)
+            // Collect distinct workflow IDs for cache invalidation
+            List<long> affectedWorkflowIds = new List<long>();
+            if (affectedStageIds.Any())
             {
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
-                {
-                    await _operationChangeLogService.LogQuestionnaireDeleteAsync(
-                        questionnaireId: id,
-                        questionnaireName: questionnaireName,
-                        reason: "Questionnaire deleted via admin portal"
-                    );
-                });
+                var affectedStages = await _stageRepository.GetListAsync(s => affectedStageIds.Contains(s.Id));
+                affectedWorkflowIds = affectedStages.Select(s => s.WorkflowId).Distinct().ToList();
             }
 
-            // Cache removed, no need to clean up
+            // CRITICAL: cascade cleanup runs BEFORE hard delete inside transaction (Risk 2 mitigation)
+            var transactionResult = await _db.Ado.UseTranAsync(async () =>
+            {
+                // Step 1: Cascade cleanup — null Stage.QuestionnaireId, patch ComponentsJson, sync mappings
+                foreach (var stageId in affectedStageIds)
+                {
+                    var stage = await _stageRepository.GetByIdAsync(stageId);
+                    if (stage == null) continue;
 
-            return result;
+                    // Null the FK
+                    stage.QuestionnaireId = null;
+
+                    // Patch ComponentsJson using StageJsonOptions (defined in this class)
+                    var components = new List<StageComponent>();
+                    if (!string.IsNullOrWhiteSpace(stage.ComponentsJson))
+                    {
+                        try
+                        {
+                            components = JsonSerializer.Deserialize<List<StageComponent>>(
+                                stage.ComponentsJson, StageJsonOptions) ?? new List<StageComponent>();
+                        }
+                        catch (JsonException)
+                        {
+                            components = new List<StageComponent>();
+                        }
+                    }
+
+                    foreach (var comp in components.Where(c => c.Key == "questionnaires"))
+                    {
+                        comp.QuestionnaireIds?.Remove(id);
+                        comp.QuestionnaireNames = comp.QuestionnaireNames ?? new List<string>();
+                    }
+
+                    // Remove questionnaire components that are now empty
+                    components.RemoveAll(c => c.Key == "questionnaires" &&
+                        (c.QuestionnaireIds == null || !c.QuestionnaireIds.Any()));
+
+                    stage.ComponentsJson = JsonSerializer.Serialize(components, StageJsonOptions);
+                    await _stageRepository.UpdateAsync(stage);
+
+                    // Sync mapping table inside transaction
+                    await _mappingService.SyncStageMappingsInTransactionAsync(stageId, _db);
+                }
+
+                // Step 2: Hard delete AFTER cleanup (per Risk 2: cleanup before delete)
+                await _questionnaireRepository.DeleteAsync(entity);
+
+                return affectedWorkflowIds;
+            });
+
+            if (!transactionResult.IsSuccess)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    transactionResult.ErrorMessage ?? "Cascade delete transaction failed");
+            }
+
+            // Invalidate stage cache for each affected workflow (outside transaction per D-05)
+            foreach (var workflowId in transactionResult.Data ?? new List<long>())
+            {
+                await _cacheService.RemoveAsync($"ow:stage:workflow:{workflowId}");
+            }
+
+            // Log questionnaire delete operation (fire-and-forget via background queue)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+            {
+                await _operationChangeLogService.LogQuestionnaireDeleteAsync(
+                    questionnaireId: id,
+                    questionnaireName: questionnaireName,
+                    reason: "Questionnaire deleted via admin portal"
+                );
+            });
+
+            return transactionResult.IsSuccess;
         }
 
         /// <summary>
