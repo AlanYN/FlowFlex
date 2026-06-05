@@ -503,13 +503,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 long userIdLong = 0;
                 bool hasUserId = !string.IsNullOrEmpty(userId) && long.TryParse(userId, out userIdLong);
 
-                // Get actions and permissions for each stage in stagesProgress
-                if (result.StagesProgress != null && result.StagesProgress.Any())
-                {
-                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong);
-                }
-
-                // Check Case permission
+                // Check Case permission first (stage permissions inherit from Case in detail context)
                 if (hasUserId)
                 {
                     result.Permission = await _permissionService.GetCasePermissionInfoAsync(id);
@@ -524,6 +518,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         CanOperate = false,
                         ErrorMessage = "User not authenticated"
                     };
+                }
+
+                // Get actions and permissions for each stage in stagesProgress
+                if (result.StagesProgress != null && result.StagesProgress.Any())
+                {
+                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong);
                 }
 
                 // Convert legacy field names to numeric IDs
@@ -1244,22 +1244,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     ? actions
                     : new List<ActionTriggerMappingWithActionInfo>();
 
-                // Get permission for this stage
+                // Get permission for this stage (inherit from Case permission in Case detail context)
                 if (hasUserId)
                 {
-                    try
-                    {
-                        stageProgress.Permission = await _permissionService.GetStagePermissionInfoAsync(stageProgress.StageId);
-                    }
-                    catch (Exception ex)
-                    {
-                        stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
-                        {
-                            CanView = false,
-                            CanOperate = false,
-                            ErrorMessage = $"Error checking stage permission: {ex.Message}"
-                        };
-                    }
+                    stageProgress.Permission = result.Permission;
                 }
                 else
                 {
