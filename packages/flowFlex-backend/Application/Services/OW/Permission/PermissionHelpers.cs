@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Http;
@@ -269,6 +270,14 @@ namespace FlowFlex.Application.Services.OW.Permission
         public virtual bool HasAdminPrivileges()
         {
             return IsSystemAdmin() || IsTenantAdmin();
+        }
+
+        /// <summary>
+        /// Check if current request is using a Client Credentials token (service-to-service communication)
+        /// </summary>
+        public bool IsClientCredentialsToken()
+        {
+            return _userContext?.Schema == AuthSchemes.ItemIamClientIdentification;
         }
 
         #endregion

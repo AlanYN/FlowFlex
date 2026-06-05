@@ -19,6 +19,7 @@ using BC = BCrypt.Net.BCrypt;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW
@@ -498,6 +499,13 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>User DTO</returns>
         public async Task<UserDto> GetCurrentUserAsync()
         {
+            // Client Credentials token - no "current user" concept
+            var userContext = _httpContextAccessor.HttpContext?.RequestServices?.GetService<UserContext>();
+            if (userContext?.Schema == FlowFlex.Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Client Credentials token does not have a user profile");
+            }
+
             // Get user ID from user context
             var userId = _userContextService.GetCurrentUserId();
             if (userId <= 0)
@@ -532,6 +540,13 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Whether change was successful</returns>
         public async Task<bool> ChangePasswordAsync(ChangePasswordRequestDto request)
         {
+            // Client Credentials token - cannot change password
+            var userContext = _httpContextAccessor.HttpContext?.RequestServices?.GetService<UserContext>();
+            if (userContext?.Schema == FlowFlex.Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Client Credentials token cannot change password");
+            }
+
             // Get current user ID
             var userId = _userContextService.GetCurrentUserId();
             if (userId <= 0)

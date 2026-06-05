@@ -292,26 +292,30 @@ namespace WebApi.Authentication
          HttpContext httpContext,
          List<Claim> claims)
         {
+            // Set TenantId from X-Tenant-Id header if present
             if (httpContext.Request.Headers.TryGetValue("X-Tenant-Id", out StringValues tenantId))
             {
                 userContext.TenantId = tenantId;
                 userContext.CompanyId = tenantId;
-                userContext.UserId = "0";
-                userContext.UserName = "";
-                if (claims.Count != 0)
+            }
+
+            userContext.UserId = "0";
+
+            // Always set UserName from client_name claim (fallback to client_id)
+            userContext.UserName = "";
+            if (claims.Count != 0)
+            {
+                var clientNameClaim = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientName);
+                if (clientNameClaim != null)
                 {
-                    var scope = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientName);
-                    if (scope != null)
+                    userContext.UserName = clientNameClaim.Value;
+                }
+                if (string.IsNullOrEmpty(userContext.UserName))
+                {
+                    var clientIdClaim = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientId);
+                    if (clientIdClaim != null)
                     {
-                        userContext.UserName += $"{scope.Value}";
-                    }
-                    if (string.IsNullOrEmpty(userContext.UserName))
-                    {
-                        scope = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientId);
-                        if (scope != null)
-                        {
-                            userContext.UserName += $"{scope.Value}";
-                        }
+                        userContext.UserName = clientIdClaim.Value;
                     }
                 }
             }
