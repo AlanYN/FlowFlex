@@ -510,6 +510,21 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Update only ModifyBy and ModifyDate — lightweight audit touch.
+        /// Does NOT trigger change logging or IDM validation.
+        /// </summary>
+        public async Task<bool> TouchWorkflowAuditAsync(long workflowId, string modifyBy)
+        {
+            var result = await db.Updateable<Workflow>()
+                .SetColumns(x => x.ModifyBy == modifyBy)
+                .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
+                .Where(x => x.Id == workflowId && x.IsValid == true)
+                .ExecuteCommandAsync();
+
+            return result > 0;
+        }
+
+        /// <summary>
         /// 获取当前租户ID
         /// </summary>
         private string GetCurrentTenantId()

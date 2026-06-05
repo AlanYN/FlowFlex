@@ -8,7 +8,9 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -24,19 +26,22 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<QuickLinkService> _logger;
+        private readonly IMediator _mediator;
 
         public QuickLinkService(
             IQuickLinkRepository quickLinkRepository,
             IIntegrationRepository integrationRepository,
             IMapper mapper,
             UserContext userContext,
-            ILogger<QuickLinkService> logger)
+            ILogger<QuickLinkService> logger,
+            IMediator mediator)
         {
             _quickLinkRepository = quickLinkRepository;
             _integrationRepository = integrationRepository;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public async Task<long> CreateAsync(QuickLinkInputDto input)
@@ -121,6 +126,9 @@ namespace FlowFlex.Application.Services.Integration
             entity.InitModifyInfo(_userContext);
 
             var result = await _quickLinkRepository.UpdateAsync(entity);
+
+            // Publish event — handler cleans Stage references
+            await _mediator.Publish(new QuickLinkDeletedEvent(id, entity.LinkName));
 
             _logger.LogInformation("Deleted quick link: {LinkName} (ID: {Id})", entity.LinkName, id);
 

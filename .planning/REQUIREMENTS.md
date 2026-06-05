@@ -13,13 +13,13 @@ Requirements for milestone v1.1. Each maps to roadmap phases.
 - [ ] **LOG-02**: Checklist Cancel 操作日志显示 "Cancelled the task" + 时间精确到秒
 - [ ] **LOG-03**: StageSave 类型的 Change Log 不再写入（移除 LogStageSaveAsync 调用）
 - [ ] **LOG-04**: Checklist Task 的 comment 计数只统计 Notes 类型，不计入 Change Log 条目
-- [ ] **LOG-05**: 更新 Stage 或 Component 时，所属 Workflow 的 UpdatedBy/UpdateDate 同步更新
+- [x] **LOG-05**: 更新 Stage 或 Component 时，所属 Workflow 的 UpdatedBy/UpdateDate 同步更新
 
 ### Component Lifecycle
 
-- [ ] **COMP-01**: 删除 Checklist 时，自动清除关联 Stage 的 ChecklistId 引用和 ComponentsJson 中的对应条目
-- [ ] **COMP-02**: 删除 Questionnaire 时，自动清除关联 Stage 的 QuestionnaireId 引用和 ComponentsJson 中的对应条目
-- [ ] **COMP-03**: Duplicate Workflow 时，新 Stage 的 ComponentsJson、ViewPermissionMode、ViewTeams、OperateTeams 完整复制，并调用 SyncStageMappingsAsync
+- [x] **COMP-01**: 删除 Checklist 时，自动清除关联 Stage 的 ChecklistId 引用和 ComponentsJson 中的对应条目
+- [x] **COMP-02**: 删除 Questionnaire 时，自动清除关联 Stage 的 QuestionnaireId 引用和 ComponentsJson 中的对应条目
+- [x] **COMP-03**: Duplicate Workflow 时，新 Stage 的 ComponentsJson、ViewPermissionMode、ViewTeams、OperateTeams 完整复制，并调用 SyncStageMappingsAsync
 
 ### Frontend UX
 
@@ -75,10 +75,10 @@ Deferred to future milestones.
 | UX-03 | Phase 3 | Pending |
 | DATA-01 | Phase 3 | Pending |
 | DATA-02 | Phase 3 | Pending |
-| COMP-01 | Phase 4 | Pending |
-| COMP-02 | Phase 4 | Pending |
-| COMP-03 | Phase 4 | Pending |
-| LOG-05 | Phase 4 | Pending |
+| COMP-01 | Phase 4 | Complete |
+| COMP-02 | Phase 4 | Complete |
+| COMP-03 | Phase 4 | Complete |
+| LOG-05 | Phase 4 | Complete |
 | PERM-01 | Phase 5 | Pending |
 
 **Coverage:**

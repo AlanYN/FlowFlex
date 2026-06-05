@@ -13,7 +13,7 @@ Comprehensive enhancements to the FlowFlex workflow system covering audit log ac
 - [x] **Phase 1: Number Type Support** - Register Number type in editor, render numeric input, validate on backend (completed 2026-05-25)
 - [ ] **Phase 2: Log & Audit Fixes** - Correct Checklist log messages, timestamp precision, remove StageSave noise, fix comment counts, and sync Workflow status display
 - [ ] **Phase 3: Frontend UX & Data** - Case page layout adjustments, Stage collapse, file upload metadata display, Short Answer Grid validation fix
-- [ ] **Phase 4: Component Lifecycle & Propagation** - Delete Checklist/Questionnaire cleans Stage refs, Duplicate deep-copies components, Stage/Component updates propagate Workflow UpdatedBy
+- [x] **Phase 4: Component Lifecycle & Propagation** - Delete Checklist/Questionnaire cleans Stage refs, Duplicate deep-copies components, Stage/Component updates propagate Workflow UpdatedBy (completed 2026-06-04)
 - [ ] **Phase 5: Permission Fix** - Investigate and fix User Group permission chain so configured users can edit Cases
 
 ## Phase Details
@@ -65,8 +65,11 @@ Plans:
   2. User can collapse Stage Detail to show only the stage title, and expand it again
   3. After uploading a file, the uploader name and upload date are displayed to the right of the filename
   4. A Short Answer Grid question marked required can be submitted after filling in any single cell (not all cells)
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Case status tag inline + Stage collapse + Grid validation (detail.vue, EditableStageHeader.vue, dynamicForm.vue, QuestionnaireDetails.vue)
+- [ ] 03-02-PLAN.md — File upload metadata full-stack (QuestionnaireFileUploadResponseDto.cs, QuestionnaireController.cs, dynamicForm.vue)
 
 ---
 
@@ -79,7 +82,11 @@ Plans:
   2. Deleting a Questionnaire removes its ID from any Stage's QuestionnaireId field and ComponentsJson — no orphan references remain
   3. Duplicating a Workflow produces a new Workflow whose Stages have a fully independent copy of ComponentsJson, ViewPermissionMode, ViewTeams, and OperateTeams
   4. Updating a Stage or Component within a Workflow updates the parent Workflow's UpdatedBy and UpdateDate fields
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [x] 04-01-PLAN.md — Workflow duplicate deep copy + TouchWorkflowAuditAsync repo method + StageService wire-up (WorkflowService.cs, IWorkflowRepository.cs, WorkflowRepository.cs, StageService.cs)
+- [x] 04-02-PLAN.md — Cascade delete cleanup for Checklist + Questionnaire + ChecklistService/QuestionnaireService UpdateAsync audit touch (ChecklistService.cs, QuestionnaireService.cs)
 
 ---
 
@@ -103,6 +110,6 @@ Phases execute in numeric order. Plans within a phase may run in parallel (paral
 |-------|----------------|--------|-----------|
 | 1. Number Type Support | 2/2 | Complete | 2026-05-25 |
 | 2. Log & Audit Fixes | 0/2 | Not started | - |
-| 3. Frontend UX & Data | 0/? | Not started | - |
-| 4. Component Lifecycle & Propagation | 0/? | Not started | - |
+| 3. Frontend UX & Data | 0/2 | Not started | - |
+| 4. Component Lifecycle & Propagation | 2/2 | Complete   | 2026-06-04 |
 | 5. Permission Fix | 0/? | Not started | - |

@@ -619,6 +619,19 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Ignore logging errors to avoid affecting main operation
                 }
+
+                // Touch parent workflow audit fields (LOG-05)
+                try
+                {
+                    var modifyBy = !string.IsNullOrEmpty(_userContext?.FirstName) || !string.IsNullOrEmpty(_userContext?.LastName)
+                        ? $"{_userContext?.FirstName?.Trim()} {_userContext?.LastName?.Trim()}".Trim()
+                        : _userContext?.UserName ?? _userContext?.Email ?? "SYSTEM";
+                    await _workflowRepository.TouchWorkflowAuditAsync(stage.WorkflowId, modifyBy);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to touch workflow audit for workflow {WorkflowId}", stage.WorkflowId);
+                }
             }
 
             return transactionResult.Data;

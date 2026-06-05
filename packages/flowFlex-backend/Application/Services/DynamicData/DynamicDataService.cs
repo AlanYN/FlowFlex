@@ -4,9 +4,11 @@ using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using OfficeOpenXml;
@@ -23,9 +25,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
     private readonly IDefineFieldRepository _defineFieldRepository;
     private readonly IFieldGroupRepository _fieldGroupRepository;
     private readonly IStageRepository _stageRepository;
+    private readonly IMediator _mediator;
     private readonly UserContext _userContext;
     private readonly ILogger<DynamicDataService> _logger;
-    
+
     // Default module ID - not used as query condition
     private const int DefaultModuleId = 0;
 
@@ -35,6 +38,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         IDefineFieldRepository defineFieldRepository,
         IFieldGroupRepository fieldGroupRepository,
         IStageRepository stageRepository,
+        IMediator mediator,
         UserContext userContext,
         ILogger<DynamicDataService> logger)
     {
@@ -43,6 +47,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         _defineFieldRepository = defineFieldRepository;
         _fieldGroupRepository = fieldGroupRepository;
         _stageRepository = stageRepository;
+        _mediator = mediator;
         _userContext = userContext;
         _logger = logger;
     }
@@ -449,6 +454,9 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         existing.ModifyUserId = userId;
 
         await _defineFieldRepository.UpdateAsync(existing);
+
+        // Publish event — handler cleans Stage ComponentsJson StaticFields
+        await _mediator.Publish(new StaticFieldDeletedEvent(propertyId));
     }
 
     public async Task MovePropertyToGroupAsync(long[] propertyIds, long groupId)
