@@ -55,6 +55,14 @@ namespace FlowFlex.WebApi.Filters
                     return;
                 }
 
+                // Fast path: Client Credentials token bypasses permission check (service-to-service communication)
+                if (userContext?.Schema == AuthSchemes.ItemIamClientIdentification)
+                {
+                    logger.LogInformation("Client Credentials token detected - bypassing RequirePermission check");
+                    await next();
+                    return;
+                }
+
                 // Step 1: Get entity ID from route parameters
                 if (!context.ActionArguments.TryGetValue(_entityIdParameterName, out var entityIdObj))
                 {

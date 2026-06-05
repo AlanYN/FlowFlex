@@ -113,25 +113,29 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Check Workflow permission before creating stage
-            var userId = _userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            // Client Credentials token bypass - service-to-service communication has full access
+            if (_userContext?.Schema != Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
             {
-                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                var userId = _userContext?.UserId;
+                if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+                {
+                    throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                }
+
+                var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+                    userIdLong,
+                    input.WorkflowId,
+                    Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+
+                if (!workflowPermission.Success || !workflowPermission.CanOperate)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"No permission to create stage in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+                }
+
+                _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})",
+                    userIdLong, input.WorkflowId, workflow.Name);
             }
-
-            var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
-                userIdLong,
-                input.WorkflowId,
-                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-
-            if (!workflowPermission.Success || !workflowPermission.CanOperate)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError,
-                    $"No permission to create stage in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
-            }
-
-            _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})",
-                userIdLong, input.WorkflowId, workflow.Name);
 
             // Validate team IDs in ViewTeams and OperateTeams
             await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
@@ -288,25 +292,29 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Check Workflow permission before updating stage
-            var userId = _userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            // Client Credentials token bypass - service-to-service communication has full access
+            if (_userContext?.Schema != Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
             {
-                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                var userId = _userContext?.UserId;
+                if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+                {
+                    throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                }
+
+                var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+                    userIdLong,
+                    stage.WorkflowId,
+                    Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+
+                if (!workflowPermission.Success || !workflowPermission.CanOperate)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"No permission to update stage '{stage.Name}' in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+                }
+
+                _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})",
+                    userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
             }
-
-            var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
-                userIdLong,
-                stage.WorkflowId,
-                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-
-            if (!workflowPermission.Success || !workflowPermission.CanOperate)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError,
-                    $"No permission to update stage '{stage.Name}' in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
-            }
-
-            _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})",
-                userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
 
             // Validate team IDs in ViewTeams and OperateTeams (only when provided)
             await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
@@ -762,6 +770,24 @@ namespace FlowFlex.Application.Services.OW
             var userIdString = _userContext?.UserId;
             if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
             {
+                // Client Credentials token bypass - return all stages without permission checks
+                if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+                {
+                    _logger.LogDebug(
+                        "Client Credentials token detected, skipping permission filtering for workflow {WorkflowId} stages",
+                        workflowId);
+                    var clientResult = _mapper.Map<List<StageOutputDto>>(list);
+                    foreach (var stageDto in clientResult)
+                    {
+                        stageDto.Permission = new PermissionInfoDto
+                        {
+                            CanView = true,
+                            CanOperate = true
+                        };
+                    }
+                    return clientResult;
+                }
+
                 _logger.LogWarning("User ID is invalid, returning empty stage list");
                 return new List<StageOutputDto>();
             }
@@ -1246,10 +1272,15 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Check permission
-            var userId = _userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            // Client Credentials token bypass - service-to-service communication has full access
+            long userIdLong = 0;
+            if (_userContext?.Schema != Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
             {
-                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                var userId = _userContext?.UserId;
+                if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out userIdLong))
+                {
+                    throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+                }
             }
 
             // Check if stage condition exists

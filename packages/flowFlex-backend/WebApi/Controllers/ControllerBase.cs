@@ -41,6 +41,13 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
     /// <exception cref="UnauthorizedAccessException">Thrown when user ID cannot be resolved from headers or JWT</exception>
     protected long GetCurrentUserId()
     {
+        // Client Credentials token bypass - return 0 for service-to-service communication
+        var userContext = HttpContext.RequestServices.GetService<FlowFlex.Domain.Shared.Models.UserContext>();
+        if (userContext?.Schema == FlowFlex.Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+        {
+            return 0;
+        }
+
         // Get user ID from request header
         var userIdHeader = HttpContext.Request.Headers["X-User-Id"].FirstOrDefault();
 

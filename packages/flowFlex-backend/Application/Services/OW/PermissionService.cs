@@ -212,6 +212,13 @@ namespace FlowFlex.Application.Services.OW
                     return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
                 }
 
+                // Step 0b: Client Credentials token bypass (service-to-service communication)
+                if (_helpers.IsClientCredentialsToken())
+                {
+                    _logger.LogInformation("Client Credentials token detected, bypassing all permission checks for workflow {WorkflowId}", workflowId);
+                    return PermissionResult.CreateSuccess(true, true, "ClientCredentials");
+                }
+
                 // Step 1: Validate input
                 if (userId <= 0 || workflowId <= 0)
                 {
@@ -364,6 +371,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogInformation("User {UserId} is Tenant Admin, bypassing all permission checks", userId);
                     return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+                }
+
+                // Step 0b: Client Credentials token bypass (service-to-service communication)
+                if (_helpers.IsClientCredentialsToken())
+                {
+                    _logger.LogInformation("Client Credentials token detected, bypassing all permission checks for stage {StageId}", stageId);
+                    return PermissionResult.CreateSuccess(true, true, "ClientCredentials");
                 }
 
                 // Step 0.1: Portal token bypass for [PortalAccess] endpoints
@@ -560,6 +574,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogInformation("User {UserId} is Tenant Admin, bypassing all permission checks", userId);
                     return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+                }
+
+                // Step 0b: Client Credentials token bypass (service-to-service communication)
+                if (_helpers.IsClientCredentialsToken())
+                {
+                    _logger.LogInformation("Client Credentials token detected, bypassing all permission checks for case {CaseId}", caseId);
+                    return PermissionResult.CreateSuccess(true, true, "ClientCredentials");
                 }
 
                 // Step 0.1: Portal token bypass for [PortalAccess] endpoints
