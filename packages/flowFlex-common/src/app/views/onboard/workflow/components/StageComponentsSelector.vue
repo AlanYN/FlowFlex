@@ -147,10 +147,23 @@
 					<label class="text-base font-bold">Checklists</label>
 					<p class="text-sm">Select checklists to include in this stage</p>
 					<div class="border rounded-xl">
+						<div class="p-2 border-b">
+							<el-input
+								v-model="checklistSearchQuery"
+								placeholder="Search checklists..."
+								clearable
+								class="search-input"
+								size="small"
+							>
+								<template #prefix>
+									<el-icon><Search /></el-icon>
+								</template>
+							</el-input>
+						</div>
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
-									v-for="checklist in checklists"
+									v-for="checklist in filteredChecklists"
 									:key="checklist.id"
 									class="flex items-center space-x-2 py-1"
 								>
@@ -190,10 +203,23 @@
 					<label class="text-base font-bold">Questionnaires</label>
 					<p class="text-sm">Select questionnaires to include in this stage</p>
 					<div class="border rounded-xl">
+						<div class="p-2 border-b">
+							<el-input
+								v-model="questionnaireSearchQuery"
+								placeholder="Search questionnaires..."
+								clearable
+								class="search-input"
+								size="small"
+							>
+								<template #prefix>
+									<el-icon><Search /></el-icon>
+								</template>
+							</el-input>
+						</div>
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
-									v-for="questionnaire in questionnaires"
+									v-for="questionnaire in filteredQuestionnaires"
 									:key="questionnaire.id"
 									class="flex items-center space-x-2 py-1"
 								>
@@ -512,6 +538,8 @@ const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 预留
 
 // Data
 const searchQuery = ref('');
+const checklistSearchQuery = ref('');
+const questionnaireSearchQuery = ref('');
 const selectedItems = ref<SelectedItem[]>([]);
 
 // 选中的字段列表（用于拖动排序）- 使用 computed
@@ -580,6 +608,24 @@ const filteredStaticFields = computed(() => {
 	}
 	return props.staticFields.filter((field) =>
 		field.fieldName.toLowerCase().includes(searchQuery.value.toLowerCase())
+	);
+});
+
+const filteredChecklists = computed(() => {
+	if (!checklistSearchQuery.value) {
+		return props.checklists;
+	}
+	return props.checklists.filter((checklist) =>
+		checklist.name.toLowerCase().includes(checklistSearchQuery.value.toLowerCase())
+	);
+});
+
+const filteredQuestionnaires = computed(() => {
+	if (!questionnaireSearchQuery.value) {
+		return props.questionnaires;
+	}
+	return props.questionnaires.filter((questionnaire) =>
+		questionnaire.name.toLowerCase().includes(questionnaireSearchQuery.value.toLowerCase())
 	);
 });
 
