@@ -5,6 +5,7 @@ using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Tests.TestBase;
 using FluentAssertions;
+using MediatR;
 using Moq;
 using Xunit;
 using AutoMapper;
@@ -18,6 +19,7 @@ namespace FlowFlex.Tests.Services.Integration
         private readonly Mock<IIntegrationRepository> _mockIntegrationRepository;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<Microsoft.Extensions.Logging.ILogger<QuickLinkService>> _mockLogger;
+        private readonly Mock<IMediator> _mockMediator;
         private readonly UserContext _userContext;
         private readonly QuickLinkService _service;
 
@@ -27,6 +29,7 @@ namespace FlowFlex.Tests.Services.Integration
             _mockIntegrationRepository = new Mock<IIntegrationRepository>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = MockHelper.CreateMockLogger<QuickLinkService>();
+            _mockMediator = new Mock<IMediator>();
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
 
             _service = new QuickLinkService(
@@ -34,7 +37,8 @@ namespace FlowFlex.Tests.Services.Integration
                 _mockIntegrationRepository.Object,
                 _mockMapper.Object,
                 _userContext,
-                _mockLogger.Object
+                _mockLogger.Object,
+                _mockMediator.Object
             );
         }
 
