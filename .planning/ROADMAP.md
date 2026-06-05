@@ -11,10 +11,10 @@ Comprehensive enhancements to the FlowFlex workflow system covering audit log ac
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Number Type Support** - Register Number type in editor, render numeric input, validate on backend (completed 2026-05-25)
-- [ ] **Phase 2: Log & Audit Fixes** - Correct Checklist log messages, timestamp precision, remove StageSave noise, fix comment counts, and sync Workflow status display
-- [ ] **Phase 3: Frontend UX & Data** - Case page layout adjustments, Stage collapse, file upload metadata display, Short Answer Grid validation fix
+- [x] **Phase 2: Log & Audit Fixes** - Correct Checklist log messages, timestamp precision, remove StageSave noise, fix comment counts, and sync Workflow status display (completed 2026-06-05)
+- [x] **Phase 3: Frontend UX & Data** - Case page layout adjustments, Stage collapse, file upload metadata display, Short Answer Grid validation fix (completed 2026-06-05)
 - [x] **Phase 4: Component Lifecycle & Propagation** - Delete Checklist/Questionnaire cleans Stage refs, Duplicate deep-copies components, Stage/Component updates propagate Workflow UpdatedBy (completed 2026-06-04)
-- [ ] **Phase 5: Permission Fix** - Investigate and fix User Group permission chain so configured users can edit Cases
+- [x] **Phase 5: Permission Fix** - Investigate and fix User Group permission chain so configured users can edit Cases (completed 2026-06-05)
 
 ## Phase Details
 
@@ -97,7 +97,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A user added to a User Group with Case edit permission can open and submit edits to a Case
   2. The permission check passes through PermissionService → IdentityHub IAM → UserGroup without blocking valid users
-**Plans**: TBD
+**Plans**: Direct fix (no formal plan needed — root cause was permission code mismatch in StageController and PermissionService)
 
 ---
 
@@ -109,7 +109,7 @@ Phases execute in numeric order. Plans within a phase may run in parallel (paral
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Number Type Support | 2/2 | Complete | 2026-05-25 |
-| 2. Log & Audit Fixes | 0/2 | Not started | - |
-| 3. Frontend UX & Data | 0/2 | Not started | - |
+| 2. Log & Audit Fixes | 2/2 | Complete | 2026-06-05 |
+| 3. Frontend UX & Data | 2/2 | Complete | 2026-06-05 |
 | 4. Component Lifecycle & Propagation | 2/2 | Complete   | 2026-06-04 |
-| 5. Permission Fix | 0/? | Not started | - |
+| 5. Permission Fix | 1/1 | Complete | 2026-06-05 |

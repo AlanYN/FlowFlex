@@ -287,7 +287,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Operation logs
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/content")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<StageContentDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageContentAsync(long stageId, long onboardingId)
         {
@@ -313,7 +313,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Update overall completion rate
         /// </remarks>
         [HttpPut("{stageId}/onboarding/{onboardingId}/checklist/tasks/{taskId}")]
-        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateChecklistTaskAsync(long stageId, long onboardingId, long taskId, [FromBody] UpdateChecklistTaskRequest request)
         {
@@ -337,7 +337,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Support multiple question types
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/questionnaire/questions/{questionId}/answer")]
-        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SubmitQuestionnaireAnswerAsync(long stageId, long onboardingId, long questionId, [FromBody] SubmitAnswerRequest request)
         {
@@ -360,7 +360,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - File storage management
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/files")]
-        [WFEAuthorize(PermissionConsts.Workflow.Create)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<StageFileDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UploadStageFileAsync(long stageId, long onboardingId, [FromBody] UploadFileRequest request)
         {
@@ -382,7 +382,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record deletion time
         /// </remarks>
         [HttpDelete("{stageId}/onboarding/{onboardingId}/files/{fileId}")]
-        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteStageFileAsync(long stageId, long onboardingId, long fileId)
         {
@@ -406,7 +406,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Check operation logs completion
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/validation")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<StageCompletionValidationDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ValidateStageCompletionAsync(long stageId, long onboardingId)
         {
@@ -429,7 +429,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Update completion rate
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/complete")]
-        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteStageAsync(long stageId, long onboardingId, [FromBody] CompleteStageRequest request)
         {
@@ -452,7 +452,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record note author
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/notes")]
-        [WFEAuthorize(PermissionConsts.Workflow.Create)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> AddStageNoteAsync(long stageId, long onboardingId, [FromBody] AddStageNoteRequest request)
         {
@@ -475,7 +475,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Paginate results
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/notes")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<StageNotesDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageNotesAsync(long stageId, long onboardingId, [FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 20)
         {
@@ -498,7 +498,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record note author
         /// </remarks>
         [HttpPut("{stageId}/onboarding/{onboardingId}/notes/{noteId}")]
-        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateStageNoteAsync(long stageId, long onboardingId, long noteId, [FromBody] UpdateStageNoteRequest request)
         {
@@ -519,7 +519,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record deletion time
         /// </remarks>
         [HttpDelete("{stageId}/onboarding/{onboardingId}/notes/{noteId}")]
-        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteStageNoteAsync(long stageId, long onboardingId, long noteId)
         {
