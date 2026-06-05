@@ -50,8 +50,6 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IUserService _userService;
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
-    private readonly ISqlSugarClient _db;
-    private readonly IDistributedCacheService _cacheService;
     private readonly IWorkflowRepository _workflowRepository;
     private readonly IMediator _mediator;
 
@@ -69,8 +67,6 @@ public class ChecklistService : IChecklistService, IScopedService
         IUserService userService,
         IActionTriggerMappingRepository actionTriggerMappingRepository,
         IActionDefinitionRepository actionDefinitionRepository,
-        ISqlSugarClient db,
-        IDistributedCacheService cacheService,
         IWorkflowRepository workflowRepository,
         IMediator mediator)
     {
@@ -87,8 +83,6 @@ public class ChecklistService : IChecklistService, IScopedService
         _userService = userService;
         _actionTriggerMappingRepository = actionTriggerMappingRepository;
         _actionDefinitionRepository = actionDefinitionRepository;
-        _db = db;
-        _cacheService = cacheService;
         _workflowRepository = workflowRepository;
         _mediator = mediator;
     }
@@ -374,25 +368,29 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var checklistName = checklist.Name;
 
-        // Soft delete the checklist
+        // Soft delete
         checklist.IsValid = false;
         checklist.ModifyDate = DateTimeOffset.UtcNow;
-        await _checklistRepository.UpdateAsync(checklist);
+
+        var result = await _checklistRepository.UpdateAsync(checklist);
 
         // Publish event — handler cleans Stage references
         await _mediator.Publish(new ChecklistDeletedEvent(id, checklistName));
 
-        // Log checklist delete operation (fire-and-forget via background queue)
-        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+        // Log checklist delete operation if successful (via background queue)
+        if (result)
         {
-            await _operationChangeLogService.LogChecklistDeleteAsync(
-                checklistId: id,
-                checklistName: checklistName,
-                reason: "Checklist deleted via admin portal"
-            );
-        });
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+            {
+                await _operationChangeLogService.LogChecklistDeleteAsync(
+                    checklistId: id,
+                    checklistName: checklistName,
+                    reason: "Checklist deleted via admin portal"
+                );
+            });
+        }
 
-        return true;
+        return result;
     }
 
     /// <summary>
