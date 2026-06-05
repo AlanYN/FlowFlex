@@ -5,6 +5,7 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Shared;
@@ -26,6 +27,8 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Domain.Shared.Events;
+using MediatR;
 using SqlSugar;
 
 namespace FlowFlex.Application.Services.OW
@@ -51,6 +54,8 @@ namespace FlowFlex.Application.Services.OW
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly ILogger<QuestionnaireService> _logger;
+        private readonly IWorkflowRepository _workflowRepository;
+        private readonly IMediator _mediator;
 
         public QuestionnaireService(
             IQuestionnaireRepository questionnaireRepository,
@@ -62,7 +67,9 @@ namespace FlowFlex.Application.Services.OW
             IActionManagementService actionManagementService,
             IBackgroundTaskQueue backgroundTaskQueue,
             IOperationChangeLogService operationChangeLogService,
-            ILogger<QuestionnaireService> logger)
+            ILogger<QuestionnaireService> logger,
+            IWorkflowRepository workflowRepository,
+            IMediator mediator)
         {
             _questionnaireRepository = questionnaireRepository;
             _mapper = mapper;
@@ -74,6 +81,8 @@ namespace FlowFlex.Application.Services.OW
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
             _logger = logger;
+            _workflowRepository = workflowRepository;
+            _mediator = mediator;
         }
         private static string TryUnwrapComponentsJson(string json)
         {
@@ -382,6 +391,36 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
 
+            // LOG-05: Touch parent workflow audit timestamps after questionnaire update
+            if (result)
+            {
+                try
+                {
+                    var stageIds = await _mappingService.GetStagesUsingQuestionnaireFastAsync(id);
+                    if (stageIds.Any())
+                    {
+                        var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                        var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+                        var modifyBy = _operatorContextService.GetOperatorDisplayName();
+                        foreach (var workflowId in workflowIds)
+                        {
+                            try
+                            {
+                                await _workflowRepository.TouchWorkflowAuditAsync(workflowId, modifyBy);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to touch workflow audit for workflow {WorkflowId} after questionnaire {QuestionnaireId} update", workflowId, id);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to touch workflow audits after questionnaire {QuestionnaireId} update", id);
+                }
+            }
+
             // TODO: Clean up any historical duplicate questionnaire records with same name but different assignments
             // This would be similar to what we did for Checklist
 
@@ -407,30 +446,25 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete published questionnaire");
             }
 
-            var questionnaireName = entity.Name; // Store name before deletion
+            var questionnaireName = entity.Name;
 
-            // Template validation removed - direct deletion allowed
+            // Hard delete the questionnaire
+            await _questionnaireRepository.DeleteAsync(entity);
 
-            // Sections module removed; nothing to delete
+            // Publish event — handler cleans Stage references
+            await _mediator.Publish(new QuestionnaireDeletedEvent(id, questionnaireName));
 
-            var result = await _questionnaireRepository.DeleteAsync(entity);
-
-            // Log questionnaire delete operation if successful (via background queue)
-            if (result)
+            // Log questionnaire delete operation (fire-and-forget via background queue)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
-                {
-                    await _operationChangeLogService.LogQuestionnaireDeleteAsync(
-                        questionnaireId: id,
-                        questionnaireName: questionnaireName,
-                        reason: "Questionnaire deleted via admin portal"
-                    );
-                });
-            }
+                await _operationChangeLogService.LogQuestionnaireDeleteAsync(
+                    questionnaireId: id,
+                    questionnaireName: questionnaireName,
+                    reason: "Questionnaire deleted via admin portal"
+                );
+            });
 
-            // Cache removed, no need to clean up
-
-            return result;
+            return true;
         }
 
         /// <summary>

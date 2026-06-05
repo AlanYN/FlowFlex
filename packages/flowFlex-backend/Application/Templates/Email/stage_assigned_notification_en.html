@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITEM WFE - Stage Assignment Notification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; color: #333; line-height: 1.6;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+        <div style="background-color: #7e22ce; color: white; padding: 30px; text-align: center;">
+            <h1 style="font-size: 28px; margin-bottom: 10px; font-weight: 600; color: white;">ITEM WFE</h1>
+            <p style="font-size: 16px; opacity: 0.9; color: white;">Stage Assignment Notification</p>
+        </div>
+
+        <div style="padding: 40px 30px;">
+            <p style="font-size: 14px; color: #dc3545; font-style: italic; margin-bottom: 20px;">
+                This is an automated reminder. Please do not reply directly to this email.
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                Hi {{assigneeName}},
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 30px; line-height: 1.8;">
+                You have been assigned to a new stage that requires your attention.
+            </p>
+
+            <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 25px; margin-bottom: 30px;">
+                <h3 style="color: #495057; margin-bottom: 20px; font-size: 16px; border-bottom: 2px solid #7e22ce; padding-bottom: 10px;">
+                    Case Details
+                </h3>
+                <div style="padding: 10px 0; border-bottom: 1px solid #e9ecef;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Case Name:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{caseName}}</span>
+                </div>
+                <div style="padding: 10px 0; border-bottom: 1px solid #e9ecef;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Stage:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{stageName}}</span>
+                </div>
+                <div style="padding: 10px 0;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Priority:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{priority}}</span>
+                </div>
+            </div>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 30px; line-height: 1.8;">
+                Please review the case details and begin working on this stage at your earliest convenience.
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 10px; line-height: 1.8;">
+                Access the case here:
+            </p>
+
+            <div style="text-align: center; margin-bottom: 30px;">
+                <a href="{{caseLink}}" style="display: inline-block; background-color: #7e22ce; color: white; padding: 15px 35px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                    Access the Case
+                </a>
+            </div>
+
+            <p style="font-size: 14px; color: #6c757d; margin-bottom: 10px;">
+                If you have any questions or concerns about this assignment, please contact your manager.
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-top: 30px;">
+                Best regards,<br>
+                ITEM Workflow System
+            </p>
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-top: 1px solid #e9ecef;">
+            <p style="color: #6c757d; font-size: 12px; margin-bottom: 5px;">Thank you for using ITEM WFE</p>
+            <p style="color: #6c757d; font-size: 12px; margin-bottom: 5px;">For any questions, please contact: <span style="color: #7e22ce; font-weight: 500;">WFESupport@item.com</span></p>
+            <p style="color: #6c757d; font-size: 12px;">© {{year}} ITEM WFE. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using Application.Contracts.Options;
 using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -10,6 +11,7 @@ using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SqlSugar;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -28,6 +30,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IOnboardingPermissionService _permissionService;
         private readonly IUserService _userService;
+        private readonly IEmailService _emailService;
+        private readonly GlobalConfigOptions _globalConfig;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStageProgressService> _logger;
 
@@ -45,6 +49,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOperationChangeLogService operationChangeLogService,
             IOnboardingPermissionService permissionService,
             IUserService userService,
+            IEmailService emailService,
+            IOptions<GlobalConfigOptions> globalConfig,
             UserContext userContext,
             ILogger<OnboardingStageProgressService> logger)
         {
@@ -54,6 +60,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
+            _globalConfig = globalConfig?.Value ?? throw new ArgumentNullException(nameof(globalConfig));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -1060,14 +1068,19 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 if (result)
                 {
                     await LogStageCustomFieldsChangeAsync(
-                        onboardingId, 
-                        input, 
-                        originalEstimatedDays, 
-                        originalEndTime, 
-                        originalCustomAssignee, 
-                        originalCustomCoAssignees, 
-                        beforeData, 
+                        onboardingId,
+                        input,
+                        originalEstimatedDays,
+                        originalEndTime,
+                        originalCustomAssignee,
+                        originalCustomCoAssignees,
+                        beforeData,
                         afterData);
+
+                    // Send email notification for assignee changes
+                    await SendStageAssignedNotificationIfChangedAsync(
+                        onboarding, stageProgress, input,
+                        originalCustomAssignee, originalCustomCoAssignees);
                 }
 
                 return result;
@@ -1081,6 +1094,83 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 _logger.LogError(ex, "Failed to update custom fields for stage {StageId} in onboarding {OnboardingId}", input.StageId, onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Send email notification to newly assigned users when assignee/co-assignees change
+        /// </summary>
+        private async Task SendStageAssignedNotificationIfChangedAsync(
+            Domain.Entities.OW.Onboarding onboarding,
+            OnboardingStageProgress stageProgress,
+            UpdateStageCustomFieldsInputDto input,
+            List<string> originalAssignees,
+            List<string> originalCoAssignees)
+        {
+            try
+            {
+                var newAssigneeIds = new List<string>();
+
+                // Check for new assignees
+                if (input.Assignee != null)
+                {
+                    newAssigneeIds.AddRange(input.Assignee.Where(id => !originalAssignees.Contains(id)));
+                }
+
+                // Check for new co-assignees
+                if (input.CoAssignees != null)
+                {
+                    newAssigneeIds.AddRange(input.CoAssignees.Where(id => !originalCoAssignees.Contains(id)));
+                }
+
+                if (!newAssigneeIds.Any()) return;
+
+                // Get user info for new assignees
+                var userIds = newAssigneeIds
+                    .Where(id => long.TryParse(id, out _))
+                    .Select(id => long.Parse(id))
+                    .Distinct()
+                    .ToList();
+
+                if (!userIds.Any()) return;
+
+                var users = await _userService.GetUsersByIdsAsync(userIds);
+                if (users == null || !users.Any()) return;
+
+                var caseName = onboarding.CaseName ?? string.Empty;
+                var stageName = stageProgress.StageName ?? string.Empty;
+                var priority = !string.IsNullOrEmpty(onboarding.Priority) ? onboarding.Priority : "N/A";
+                var caseLink = $"{GetPortalBaseUrl()}/onboard/onboardDetail?onboardingId={onboarding.Id}";
+
+                var validUsers = users.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
+                var allNames = string.Join(", ", validUsers.Select(u => u.Username));
+
+                var emailTasks = validUsers
+                    .Select(async user =>
+                    {
+                        try
+                        {
+                            return await _emailService.SendStageAssignedNotificationAsync(
+                                user.Email, allNames, caseName, stageName, priority, caseLink);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send stage assigned notification to {Email}", user.Email);
+                            return false;
+                        }
+                    })
+                    .ToList();
+
+                await Task.WhenAll(emailTasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending stage assigned notification emails for onboarding {OnboardingId}", onboarding.Id);
+            }
+        }
+
+        private string GetPortalBaseUrl()
+        {
+            return _globalConfig.PortalBaseUrl?.TrimEnd('/') ?? "https://workflow.item.com";
         }
 
         /// <summary>
@@ -1278,12 +1368,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
 
-                // Log stage save to operation_change_log
-                if (result)
-                {
-                    await LogStageSaveAsync(onboarding, stageId, stageProgress);
-                }
-
                 return result;
             }
             catch (CRMException)
@@ -1293,65 +1377,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             catch (Exception ex)
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save stage {stageId} in onboarding {onboardingId}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Log stage save operation to operation change log
-        /// </summary>
-        private async Task LogStageSaveAsync(Domain.Entities.OW.Onboarding onboarding, long stageId, OnboardingStageProgress stageProgress)
-        {
-            try
-            {
-                var stage = await _stageRepository.GetByIdAsync(stageId);
-                var beforeData = new
-                {
-                    StageId = stageId,
-                    StageName = stage?.Name,
-                    IsSaved = false,
-                    SaveTime = (DateTimeOffset?)null
-                };
-
-                var afterData = new
-                {
-                    StageId = stageId,
-                    StageName = stage?.Name,
-                    IsSaved = true,
-                    SaveTime = stageProgress.SaveTime,
-                    SavedBy = stageProgress.SavedBy,
-                    StartTime = stageProgress.StartTime
-                };
-
-                var extendedData = new
-                {
-                    WorkflowId = onboarding.WorkflowId,
-                    IsCurrentStage = stageProgress.StageId == onboarding.CurrentStageId,
-                    CurrentStageStartTime = onboarding.CurrentStageStartTime,
-                    Source = "manual_save"
-                };
-
-                await _operationChangeLogService.LogOperationAsync(
-                    operationType: OperationTypeEnum.StageSave,
-                    businessModule: BusinessModuleEnum.Stage,
-                    businessId: stageId,
-                    onboardingId: onboarding.Id,
-                    stageId: stageId,
-                    operationTitle: $"Stage Saved: {stage?.Name ?? "Unknown"}",
-                    operationDescription: $"Stage '{stage?.Name}' has been saved by {stageProgress.SavedBy}",
-                    beforeData: JsonSerializer.Serialize(beforeData, JsonOptions),
-                    afterData: JsonSerializer.Serialize(afterData, JsonOptions),
-                    changedFields: new List<string> { "IsSaved", "SaveTime", "SavedBy" },
-                    extendedData: JsonSerializer.Serialize(extendedData, JsonOptions)
-                );
-
-                _logger.LogInformation("Stage save log recorded: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
-                    onboarding.Id, stageId, stage?.Name);
-            }
-            catch (Exception logEx)
-            {
-                _logger.LogError(logEx, "Failed to record Stage save log: OnboardingId={OnboardingId}, StageId={StageId}",
-                    onboarding.Id, stageId);
-                // Don't re-throw to avoid breaking the main flow
             }
         }
 

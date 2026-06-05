@@ -265,8 +265,7 @@ const isQuestionAnswered = (question: any, answers: any): boolean => {
 			return true; // 没有行列数据视为完成
 		}
 
-		return question.rows.every((row: any) => {
-			// 检查该行是否至少有一个单元格有内容
+		return question.rows.some((row: any) => {
 			return question.columns.some((column: any) => {
 				const gridKey = `${questionId}_${column.id}_${row.id}`;
 				const userAnswer = findUserAnswer(answers, gridKey);

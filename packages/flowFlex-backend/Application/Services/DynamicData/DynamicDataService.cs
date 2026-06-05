@@ -4,12 +4,15 @@ using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using OfficeOpenXml;
+
 
 namespace FlowFlex.Application.Services.DynamicData;
 
@@ -23,9 +26,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
     private readonly IDefineFieldRepository _defineFieldRepository;
     private readonly IFieldGroupRepository _fieldGroupRepository;
     private readonly IStageRepository _stageRepository;
+    private readonly IMediator _mediator;
     private readonly UserContext _userContext;
     private readonly ILogger<DynamicDataService> _logger;
-    
+
     // Default module ID - not used as query condition
     private const int DefaultModuleId = 0;
 
@@ -35,6 +39,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         IDefineFieldRepository defineFieldRepository,
         IFieldGroupRepository fieldGroupRepository,
         IStageRepository stageRepository,
+        IMediator mediator,
         UserContext userContext,
         ILogger<DynamicDataService> logger)
     {
@@ -43,6 +48,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         _defineFieldRepository = defineFieldRepository;
         _fieldGroupRepository = fieldGroupRepository;
         _stageRepository = stageRepository;
+        _mediator = mediator;
         _userContext = userContext;
         _logger = logger;
     }
@@ -256,6 +262,16 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         return GenerateExcelWithEPPlus(exportData);
     }
 
+    private string GetOperatorDisplayName()
+    {
+        var firstName = _userContext.FirstName?.Trim();
+        var lastName = _userContext.LastName?.Trim();
+        var fullName = $"{firstName} {lastName}".Trim();
+        return !string.IsNullOrEmpty(fullName) ? fullName :
+               (!string.IsNullOrEmpty(_userContext.UserName) ? _userContext.UserName :
+               (!string.IsNullOrEmpty(_userContext.Email) ? _userContext.Email : "SYSTEM"));
+    }
+
     private static string GetDataTypeName(DataType dataType)
     {
         return dataType switch
@@ -356,16 +372,17 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext.UserId, out var userId);
+        var displayName = GetOperatorDisplayName();
 
         var entity = MapToDefineField(defineFieldDto);
         entity.ModuleId = DefaultModuleId;
         entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
         entity.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         entity.CreateDate = DateTimeOffset.UtcNow;
-        entity.CreateBy = _userContext.UserName ?? "SYSTEM";
+        entity.CreateBy = displayName;
         entity.CreateUserId = userId;
         entity.ModifyDate = DateTimeOffset.UtcNow;
-        entity.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        entity.ModifyBy = displayName;
         entity.ModifyUserId = userId;
 
         return await _defineFieldRepository.InsertReturnSnowflakeIdAsync(entity);
@@ -423,9 +440,9 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         {
             existing.AdditionalInfo["dropdownItems"] = JToken.FromObject(defineFieldDto.DropdownItems);
         }
-        
+
         existing.ModifyDate = DateTimeOffset.UtcNow;
-        existing.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        existing.ModifyBy = GetOperatorDisplayName();
         existing.ModifyUserId = userId;
 
         await _defineFieldRepository.UpdateAsync(existing);
@@ -445,10 +462,13 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         existing.IsValid = false;
         existing.ModifyDate = DateTimeOffset.UtcNow;
-        existing.ModifyBy = _userContext.UserName ?? "SYSTEM";
+        existing.ModifyBy = GetOperatorDisplayName();
         existing.ModifyUserId = userId;
 
         await _defineFieldRepository.UpdateAsync(existing);
+
+        // Publish event — handler cleans Stage ComponentsJson StaticFields
+        await _mediator.Publish(new StaticFieldDeletedEvent(propertyId));
     }
 
     public async Task MovePropertyToGroupAsync(long[] propertyIds, long groupId)

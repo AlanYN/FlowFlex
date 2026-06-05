@@ -4,7 +4,7 @@
 			<!-- 显示状态 -->
 			<div v-if="!isEditing">
 				<!-- 头部标题和操作按钮 -->
-				<div class="flex items-center justify-between">
+				<div class="flex items-center justify-between cursor-pointer" @click="toggleExpanded">
 					<h2 class="font-bold text-xl">{{ displayTitle }}</h2>
 					<div class="flex items-center gap-2">
 						<template v-if="!disabled">
@@ -12,7 +12,7 @@
 								type="primary"
 								size="small"
 								plain
-								@click="openReassignDialog"
+								@click.stop="openReassignDialog"
 							>
 								Reassign
 							</el-button>
@@ -21,7 +21,7 @@
 								size="small"
 								plain
 								:icon="Plus"
-								@click="openAddCoassigneeDialog"
+								@click.stop="openAddCoassigneeDialog"
 							>
 								Add Co-assignee
 							</el-button>
@@ -29,115 +29,122 @@
 						<el-button
 							link
 							type="primary"
-							@click="handleEdit"
+							@click.stop="handleEdit"
 							:icon="Edit"
 							:disabled="disabled || !currentStage?.startTime"
 						/>
+						<el-icon class="collapse-icon" :class="{ rotated: isExpanded }">
+							<ArrowRight />
+						</el-icon>
 					</div>
 				</div>
-				<div class="my-2 space-y-2">
-					<!-- Assigned to 行 -->
-					<div class="assignees-row">
-						<div class="flex items-center gap-x-2 flex-shrink-0">
-							<Icon icon="lucide-user" class="text-gray-500" />
-							<span class="text-gray-600">Assigned to:</span>
-						</div>
-						<template v-if="displayAssignees.length > 0">
-							<div
-								ref="assigneesTagsRef"
-								class="assignees-tags mt-1"
-								:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
-							>
-								<el-tag
-									v-for="userId in displayAssignees"
-									:key="userId"
-									:closable="!disabled"
-									size="small"
-									type="primary"
-									@close="handleRemoveAssignee(userId)"
-								>
-									{{ getUserDisplayName(userId) }}
-								</el-tag>
+				<el-collapse-transition>
+					<div v-show="isExpanded">
+						<div class="my-2 space-y-2">
+							<!-- Assigned to 行 -->
+							<div class="assignees-row">
+								<div class="flex items-center gap-x-2 flex-shrink-0">
+									<Icon icon="lucide-user" class="text-gray-500" />
+									<span class="text-gray-600">Assigned to:</span>
+								</div>
+								<template v-if="displayAssignees.length > 0">
+									<div
+										ref="assigneesTagsRef"
+										class="assignees-tags mt-1"
+										:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
+									>
+										<el-tag
+											v-for="userId in displayAssignees"
+											:key="userId"
+											:closable="!disabled"
+											size="small"
+											type="primary"
+											@close="handleRemoveAssignee(userId)"
+										>
+											{{ getUserDisplayName(userId) }}
+										</el-tag>
+									</div>
+									<el-button
+										v-if="showAssigneesExpandButton || isAssigneesExpanded"
+										link
+										type="primary"
+										size="small"
+										class="flex-shrink-0"
+										@click="toggleAssigneesExpand"
+									>
+										{{
+											isAssigneesExpanded
+												? 'Less'
+												: `Show all ${displayAssignees.length}`
+										}}
+									</el-button>
+								</template>
+								<span v-else class="text-gray-400">--</span>
 							</div>
-							<el-button
-								v-if="showAssigneesExpandButton || isAssigneesExpanded"
-								link
-								type="primary"
-								size="small"
-								class="flex-shrink-0"
-								@click="toggleAssigneesExpand"
-							>
-								{{
-									isAssigneesExpanded
-										? 'Less'
-										: `Show all ${displayAssignees.length}`
-								}}
-							</el-button>
-						</template>
-						<span v-else class="text-gray-400">--</span>
-					</div>
-					<!-- Co-assignees 行 -->
-					<div class="co-assignees-row">
-						<div class="flex items-center gap-x-2 flex-shrink-0">
-							<Icon icon="lucide-users" class="text-gray-500" />
-							<span class="text-gray-600">Co-assignees:</span>
-						</div>
-						<template v-if="displayCoAssignees.length > 0">
-							<div
-								ref="coAssigneesTagsRef"
-								class="co-assignees-tags mt-1"
-								:class="{ 'co-assignees-collapsed': !isCoAssigneesExpanded }"
-							>
-								<el-tag
-									v-for="userId in displayCoAssignees"
-									:key="userId"
-									:closable="!disabled"
-									size="small"
-									@close="handleRemoveCoassignee(userId)"
-								>
-									{{ getUserDisplayName(userId) }}
-								</el-tag>
+							<!-- Co-assignees 行 -->
+							<div class="co-assignees-row">
+								<div class="flex items-center gap-x-2 flex-shrink-0">
+									<Icon icon="lucide-users" class="text-gray-500" />
+									<span class="text-gray-600">Co-assignees:</span>
+								</div>
+								<template v-if="displayCoAssignees.length > 0">
+									<div
+										ref="coAssigneesTagsRef"
+										class="co-assignees-tags mt-1"
+										:class="{ 'co-assignees-collapsed': !isCoAssigneesExpanded }"
+									>
+										<el-tag
+											v-for="userId in displayCoAssignees"
+											:key="userId"
+											:closable="!disabled"
+											size="small"
+											@close="handleRemoveCoassignee(userId)"
+										>
+											{{ getUserDisplayName(userId) }}
+										</el-tag>
+									</div>
+									<el-button
+										v-if="showExpandButton || isCoAssigneesExpanded"
+										link
+										type="primary"
+										size="small"
+										class="flex-shrink-0"
+										@click="toggleCoAssigneesExpand"
+									>
+										{{
+											isCoAssigneesExpanded
+												? 'Less'
+												: `Show all ${displayCoAssignees.length}`
+										}}
+									</el-button>
+								</template>
+								<span v-else class="text-gray-400">--</span>
 							</div>
-							<el-button
-								v-if="showExpandButton || isCoAssigneesExpanded"
-								link
-								type="primary"
-								size="small"
-								class="flex-shrink-0"
-								@click="toggleCoAssigneesExpand"
-							>
-								{{
-									isCoAssigneesExpanded
-										? 'Less'
-										: `Show all ${displayCoAssignees.length}`
-								}}
-							</el-button>
-						</template>
-						<span v-else class="text-gray-400">--</span>
+						</div>
+						<div
+							v-if="currentStage?.stageDescription"
+							class="text-sm text-[var(--el-text-color-secondary)]"
+						>
+							{{ currentStage?.stageDescription }}
+						</div>
+						<el-divider class="my-4" />
+						<!-- 信息网格 -->
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+							<div>
+								<div class="mb-1">Start Date</div>
+								<div class="font-medium">{{ displayStartDate }}</div>
+							</div>
+							<div>
+								<div class="mb-1">Est. Duration</div>
+								<div class="font-medium">{{ displayEstimatedDuration }}</div>
+							</div>
+							<div>
+								<div class="mb-1">ETA</div>
+								<div class="font-medium">{{ displayETA }}</div>
+							</div>
+						</div>
 					</div>
-				</div>
-				<div
-					v-if="currentStage?.stageDescription"
-					class="text-sm text-[var(--el-text-color-secondary)]"
-				>
-					{{ currentStage?.stageDescription }}
-				</div>
-				<el-divider class="my-4" />
-				<!-- 信息网格 -->
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-					<div>
-						<div class="mb-1">Start Date</div>
-						<div class="font-medium">{{ displayStartDate }}</div>
-					</div>
-					<div>
-						<div class="mb-1">Est. Duration</div>
-						<div class="font-medium">{{ displayEstimatedDuration }}</div>
-					</div>
-					<div>
-						<div class="mb-1">ETA</div>
-						<div class="font-medium">{{ displayETA }}</div>
-					</div>
-				</div>
+				</el-collapse-transition>
 			</div>
 
 			<!-- 编辑状态 -->
@@ -302,7 +309,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, toRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Edit, Plus } from '@element-plus/icons-vue';
+import { Edit, Plus, ArrowRight } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import {
@@ -377,6 +384,8 @@ const emit = defineEmits(['update:stage-data']);
 // 响应式数据
 const isEditing = ref(false);
 const saving = ref(false);
+const isExpanded = ref(true);
+const toggleExpanded = () => { isExpanded.value = !isExpanded.value; };
 
 // Co-assignees 展开/收起控制
 const isCoAssigneesExpanded = ref(false);
@@ -909,6 +918,14 @@ const handleRemoveCoassignee = async (userId: string) => {
 
 .co-assignees-collapsed {
 	max-height: 24px;
+}
+
+.collapse-icon {
+	transition: transform 0.3s ease;
+}
+
+.rotated {
+	transform: rotate(90deg);
 }
 
 /* 响应式设计 */
