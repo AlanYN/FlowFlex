@@ -991,6 +991,12 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task ValidateWorkflowPermissionAsync(long workflowId, OperationTypeEnum operationType)
         {
+            // Client Credentials token bypass - service-to-service communication has full access
+            if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+            {
+                return;
+            }
+
             if (string.IsNullOrEmpty(_userContext?.UserId) || !long.TryParse(_userContext.UserId, out var userId))
             {
                 throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
