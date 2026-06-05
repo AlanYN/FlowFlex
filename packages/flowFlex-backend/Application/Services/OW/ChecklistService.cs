@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.Dtos.OW.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Helpers;
@@ -26,6 +27,8 @@ using Microsoft.Extensions.Caching.Memory;
 using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Repository.Action;
+using FlowFlex.Domain.Shared.Events;
+using MediatR;
 
 namespace FlowFlex.Application.Services.OW;
 
@@ -47,6 +50,8 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IUserService _userService;
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
+    private readonly IWorkflowRepository _workflowRepository;
+    private readonly IMediator _mediator;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -61,7 +66,9 @@ public class ChecklistService : IChecklistService, IScopedService
         ILogger<ChecklistService> logger,
         IUserService userService,
         IActionTriggerMappingRepository actionTriggerMappingRepository,
-        IActionDefinitionRepository actionDefinitionRepository)
+        IActionDefinitionRepository actionDefinitionRepository,
+        IWorkflowRepository workflowRepository,
+        IMediator mediator)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -76,6 +83,8 @@ public class ChecklistService : IChecklistService, IScopedService
         _userService = userService;
         _actionTriggerMappingRepository = actionTriggerMappingRepository;
         _actionDefinitionRepository = actionDefinitionRepository;
+        _workflowRepository = workflowRepository;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -308,6 +317,36 @@ public class ChecklistService : IChecklistService, IScopedService
             }
         }
 
+        // LOG-05: Touch parent workflow audit timestamps after checklist update
+        if (result)
+        {
+            try
+            {
+                var stageIds = await _mappingService.GetStagesUsingChecklistFastAsync(id);
+                if (stageIds.Any())
+                {
+                    var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                    var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+                    var modifyBy = _operatorContextService.GetOperatorDisplayName();
+                    foreach (var workflowId in workflowIds)
+                    {
+                        try
+                        {
+                            await _workflowRepository.TouchWorkflowAuditAsync(workflowId, modifyBy);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to touch workflow audit for workflow {WorkflowId} after checklist {ChecklistId} update", workflowId, id);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to touch workflow audits after checklist {ChecklistId} update", id);
+            }
+        }
+
         return result;
     }
 
@@ -327,13 +366,16 @@ public class ChecklistService : IChecklistService, IScopedService
             throw new CRMException(ErrorCodeEnum.CustomError, "Please confirm deletion by setting confirm=true");
         }
 
-        var checklistName = checklist.Name; // Store name before deletion
+        var checklistName = checklist.Name;
 
         // Soft delete
         checklist.IsValid = false;
         checklist.ModifyDate = DateTimeOffset.UtcNow;
 
         var result = await _checklistRepository.UpdateAsync(checklist);
+
+        // Publish event — handler cleans Stage references
+        await _mediator.Publish(new ChecklistDeletedEvent(id, checklistName));
 
         // Log checklist delete operation if successful (via background queue)
         if (result)
@@ -347,8 +389,6 @@ public class ChecklistService : IChecklistService, IScopedService
                 );
             });
         }
-
-        // Cache has been removed, no cleanup needed
 
         return result;
     }

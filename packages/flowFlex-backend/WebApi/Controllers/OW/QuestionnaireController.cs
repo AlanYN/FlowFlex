@@ -348,6 +348,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 Category = category,
                 FileHash = attachment.FileHash,
                 UploadTime = DateTime.UtcNow,
+                UploadedBy = _userContext.UserName,
                 ErrorMessage = null,
                 Gateway = gateway,
                 FullAccessUrl = fullAccessUrl
