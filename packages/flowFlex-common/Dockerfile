@@ -8,7 +8,7 @@ ENV NODE_OPTIONS=--max-old-space-size=16384
 WORKDIR /app
 COPY . ./
 
-RUN npm install -g pnpm \
+RUN npm install -g pnpm@9 \
   && pnpm install
 
 ARG BUILD_CMD=build:development
