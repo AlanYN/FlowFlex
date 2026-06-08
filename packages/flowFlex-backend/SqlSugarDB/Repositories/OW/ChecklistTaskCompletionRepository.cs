@@ -97,9 +97,12 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
         }
         else
         {
-            // Insert new - this is always a status change since it's creating a new completion record
+            // Insert new completion record
             await InsertAsync(completion);
-            return (true, true);
+            // Only treat as status change if actually marking as completed.
+            // Creating a record with isCompleted=false is just initialization (e.g. from add note),
+            // not a cancellation — should not trigger "Cancelled the task" log.
+            return (true, completion.IsCompleted);
         }
     }
 

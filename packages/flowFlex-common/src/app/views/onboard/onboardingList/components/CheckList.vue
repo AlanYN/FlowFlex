@@ -143,6 +143,7 @@
 			:disabled="disabled"
 			@update:task="handleTaskUpdate"
 			@note-updated="handleNoteUpdated"
+			@refresh-checklist="handleRefreshChecklist"
 		/>
 	</div>
 </template>
@@ -285,8 +286,19 @@ const handleTaskUpdate = () => {
 	dialogVisible.value = false;
 };
 
-// 处理 note 添加/删除后刷新 checklist 数据以更新 count
-const handleNoteUpdated = () => {
+// 处理 note 添加/删除后本地更新 notesCount
+const handleNoteUpdated = (taskId: string, delta: number) => {
+	// 在 checklistData 中找到对应 task，本地更新 count
+	props.checklistData?.forEach((checklist: any) => {
+		const task = checklist.tasks?.find((t: any) => String(t.id) === taskId);
+		if (task) {
+			task.notesCount = Math.max(0, (task.notesCount || 0) + delta);
+		}
+	});
+};
+
+// 处理 TaskDetailsDialog 的 refreshChecklist 事件
+const handleRefreshChecklist = () => {
 	emit('refreshChecklist', props.onboardingId, props.stageId);
 };
 
