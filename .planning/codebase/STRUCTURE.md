@@ -1,297 +1,370 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-05-25
+**Analysis Date:** 2026-06-08
 
 ## Directory Layout
 
 ```
-FlowFlex/                              # Monorepo root
+FlowFlex/
 ├── packages/
-│   ├── flowFlex-backend/              # .NET 8 Web API (Clean Architecture)
-│   │   ├── WebApi/                    # HTTP entry point, controllers, middleware
-│   │   │   ├── Controllers/           # API controllers grouped by domain
-│   │   │   │   ├── OW/                # Onboarding Workflow controllers
-│   │   │   │   ├── AI/                # AI feature controllers
-│   │   │   │   ├── Action/            # Action controllers
-│   │   │   │   ├── DynamicData/       # Dynamic data controllers
-│   │   │   │   ├── Integration/       # Integration controllers
-│   │   │   │   ├── MessageCenter/     # Message center controllers
-│   │   │   │   ├── Shared/            # Shared/utility controllers
-│   │   │   │   └── ControllerBase.cs  # Base controller with Success<T>() helpers
-│   │   │   ├── Middlewares/           # Request pipeline middleware
-│   │   │   ├── Authentication/        # JWT token validation handlers
-│   │   │   ├── Authorization/         # WFEAuthorize attribute, policy handlers
-│   │   │   ├── Filters/               # Action filters (e.g., IntegrationApiLogFilter)
-│   │   │   ├── Converters/            # JSON converters (LongToString, DateTimeOffset)
-│   │   │   ├── Extensions/            # IServiceCollection extensions, DI wiring
-│   │   │   ├── Program.cs             # App entry point, DI registration, pipeline
-│   │   │   └── appsettings.json       # Configuration (DB, JWT, Redis, AI, etc.)
-│   │   │
-│   │   ├── Application/               # Business logic implementations
-│   │   │   ├── Services/
-│   │   │   │   ├── OW/                # Onboarding Workflow services
-│   │   │   │   │   ├── OnboardingServices/  # Onboarding split into 9 focused services
-│   │   │   │   │   ├── StageCondition/      # Stage condition evaluation
-│   │   │   │   │   ├── ChangeLog/           # Change log services
-│   │   │   │   │   ├── Permission/          # Permission services
-│   │   │   │   │   └── Extensions/          # OW service extension methods
-│   │   │   │   ├── AI/                # AI services (Chat, Checklist, Workflow, etc.)
-│   │   │   │   ├── Action/            # Action executor services
-│   │   │   │   ├── DynamicData/       # Dynamic data services
-│   │   │   │   ├── Integration/       # External integration services
-│   │   │   │   └── MessageCenter/     # Email/Outlook sync services
-│   │   │   ├── Maps/                  # AutoMapper profiles (one per aggregate)
-│   │   │   ├── Helpers/               # Application-level helpers
-│   │   │   ├── Notification/          # MediatR notification handlers
-│   │   │   ├── Client/                # External HTTP clients (IDM, etc.)
-│   │   │   ├── Filter/                # Application-level filters
-│   │   │   └── Templates/Email/       # Email HTML templates
-│   │   │
-│   │   ├── Application.Contracts/     # Shared contracts (no implementation)
-│   │   │   ├── Dtos/                  # Data Transfer Objects
-│   │   │   │   ├── OW/                # OW DTOs (Workflow, Stage, Checklist, etc.)
-│   │   │   │   ├── AI/                # AI DTOs
-│   │   │   │   ├── Action/            # Action DTOs
-│   │   │   │   ├── DynamicData/       # Dynamic data DTOs
-│   │   │   │   ├── Integration/       # Integration DTOs
-│   │   │   │   └── Shared/            # Shared/common DTOs
-│   │   │   ├── IServices/             # Service interfaces
-│   │   │   │   ├── OW/                # OW service interfaces
-│   │   │   │   ├── AI/                # AI service interfaces
-│   │   │   │   ├── Action/            # Action service interfaces
-│   │   │   │   ├── DynamicData/       # Dynamic data service interfaces
-│   │   │   │   └── Integration/       # Integration service interfaces
-│   │   │   ├── Options/               # Configuration options classes
-│   │   │   └── Helpers/               # Shared helper utilities
-│   │   │
-│   │   ├── Domain/                    # Core domain (no external dependencies)
-│   │   │   ├── Entities/
-│   │   │   │   ├── Base/              # Base entity classes (EntityBase, OwEntityBase, etc.)
-│   │   │   │   ├── OW/                # Onboarding Workflow entities
-│   │   │   │   ├── Action/            # Action entities
-│   │   │   │   ├── DynamicData/       # Dynamic data entities
-│   │   │   │   ├── Integration/       # Integration entities
-│   │   │   │   └── Shared/            # Shared entities
-│   │   │   ├── Repository/            # Repository interfaces
-│   │   │   │   ├── IBaseRepository.cs # Generic CRUD interface
-│   │   │   │   └── OW/                # OW-specific repository interfaces
-│   │   │   ├── Abstracts/             # IValidFilter, ISoftDeletable, ITenantFilter
-│   │   │   ├── Manager/               # Domain managers
-│   │   │   └── Shared/                # Domain.Shared (enums, constants, models)
-│   │   │
-│   │   ├── Domain.Shared/             # Shared domain primitives
-│   │   │   ├── Enums/                 # Domain enumerations
-│   │   │   └── Constants/             # Domain constants
-│   │   │
-│   │   ├── SqlSugarDB/                # Data access layer
-│   │   │   ├── BaseRepository.cs      # Generic repository implementation
-│   │   │   ├── Repositories/          # Concrete repository implementations
-│   │   │   │   └── OW/                # OW repository implementations
-│   │   │   ├── Context/               # SqlSugar DB context setup
-│   │   │   ├── Extensions/            # DB initialization extensions
-│   │   │   ├── Migrations/            # SQL migration files (timestamp-named)
-│   │   │   └── Tools/                 # DB tooling utilities
-│   │   │
-│   │   ├── Infrastructure/            # Cross-cutting concerns
-│   │   │   ├── Exceptions/            # GlobalExceptionHandlingMiddleware
-│   │   │   ├── Extensions/            # ServiceCollectionExtensions, LoggingExtensions
-│   │   │   ├── Services/              # BackgroundTaskQueue, ApplicationLogger, EncryptionService
-│   │   │   ├── Configuration/         # Options classes (DatabaseOptions, SecurityOptions, etc.)
-│   │   │   └── CodeGenerator/         # Code generation utilities
-│   │   │
-│   │   ├── Tests/FlowFlex.Tests/      # Test project
-│   │   ├── Database/Migrations/       # Additional database migration scripts
-│   │   ├── Docs/                      # Backend API documentation
-│   │   ├── FlowFlex.sln               # .NET solution file
-│   │   └── Dockerfile                 # Container build definition
-│   │
-│   └── flowFlex-common/               # Vue 3 SPA frontend
-│       └── src/
-│           ├── main.ts                # App bootstrap, Wujie micro-app support
-│           ├── App.vue                # Root Vue component
-│           ├── app/
-│           │   ├── apis/              # HTTP client modules
-│           │   │   ├── axios/         # Axios instance, interceptors, token refresh
-│           │   │   ├── ow/            # OW API calls (onboarding, checklist, etc.)
-│           │   │   ├── ai/            # AI API calls
-│           │   │   ├── action/        # Action API calls
-│           │   │   ├── dashboard/     # Dashboard API calls
-│           │   │   ├── integration/   # Integration API calls
-│           │   │   └── messageCenter/ # Message center API calls
-│           │   ├── views/             # Page-level components
-│           │   │   ├── onboard/       # Onboarding views (list, checklist, questionnaire, workflow)
-│           │   │   ├── dashboard/     # Dashboard views
-│           │   │   ├── actions/       # Actions views
-│           │   │   ├── dynamicFields/ # Dynamic fields views
-│           │   │   ├── messageCenter/ # Message center views
-│           │   │   ├── integration-settings/ # Integration settings views
-│           │   │   ├── authorityManagement/  # Permission management views
-│           │   │   ├── login/         # Login views
-│           │   │   └── error/         # Error pages
-│           │   ├── components/        # Shared UI components
-│           │   │   ├── form/          # Form input components
-│           │   │   ├── global/        # Global reusable components
-│           │   │   ├── layout/        # Layout shell components
-│           │   │   ├── sidebar/       # Sidebar navigation
-│           │   │   └── workflow-canvas/ # Workflow visual canvas (nodes, panels)
-│           │   ├── stores/            # Pinia state stores
-│           │   │   ├── modules/       # user, permission, locale, multipleTab, menuFunction, workflowCanvas
-│           │   │   └── plugin/        # Store plugins
-│           │   ├── router/            # Vue Router
-│           │   │   ├── routers/modules/ # Route modules per feature
-│           │   │   └── guard/         # Navigation guards, dynamic route creation
-│           │   ├── hooks/             # Composables (useI18n, useWujie, etc.)
-│           │   ├── utils/             # Utility functions (auth, cache, helpers)
-│           │   ├── enums/             # Frontend enumerations
-│           │   ├── config/            # App configuration
-│           │   ├── settings/          # Global settings (useGlobSetting)
-│           │   ├── logics/            # Business logic composables
-│           │   └── mitt/              # Event bus
-│           ├── assets/                # Static assets (fonts, images, SVGs)
-│           ├── locales/               # i18n translations (en, zh-CN)
-│           ├── styles/                # Global styles, design tokens, Element Plus overrides
-│           └── types/                 # TypeScript type declarations
+│   ├── flowFlex-backend/          # .NET 8 backend (WebApi + layered architecture)
+│   └── flowFlex-common/           # Vue 3 SPA frontend
+├── crm-api-integration/           # CRM API integration specs/docs
+├── wfe-api-integration/           # WFE API integration specs/docs
+├── ontology-work/                 # Ontology/domain modeling work
+├── docs/                          # Project documentation
+├── scripts/                       # Utility scripts
+├── specs/                         # Feature specifications
+├── .planning/                     # GSD planning artifacts
+│   └── codebase/                  # Codebase analysis documents
+├── CLAUDE.md                      # AI assistant project instructions
+├── README.md                      # Project readme
+└── logo.png                       # Project logo
+```
+
+## Backend Structure
+
+```
+packages/flowFlex-backend/
+├── WebApi/                        # ASP.NET Core Web API host
+│   ├── Program.cs                 # App bootstrap, DI, middleware pipeline
+│   ├── Controllers/               # API controllers by domain
+│   │   ├── ControllerBase.cs      # Abstract base (Success<T>, GetCurrentUserId)
+│   │   ├── OW/                    # Core workflow/onboarding controllers
+│   │   ├── AI/                    # AI generation controllers
+│   │   ├── Action/                # Action/automation controllers
+│   │   ├── Integration/           # External integration controllers
+│   │   ├── DynamicData/           # Dynamic field/property controllers
+│   │   ├── Admin/                 # Admin-only controllers
+│   │   ├── Shared/                # Shared/utility controllers
+│   │   └── HealthController.cs    # Health check endpoint
+│   ├── Authentication/            # Token validation handlers
+│   ├── Authorization/             # Custom auth attributes/handlers
+│   ├── Middlewares/               # Request pipeline middlewares
+│   ├── Filters/                   # Action filters (permissions, rate limit, logging)
+│   ├── Extensions/                # Service registration, MVC config
+│   ├── Converters/                # JSON converters (LongToString)
+│   ├── Routes/                    # Route configuration
+│   ├── Model/                     # Request/response view models
+│   └── appsettings.json           # App configuration
 │
-├── .claude/                           # Claude AI skills and specs
-│   ├── skills/                        # Reusable skill definitions
-│   └── specs/                         # Feature specifications
-├── .planning/codebase/                # Codebase analysis documents (this directory)
-├── docs/                              # Project-level documentation
-└── CLAUDE.md                          # Project instructions for Claude
+├── Application/                   # Business logic implementations
+│   ├── Services/                  # Service implementations by domain
+│   │   ├── OW/                    # Core services (Workflow, Stage, Onboarding, etc.)
+│   │   │   ├── OnboardingServices/  # Onboarding sub-services (CRUD, Query, Permission, etc.)
+│   │   │   ├── Permission/        # Permission services (Case, Stage, Workflow)
+│   │   │   ├── StageCondition/    # Condition engine services
+│   │   │   ├── ChangeLog/         # Operation change log services
+│   │   │   └── Extensions/        # Service extension methods
+│   │   ├── AI/                    # AI workflow/questionnaire generation
+│   │   ├── Action/                # Action execution services
+│   │   ├── Integration/           # External integration services
+│   │   ├── MessageCenter/         # Email/Outlook sync services
+│   │   └── DynamicData/           # Dynamic field services
+│   ├── Maps/                      # AutoMapper profiles
+│   ├── Notification/              # MediatR notification handlers
+│   ├── Filter/                    # Application-level filters/attributes
+│   ├── Helpers/                   # Utility helpers
+│   ├── Client/                    # External HTTP clients
+│   └── Templates/                 # Email/notification templates
+│
+├── Application.Contracts/         # Interface definitions and DTOs
+│   ├── IServices/                 # Service interface definitions
+│   │   ├── OW/                    # Core service interfaces
+│   │   ├── AI/                    # AI service interfaces
+│   │   ├── Action/                # Action interfaces
+│   │   ├── Integration/           # Integration interfaces
+│   │   └── DynamicData/           # Dynamic data interfaces
+│   ├── Dtos/                      # Data transfer objects
+│   │   ├── OW/                    # Core DTOs (User, Workflow, Stage, etc.)
+│   │   ├── AI/                    # AI-related DTOs
+│   │   ├── Action/                # Action DTOs
+│   │   ├── Integration/           # Integration DTOs
+│   │   ├── DynamicData/           # Dynamic field DTOs
+│   │   └── Shared/                # Shared/common DTOs
+│   ├── Helpers/                   # Contract-level helpers
+│   └── Options/                   # Configuration option classes
+│
+├── Domain/                        # Domain entities and repository contracts
+│   ├── Entities/                  # Entity definitions
+│   │   ├── Base/                  # Base entity classes (EntityBaseCreateInfo, etc.)
+│   │   ├── OW/                    # Core domain entities (Workflow, Stage, Onboarding, etc.)
+│   │   ├── Action/                # Action entities
+│   │   ├── Integration/           # Integration entities
+│   │   ├── DynamicData/           # Dynamic field entities
+│   │   └── Shared/                # Shared entities
+│   ├── Repository/                # Repository interface definitions
+│   │   ├── IBaseRepository.cs     # Generic base repository interface
+│   │   ├── OW/                    # OW repository interfaces
+│   │   ├── Action/                # Action repository interfaces
+│   │   ├── Integration/           # Integration repository interfaces
+│   │   ├── DynamicData/           # Dynamic data repository interfaces
+│   │   └── Shared/                # Shared repository interfaces
+│   ├── Abstracts/                 # Filter interfaces (IValidFilter, ITenantFilter, IAppFilter)
+│   ├── Manager/                   # Domain managers
+│   └── Shared/                    # Domain shared utilities
+│
+├── Domain.Shared/                 # Shared enums, constants, models (no dependencies)
+│   ├── Enums/                     # All enum definitions
+│   ├── Const/                     # Constants (AuthSchemes, ClaimTypes, Permissions)
+│   ├── Models/                    # Shared models (UserContext, AppContext)
+│   ├── Helpers/                   # Helper utilities
+│   ├── JsonConverters/            # JSON serialization converters
+│   ├── Extensions/                # Extension methods
+│   ├── Exceptions/                # Custom exception types
+│   ├── Events/                    # Domain event interfaces
+│   └── IDIService.cs              # DI marker interfaces (IScopedService, etc.)
+│
+├── SqlSugarDB/                    # ORM and data access implementation
+│   ├── BaseRepository.cs          # Generic repository implementation
+│   ├── Context/                   # SqlSugar context/session management
+│   ├── Repositories/              # Concrete repository implementations
+│   │   ├── OW/                    # OW repositories
+│   │   ├── Action/                # Action repositories
+│   │   ├── Integration/           # Integration repositories
+│   │   ├── DynamicData/           # Dynamic data repositories
+│   │   └── Shared/                # Shared repositories
+│   ├── Implements/                # Additional implementations
+│   ├── Migrations/                # SQL migration scripts
+│   ├── Extensions/                # DB initialization, SqlSugar extensions
+│   ├── Scripts/                   # Utility SQL scripts
+│   └── Tools/                     # Database tooling
+│
+├── Infrastructure/                # Cross-cutting infrastructure
+│   ├── Exceptions/                # Global exception handling middleware
+│   ├── Services/                  # Background tasks, Redis cache, migrations
+│   │   ├── Logging/               # Logging infrastructure
+│   │   └── Security/              # Security utilities
+│   ├── Extensions/                # Service registration, logging extensions
+│   ├── Configuration/             # Config helpers
+│   └── CodeGenerator/             # Code generation tools
+│
+├── Tests/
+│   └── FlowFlex.Tests/            # xUnit test project
+│
+├── FlowFlex.sln                   # Solution file
+├── Directory.Build.props          # Shared build properties
+├── Dockerfile                     # Container build
+├── docker-compose.yml             # Docker compose for deployment
+├── docker-compose.dev.yml         # Docker compose for development
+└── nuget.config                   # NuGet package sources
+```
+
+## Frontend Structure
+
+```
+packages/flowFlex-common/src/
+├── main.ts                        # Vue app bootstrap
+├── App.vue                        # Root component
+├── app/                           # Application code
+│   ├── apis/                      # API modules (Axios calls)
+│   │   ├── ow/                    # Core APIs (workflow, onboarding, checklist, etc.)
+│   │   ├── ai/                    # AI generation APIs
+│   │   ├── action/                # Action APIs
+│   │   ├── integration/           # Integration APIs
+│   │   ├── dashboard/             # Dashboard APIs
+│   │   ├── messageCenter/         # Message/email APIs
+│   │   ├── login/                 # Auth/login APIs
+│   │   ├── comments/              # Comment APIs
+│   │   ├── global/                # Global/shared APIs
+│   │   ├── model/                 # Model-related APIs
+│   │   ├── pass/                  # Pass-through APIs
+│   │   └── axios/                 # Axios instance config
+│   ├── views/                     # Page-level components
+│   │   ├── onboard/               # Onboarding/case views
+│   │   ├── dashboard/             # Dashboard views
+│   │   ├── actions/               # Action views
+│   │   ├── authorityManagement/   # Permission management views
+│   │   ├── dynamicFields/         # Dynamic field config views
+│   │   ├── integration-settings/  # Integration config views
+│   │   ├── messageCenter/         # Message center views
+│   │   ├── login/                 # Login/auth views
+│   │   └── error/                 # Error page views
+│   ├── components/                # Reusable components
+│   │   ├── global/                # App-wide global components
+│   │   ├── form/                  # Form input components
+│   │   ├── workflow-canvas/       # Workflow canvas/builder
+│   │   ├── action-config/         # Action configuration components
+│   │   ├── ai/                    # AI-related components
+│   │   ├── draggableTable/        # Sortable table components
+│   │   ├── RichTextEditor/        # Rich text editor
+│   │   ├── layout/                # Layout components
+│   │   ├── sidebar/               # Sidebar navigation
+│   │   ├── common/                # Common utilities
+│   │   └── ...                    # Many more component directories
+│   ├── stores/                    # Pinia state management
+│   │   ├── index.ts               # Store registration
+│   │   ├── modules/               # Store modules
+│   │   │   ├── user.ts            # User state
+│   │   │   ├── permission.ts      # Permission state
+│   │   │   ├── workflowCanvas.ts  # Workflow canvas state
+│   │   │   ├── locale.ts          # i18n state
+│   │   │   ├── appEnum.ts         # App enum cache
+│   │   │   ├── multipleTab.ts     # Tab management
+│   │   │   └── menuFunction.ts    # Menu function state
+│   │   └── plugin/                # Store plugins
+│   ├── router/                    # Vue Router configuration
+│   │   ├── index.ts               # Router instance
+│   │   ├── guard/                 # Navigation guards
+│   │   ├── routers/               # Route definitions
+│   │   │   ├── modules/           # Feature route modules
+│   │   │   ├── basic.ts           # Base routes
+│   │   │   └── index.ts           # Route aggregation
+│   │   ├── helper/                # Router helpers
+│   │   ├── constant.ts            # Route constants
+│   │   └── types.ts               # Route types
+│   ├── hooks/                     # Vue composables (use* prefix)
+│   ├── utils/                     # Utility functions
+│   ├── logics/                    # Business logic helpers
+│   ├── config/                    # App configuration
+│   ├── enums/                     # Frontend enum definitions
+│   ├── settings/                  # App settings
+│   └── mitt/                      # Event bus
+├── assets/                        # Static assets (images, icons)
+├── locales/                       # i18n translation files
+├── styles/                        # Global SCSS styles
+└── types/                         # Global TypeScript type definitions
+    ├── onboard.d.ts               # Onboarding types
+    ├── workflow-canvas.d.ts       # Workflow canvas types
+    ├── action.d.ts                # Action types
+    ├── checklist.d.ts             # Checklist types
+    ├── condition.d.ts             # Condition types
+    ├── dashboard.d.ts             # Dashboard types
+    ├── integration.d.ts           # Integration types
+    ├── permission.ts              # Permission types
+    └── ...                        # More type files
 ```
 
 ## Directory Purposes
 
 **`packages/flowFlex-backend/WebApi/Controllers/OW/`:**
-- Purpose: REST API endpoints for the Onboarding Workflow domain
-- Contains: `WorkflowController`, `StageController`, `OnboardingController`, `ChecklistController`, `QuestionnaireController`, `QuestionnaireAnswerController`, `UserController`, `PermissionController`, and more
-- Key files: `packages/flowFlex-backend/WebApi/Controllers/ControllerBase.cs` (base with `Success<T>()` helper)
+- Purpose: Core business API endpoints for the workflow engine
+- Contains: WorkflowController, StageController, OnboardingController, ChecklistController, QuestionnaireController, UserController, PermissionController, DashboardController
+- Key files: `WorkflowController.cs`, `OnboardingController.cs`, `StageController.cs`
 
-**`packages/flowFlex-backend/Application/Services/OW/OnboardingServices/`:**
-- Purpose: Onboarding business logic split into focused service classes
-- Contains: `OnboardingService.cs` (facade), `OnboardingCrudService.cs`, `OnboardingQueryService.cs`, `OnboardingStageManagementService.cs`, `OnboardingStageProgressService.cs`, `OnboardingStatusService.cs`, `OnboardingPermissionService.cs`, `OnboardingHelperService.cs`, `OnboardingUserManagementService.cs`
+**`packages/flowFlex-backend/Application/Services/OW/`:**
+- Purpose: Core business logic implementations
+- Contains: Service classes implementing IService interfaces from Application.Contracts
+- Key files: `WorkflowService.cs`, `StageService.cs`, `OnboardingServices/OnboardingService.cs`, `PermissionService.cs`
 
-**`packages/flowFlex-backend/Domain/Entities/Base/`:**
-- Purpose: Entity base class hierarchy
-- Key files: `OwEntityBase.cs` (snowflake ID, AppCode, TenantId, audit fields), `EntityBaseCreateInfo.cs` (extends EntityBase with ISoftDeletable), `EntityBase.cs` (adds IsValid), `AbstractEntityBase.cs`
+**`packages/flowFlex-backend/Domain/Entities/OW/`:**
+- Purpose: Domain entity definitions for the workflow engine
+- Contains: Workflow, Stage, StageCondition, Onboarding, OnboardingStageProgress, Checklist, ChecklistTask, Questionnaire, QuestionnaireAnswer, User, etc.
+- Key files: `Workflow.cs`, `Stage.cs`, `Onboarding.cs`, `StageCondition.cs`
 
 **`packages/flowFlex-backend/SqlSugarDB/Migrations/`:**
-- Purpose: Timestamp-named SQL migration files applied at startup
-- Generated: No (hand-authored)
+- Purpose: Incremental SQL migration scripts applied on startup
+- Contains: Timestamped `.sql` files
+- Generated: No (hand-written)
 - Committed: Yes
-
-**`packages/flowFlex-common/src/app/apis/axios/`:**
-- Purpose: Axios HTTP client configuration with interceptors
-- Key files: `index.ts` (creates configured Axios instance), `axiosTransform.ts` (request/response transform), `tokenRefresh.ts` (JWT refresh logic), `axiosCancel.ts` (request deduplication)
 
 ## Key File Locations
 
 **Entry Points:**
-- `packages/flowFlex-backend/WebApi/Program.cs`: Backend startup, DI, middleware pipeline
-- `packages/flowFlex-common/src/main.ts`: Frontend bootstrap, Wujie micro-app lifecycle
+- `packages/flowFlex-backend/WebApi/Program.cs`: Backend app bootstrap
+- `packages/flowFlex-common/src/main.ts`: Frontend app bootstrap
 
 **Configuration:**
-- `packages/flowFlex-backend/WebApi/appsettings.json`: Database, JWT, Redis, AI, Email, FileStorage config keys
-- `packages/flowFlex-common/.env.development`: Frontend environment variables
+- `packages/flowFlex-backend/WebApi/appsettings.json`: Backend config (Database, Redis, Security, IdmApis, etc.)
+- `packages/flowFlex-common/.env.development`: Frontend dev environment vars
 
 **Core Logic:**
-- `packages/flowFlex-backend/Application/Services/OW/WorkflowService.cs`: Workflow CRUD and business rules
-- `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingService.cs`: Onboarding facade
-- `packages/flowFlex-backend/SqlSugarDB/BaseRepository.cs`: Generic data access implementation
-- `packages/flowFlex-backend/WebApi/Middlewares/AppIsolationMiddleware.cs`: Multi-tenancy context extraction
-
-**DI Registration:**
-- `packages/flowFlex-backend/WebApi/Extensions/ServiceCollectionExtensions.cs`: SqlSugar, repositories, scoped services
-- `packages/flowFlex-backend/Infrastructure/Extensions/ServiceCollectionExtensions.cs`: Infrastructure services
+- `packages/flowFlex-backend/Application/Services/OW/WorkflowService.cs`: Workflow CRUD
+- `packages/flowFlex-backend/Application/Services/OW/StageService.cs`: Stage management
+- `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/`: Onboarding case logic (split into sub-services)
+- `packages/flowFlex-backend/Application/Services/OW/Permission/`: Permission evaluation
 
 **Testing:**
-- `packages/flowFlex-backend/Tests/FlowFlex.Tests/`: Single test project
+- `packages/flowFlex-backend/Tests/FlowFlex.Tests/`: Backend unit tests (xUnit)
 
 ## Naming Conventions
 
-**Backend Files:**
-- Entities: `PascalCase.cs` matching table name without `ff_` prefix (e.g., `Workflow.cs` → `ff_workflow`)
-- Services: `{Entity}Service.cs` (e.g., `WorkflowService.cs`)
-- Service interfaces: `I{Entity}Service.cs` (e.g., `IWorkflowService.cs`)
-- Repository interfaces: `I{Entity}Repository.cs` (e.g., `IWorkflowRepository.cs`)
-- DTOs: `{Entity}Dto.cs`, `{Entity}InputDto.cs`, `{Entity}OutputDto.cs`
+**Files (Backend):**
+- Entities: PascalCase matching class name (`Workflow.cs`, `StageCondition.cs`)
+- Services: `{Entity}Service.cs` (`WorkflowService.cs`)
+- Interfaces: `I{Entity}Service.cs` or `I{Entity}Repository.cs`
 - Controllers: `{Entity}Controller.cs`
-- AutoMapper profiles: `{Entity}MapProfile.cs`
+- DTOs: Grouped in `Dtos/{Domain}/{Entity}/` folders
+- AutoMapper: `{Entity}MapProfile.cs`
+- Migrations: `{timestamp}_{description}.sql`
 
-**Database:**
-- Tables: `ff_` prefix + snake_case (e.g., `ff_workflow`, `ff_onboarding_stage_progress`)
-- Columns: snake_case (auto-converted from PascalCase by SqlSugar `ToUnderLine()`)
-- Primary keys: `id` (snowflake long)
-- Audit columns: `create_date`, `modify_date`, `create_by`, `modify_by`, `create_user_id`, `modify_user_id`
-- Soft delete: `is_valid` (bool)
-- Multi-tenancy: `app_code`, `tenant_id`
+**Files (Frontend):**
+- Views: `index.vue` inside feature directories
+- APIs: `camelCase.ts` inside domain directories
+- Components: PascalCase directories with `index.vue`
+- Stores: `camelCase.ts` inside `modules/`
+- Types: `kebab-case.d.ts`
+- Route modules: `camelCase.ts`
 
-**Frontend Files:**
-- Vue components: `PascalCase.vue` or `kebab-case.vue`
-- TypeScript modules: `camelCase.ts`
-- API modules: `kebab-case.ts` matching feature name (e.g., `onboarding.ts`, `change-log.ts`)
-- Store modules: `camelCase.ts` (e.g., `user.ts`, `permission.ts`)
-- Route modules: `camelCase.ts` (e.g., `workflow.ts`, `onboard.ts`)
+**Directories:**
+- Backend domain grouping: `OW/`, `AI/`, `Action/`, `Integration/`, `DynamicData/`, `Shared/`
+- Frontend domain grouping: `ow/`, `ai/`, `action/`, `integration/`, `messageCenter/`
 
 ## Where to Add New Code
 
-**New Backend Feature (e.g., new OW entity):**
-1. Domain entity: `packages/flowFlex-backend/Domain/Entities/OW/{Entity}.cs` — extend `EntityBaseCreateInfo`
-2. Repository interface: `packages/flowFlex-backend/Domain/Repository/OW/I{Entity}Repository.cs` — extend `IBaseRepository<{Entity}>`
-3. Repository implementation: `packages/flowFlex-backend/SqlSugarDB/Repositories/OW/{Entity}Repository.cs` — extend `BaseRepository<{Entity}>`
-4. DTOs: `packages/flowFlex-backend/Application.Contracts/Dtos/OW/{Entity}/{Entity}Dto.cs` and `{Entity}InputDto.cs`
-5. Service interface: `packages/flowFlex-backend/Application.Contracts/IServices/OW/I{Entity}Service.cs`
-6. Service implementation: `packages/flowFlex-backend/Application/Services/OW/{Entity}Service.cs` — implement `I{Entity}Service, IScopedService`
-7. AutoMapper profile: `packages/flowFlex-backend/Application/Maps/{Entity}MapProfile.cs` — register in `Program.cs`
-8. Controller: `packages/flowFlex-backend/WebApi/Controllers/OW/{Entity}Controller.cs` — extend `Controllers.ControllerBase`
-9. Migration: `packages/flowFlex-backend/SqlSugarDB/Migrations/{timestamp}_{description}.sql`
+**New Backend Feature (OW domain):**
+1. Entity: `Domain/Entities/OW/{Entity}.cs` - extend `EntityBaseCreateInfo`
+2. Repository interface: `Domain/Repository/OW/I{Entity}Repository.cs` - extend `IBaseRepository<{Entity}>`
+3. Repository impl: `SqlSugarDB/Repositories/OW/{Entity}Repository.cs` - extend `BaseRepository<{Entity}>`
+4. DTOs: `Application.Contracts/Dtos/OW/{Entity}/`
+5. Service interface: `Application.Contracts/IServices/OW/I{Entity}Service.cs`
+6. Service impl: `Application/Services/OW/{Entity}Service.cs` - implement `I{Entity}Service, IScopedService`
+7. AutoMapper profile: `Application/Maps/{Entity}MapProfile.cs`
+8. Controller: `WebApi/Controllers/OW/{Entity}Controller.cs` - extend `ControllerBase`
+9. Migration (if needed): `SqlSugarDB/Migrations/{timestamp}_{description}.sql`
 
 **New Frontend Feature:**
-1. API module: `packages/flowFlex-common/src/app/apis/{domain}/{feature}.ts`
-2. View: `packages/flowFlex-common/src/app/views/{feature}/index.vue`
-3. Route: add to `packages/flowFlex-common/src/app/router/routers/modules/{feature}.ts`
-4. Store (if needed): `packages/flowFlex-common/src/app/stores/modules/{feature}.ts`
+1. API module: `src/app/apis/{domain}/{feature}.ts`
+2. View: `src/app/views/{feature}/index.vue`
+3. Route: `src/app/router/routers/modules/{feature}.ts`
+4. Store (if needed): `src/app/stores/modules/{feature}.ts` - ID prefix `item-wfe-app-`
+5. Types: `src/types/{feature}.d.ts`
 
 **New Shared UI Component:**
-- Reusable across views: `packages/flowFlex-common/src/app/components/global/{ComponentName}/index.vue`
-- Form input: `packages/flowFlex-common/src/app/components/form/{componentName}/`
+- Reusable: `src/app/components/global/{ComponentName}/index.vue`
+- Form input: `src/app/components/form/{componentName}/`
 
-**New AI Service:**
-- Implementation: `packages/flowFlex-backend/Application/Services/AI/{Feature}/`
-- Interface: `packages/flowFlex-backend/Application.Contracts/IServices/AI/I{Feature}Service.cs`
-- Base class: extend `AIServiceBase` at `packages/flowFlex-backend/Application/Services/AI/AIServiceBase.cs`
+**New Backend Integration:**
+1. Entity: `Domain/Entities/Integration/{Entity}.cs`
+2. Repository: `Domain/Repository/Integration/` + `SqlSugarDB/Repositories/Integration/`
+3. Service: `Application.Contracts/IServices/Integration/` + `Application/Services/Integration/`
+4. Controller: `WebApi/Controllers/Integration/{Entity}Controller.cs`
 
-**Utilities:**
-- Backend shared helpers: `packages/flowFlex-backend/Application/Helpers/`
-- Frontend shared utils: `packages/flowFlex-common/src/app/utils/`
+**New Middleware:**
+- File: `WebApi/Middlewares/{Name}Middleware.cs`
+- Register in: `WebApi/Program.cs` (order matters - see existing pipeline)
+
+**New Background Service:**
+- Implementation: `Infrastructure/Services/{Name}Service.cs`
+- Register in: `WebApi/Program.cs` via `AddHostedService<>()`
 
 ## Special Directories
 
-**`.claude/skills/`:**
-- Purpose: Reusable Claude AI skill definitions for this project
-- Generated: No
+**`SqlSugarDB/Migrations/`:**
+- Purpose: SQL migration scripts run at startup by MigrationManager
+- Generated: No (manually written)
 - Committed: Yes
 
-**`.planning/codebase/`:**
-- Purpose: Codebase analysis documents consumed by GSD planning commands
-- Generated: Yes (by `/gsd-map-codebase`)
+**`packages/flowFlex-common/node_modules/`:**
+- Purpose: npm dependencies
+- Generated: Yes (pnpm install)
+- Committed: No (.gitignore)
+
+**`packages/flowFlex-backend/*/bin/` and `obj/`:**
+- Purpose: Build output
+- Generated: Yes (dotnet build)
+- Committed: No (.gitignore)
+
+**`.planning/`:**
+- Purpose: GSD workflow planning artifacts and codebase analysis
+- Generated: By AI tooling
 - Committed: Yes
 
-**`packages/flowFlex-backend/SqlSugarDB/Migrations/`:**
-- Purpose: SQL migration files applied at startup via `InitializeDatabase()`
-- Generated: No (hand-authored)
+**`specs/`:**
+- Purpose: Feature specifications and design documents
+- Generated: No (manually authored)
 - Committed: Yes
-
-**`packages/flowFlex-backend/WebApi/wwwroot/uploads/`:**
-- Purpose: Local file upload storage (dev only; production uses cloud storage)
-- Generated: Yes (created at runtime)
-- Committed: No
-
-**`packages/flowFlex-backend/bin/` and `obj/`:**
-- Purpose: .NET build output
-- Generated: Yes
-- Committed: No
 
 ---
 
-*Structure analysis: 2026-05-25*
+*Structure analysis: 2026-06-08*

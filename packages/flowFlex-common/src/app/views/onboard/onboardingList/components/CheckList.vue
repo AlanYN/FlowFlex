@@ -142,6 +142,7 @@
 			:stage-id="stageId"
 			:disabled="disabled"
 			@update:task="handleTaskUpdate"
+			@note-updated="handleNoteUpdated"
 		/>
 	</div>
 </template>
@@ -282,6 +283,11 @@ const openTaskDetails = (task: TaskData) => {
 const handleTaskUpdate = () => {
 	emit('refreshChecklist', props.onboardingId, props.stageId);
 	dialogVisible.value = false;
+};
+
+// 处理 note 添加/删除后刷新 checklist 数据以更新 count
+const handleNoteUpdated = () => {
+	emit('refreshChecklist', props.onboardingId, props.stageId);
 };
 
 // 获取分配人姓名的缩写 - 使用缓存优化性能
