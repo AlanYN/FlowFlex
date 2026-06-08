@@ -368,7 +368,8 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	'update:visible': [value: boolean];
 	'update:task': [task: TaskData];
-	'note-updated': [];
+	'note-updated': [taskId: string, delta: number];
+	refreshChecklist: [];
 }>();
 
 // 响应式数据
@@ -571,7 +572,24 @@ const addNote = async () => {
 			newNoteContent.value = '';
 			showAddNoteInput.value = false;
 			await loadTaskNotes();
-			emit('note-updated');
+			emit('note-updated', String(props.task?.id), 1);
+
+			// Silent save to ensure completion record exists for correct notesCount
+			await saveCheckListTask({
+				checklistId: props.task.checklistId,
+				isCompleted: props.task.isCompleted,
+				onboardingId: String(props.onboardingId),
+				stageId: props.stageId,
+				taskId: String(props.task.id),
+				filesJson: JSON.stringify(
+					localTask.value.attachments?.map((a) => ({
+						fileName: a.name,
+						accessUrl: a.url || '',
+						fileSize: a.size || 0,
+					})) || []
+				),
+			});
+			emit('refreshChecklist');
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
@@ -651,7 +669,24 @@ const removeNote = async (index: number) => {
 		if (res.code === '200') {
 			// 重新加载笔记列表
 			await loadTaskNotes();
-			emit('note-updated');
+			emit('note-updated', String(props.task?.id), -1);
+
+			// Silent save to ensure completion record is updated for correct notesCount
+			await saveCheckListTask({
+				checklistId: props.task.checklistId,
+				isCompleted: props.task.isCompleted,
+				onboardingId: String(props.onboardingId),
+				stageId: props.stageId,
+				taskId: String(props.task.id),
+				filesJson: JSON.stringify(
+					localTask.value.attachments?.map((a) => ({
+						fileName: a.name,
+						accessUrl: a.url || '',
+						fileSize: a.size || 0,
+					})) || []
+				),
+			});
+			emit('refreshChecklist');
 
 			ElMessage.success(t('sys.api.operationSuccess'));
 		} else {
