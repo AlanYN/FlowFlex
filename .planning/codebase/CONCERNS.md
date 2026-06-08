@@ -1,218 +1,256 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-05-25
+**Analysis Date:** 2026-06-08
 
-## Tech Debt
+## Critical (Security Vulnerabilities, Data Loss Risks)
 
-**Unimplemented StageService methods (10 stubs):**
-- Issue: Ten interface methods in `StageService` throw `NotImplementedException` with "will be implemented in next phase" messages. These are registered in DI and reachable via `StageController` and `WorkflowController`.
-- Files: `packages/flowFlex-backend/Application/Services/OW/StageService.cs` (lines 1182–1423)
-- Impact: Any caller hitting `GetStageContentAsync`, `UpdateChecklistTaskAsync`, `SubmitQuestionnaireAnswerAsync`, `UploadStageFileAsync`, `DeleteStageFileAsync`, `ValidateStageCompletionAsync`, `AddStageNoteAsync`, `GetStageNotesAsync`, `UpdateStageNoteAsync`, `DeleteStageNoteAsync` will receive a 500 error at runtime.
-- Fix approach: Implement each method or remove from the interface and controller routing until ready.
+**CORS Policy Allows Any Origin:**
+- Issue: `Program.cs` registers an `"AllowAll"` CORS policy with `AllowAnyOrigin()`, `AllowAnyMethod()`, and `AllowAnyHeader()`. Applied globally via `app.UseCors("AllowAll")`.
+- Files: `packages/flowFlex-backend/WebApi/Program.cs:337-346,557`
+- Impact: Any domain can make cross-origin requests to authenticated API endpoints. While JWT is still required, this enables credential-stealing attacks if a user visits a malicious site while authenticated.
+- Fix approach: Restrict to explicit allowed origins from configuration. Use `WithOrigins(...)` with environment-specific domain lists.
 
-**Mixed JSON serialization libraries:**
-- Issue: The codebase uses both `System.Text.Json` (80 files) and `Newtonsoft.Json` (89 files) with no clear boundary. Several files import both. `StageConditionService.cs` uses `Newtonsoft.Json.Linq.JToken` for semantic comparison while the rest of the service uses `System.Text.Json`.
-- Files: `packages/flowFlex-backend/Application/Services/OW/StageCondition/StageConditionService.cs`, `packages/flowFlex-backend/Application/Services/OW/ChangeLog/QuestionnaireAnswerParser.cs`, and ~170 other files
-- Impact: Inconsistent serialization behavior (null handling, date formats, property naming), increased binary size, subtle bugs when objects cross library boundaries.
-- Fix approach: Standardize on `System.Text.Json` throughout; replace `Newtonsoft.Json.Linq` usage with `System.Text.Json.Nodes`.
+**Hardcoded Secrets in Git-Tracked appsettings.json:**
+- Issue: `appsettings.json` is committed to git and contains weak placeholder secrets: `Password=123456` for DB and Redis, `JwtSecretKey=CHANGE_THIS_SECRET_KEY...`, `SecretAccessKey=your-secret-access-key`, `Password=your_smtp_password`.
+- Files: `packages/flowFlex-backend/WebApi/appsettings.json:3,14,28,43,78`
+- Impact: If developers deploy without overriding, production runs with known-weak credentials. Secrets are permanently in git history.
+- Fix approach: Move all secrets to `appsettings.Development.json` (already gitignored) or environment variables. Remove real connection string patterns from tracked files. Rotate any credentials that match these patterns in deployed environments.
 
-**Redis cache not configured for production:**
-- Issue: `Program.cs` uses `AddDistributedMemoryCache()` as a fallback with a TODO comment to configure Redis. The Redis-backed `IDistributedCache` is never wired up. `CaseCodeGeneratorService` and `ActionCodeGeneratorService` depend on `IRedisService` (a separate `Item.Redis` abstraction), but the distributed cache used by `StageService`, `ChecklistTaskService`, and `LogCacheService` is in-memory only.
-- Files: `packages/flowFlex-backend/WebApi/Program.cs` (lines 459–467), `packages/flowFlex-backend/Application/Services/OW/StageService.cs`, `packages/flowFlex-backend/Application/Services/OW/ChecklistTaskService.cs`, `packages/flowFlex-backend/Application/Services/OW/ChangeLog/LogCacheService.cs`
-- Impact: Cache is not shared across multiple API instances; horizontal scaling will cause cache inconsistency and stale data.
-- Fix approach: Configure `AddStackExchangeRedisCache` in production and remove the in-memory fallback.
+**Frontend .env Files Committed to Git:**
+- Issue: All `.env.*` files are tracked in git: `.env`, `.env.development`, `.env.localhost`, `.env.preview`, `.env.production`, `.env.stage`. The `.gitignore` does not exclude them.
+- Files: `packages/flowFlex-common/.env*` (confirmed via `git ls-files`)
+- Impact: Internal URLs, API endpoints, and any future secrets added to these files are permanently in git history.
+- Fix approach: Add `.env*` to root `.gitignore`, use `.env.example` for templates. Audit current env files for sensitive values.
 
-**Duplicate migration files for AppCode column:**
-- Issue: Two migration files (`20241219000001_AddAppCodeColumn.cs` and `20241219000002_AddAppCodeColumnSafe.cs`) perform the same schema change. The second was added as a "safe" retry of the first.
-- Files: `packages/flowFlex-backend/SqlSugarDB/Migrations/20241219000001_AddAppCodeColumn.cs`, `packages/flowFlex-backend/SqlSugarDB/Migrations/20241219000002_AddAppCodeColumnSafe.cs`
-- Impact: Migration history is misleading; idempotency logic is duplicated.
-- Fix approach: Consolidate into a single idempotent migration and remove the duplicate.
+**XSS via v-html Without Sanitization (3 Locations):**
+- Issue: Multiple Vue components use `v-html` with unsanitized content despite `DOMPurify` being available in the project:
+  1. `AIWorkflowGenerator.vue:78` — `formatAIMessage()` only does `content.replace(/\n/g, '<br>')` (line 4075-4077), no sanitization
+  2. `activityCard.vue:92` — raw `item.content` rendered as HTML
+  3. `JsonResultRenderer.vue:51,166` — renders formatted JSON as HTML (lower risk but still unsanitized)
+- Files:
+  - `packages/flowFlex-common/src/app/components/ai/AIWorkflowGenerator.vue:78`
+  - `packages/flowFlex-common/src/app/components/drawer/components/activityCard.vue:92`
+  - `packages/flowFlex-common/src/app/components/actionTools/JsonResultRenderer.vue:51,166`
+- Impact: AI-generated content or user-submitted data containing `<script>` tags executes in the browser. `DOMPurify` exists at `src/app/utils/sanitizeInput.ts` and in `MarkdownRenderer.vue` but is not used in these locations.
+- Fix approach: Pipe all `v-html` content through `DOMPurify.sanitize()` before binding. The utility already exists — just apply it.
 
-**`storageCache.ts` marked for full removal:**
-- Issue: `packages/flowFlex-common/src/app/utils/cache/storageCache.ts` has a top-level comment `// TODO 移除此文件夹下全部代码` (remove all code in this folder). The file is still present and may still be imported.
-- Files: `packages/flowFlex-common/src/app/utils/cache/storageCache.ts`
-- Impact: Dead code increases bundle size and confuses future developers.
-- Fix approach: Audit imports, migrate any remaining callers, then delete the file.
-
-**`isObject` / `isArray` type utility ambiguity:**
-- Issue: `packages/flowFlex-common/src/app/utils/is.ts` (lines 46, 51) has TODO comments noting that `isObject` and `isArray` have ambiguous semantics. These utilities are likely used widely across the frontend.
-- Files: `packages/flowFlex-common/src/app/utils/is.ts`
-- Impact: Incorrect type narrowing can cause silent runtime errors in data handling.
-- Fix approach: Clarify semantics, add JSDoc, and audit call sites.
-
-**`DashboardService` uses scoped in-memory workflow cache without TTL:**
-- Issue: `DashboardService` maintains a `Dictionary<long, Workflow> _workflowCache` as an instance field, populated lazily and never invalidated. Since it is registered as `IScopedService`, the cache lives only for the request scope — providing no real caching benefit while adding locking overhead.
-- Files: `packages/flowFlex-backend/Application/Services/OW/DashboardService.cs` (lines 40–100)
-- Impact: The lock on `_workflowCacheLock` is unnecessary for a scoped service; the pattern misleads future developers into thinking caching is in place.
-- Fix approach: Remove the instance-level cache and use the existing `IDistributedCacheService` or a singleton cache service.
-
-**`BaseOperationLogService` is the largest file at 4,726 lines:**
-- Issue: `BaseOperationLogService.cs` is a 4,726-line abstract class handling all operation log logic. `ActionManagementService.cs` (2,513 lines), `ExternalIntegrationService.cs` (2,468 lines), and `AIProviderAdapter.cs` (2,327 lines) are similarly oversized.
-- Files: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/BaseOperationLogService.cs`, `packages/flowFlex-backend/Application/Services/Action/ActionManagementService.cs`, `packages/flowFlex-backend/Application/Services/Integration/ExternalIntegrationService.cs`, `packages/flowFlex-backend/Application/Services/AI/Providers/AIProviderAdapter.cs`
-- Impact: High cognitive load, difficult to test in isolation, merge conflicts likely.
-- Fix approach: Extract cohesive sub-responsibilities into dedicated services.
-
-**Frontend `RichTextEditor` uses `innerHTML` directly:**
-- Issue: `packages/flowFlex-common/src/app/components/RichTextEditor/index.vue` (line 116) assigns `span.innerHTML = f.innerHTML` without sanitization.
-- Files: `packages/flowFlex-common/src/app/components/RichTextEditor/index.vue`
-- Impact: If rich text content originates from user input or external data, this is an XSS vector.
-- Fix approach: Pass content through `DOMPurify.sanitize()` (already available in the project) before assigning to `innerHTML`.
-
-**`activityCard.vue` renders unsanitized content via `v-html`:**
-- Issue: `packages/flowFlex-common/src/app/components/drawer/components/activityCard.vue` (line 92) binds `item.content` directly to `v-html` with no sanitization step.
-- Files: `packages/flowFlex-common/src/app/components/drawer/components/activityCard.vue`
-- Impact: If `item.content` contains user-generated or API-sourced HTML, this is an XSS vector.
-- Fix approach: Sanitize with `DOMPurify.sanitize()` in a computed property before binding.
-
-**`AIWorkflowGenerator.vue` renders AI response content via unsanitized `v-html`:**
-- Issue: `formatAIMessage` in `packages/flowFlex-common/src/app/components/ai/AIWorkflowGenerator.vue` (line 4075–4077) only replaces `\n` with `<br>` and the result is bound directly to `v-html`. AI-generated content is untrusted.
-- Files: `packages/flowFlex-common/src/app/components/ai/AIWorkflowGenerator.vue`
-- Impact: Malicious or unexpected AI output containing HTML/script tags will execute in the browser.
-- Fix approach: Sanitize with `DOMPurify.sanitize()` after the newline replacement.
+**Client Credentials Token Bypasses All Permission Checks:**
+- Issue: `IsClientCredentialsToken()` checks only the auth scheme. When true, it grants unrestricted access across 6+ permission check points with no scope or tenant validation.
+- Files:
+  - `packages/flowFlex-backend/Application/Services/OW/Permission/PermissionHelpers.cs:278-281`
+  - `packages/flowFlex-backend/Application/Services/OW/PermissionService.cs:216,377,580`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingPermissionService.cs:56,98,151,201,266,285,303`
+- Impact: Any valid client credentials token has god-mode access to all tenants and all operations. A single leaked client secret compromises the entire system.
+- Fix approach: Implement scope-based restrictions for client tokens. Validate that the client is authorized for the specific `AppCode`/`TenantId` and operation type.
 
 ---
 
-## Security Considerations
+## High (Significant Tech Debt, Performance Bottlenecks)
 
-**CORS policy allows any origin:**
-- Risk: `Program.cs` registers an `"AllowAll"` CORS policy with `AllowAnyOrigin()`, `AllowAnyMethod()`, and `AllowAnyHeader()`. This policy is applied globally.
-- Files: `packages/flowFlex-backend/WebApi/Program.cs` (lines 337–346)
-- Current mitigation: JWT authentication still required on most endpoints.
-- Recommendations: Restrict `WithOrigins(...)` to known frontend domains in production. Use environment-specific CORS configuration.
+**Distributed Cache Falls Back to In-Memory in Production:**
+- Issue: Production uses `AddDistributedMemoryCache()` as "fallback" (line 467). This is per-process memory, not distributed. Redis configuration is commented out with a TODO.
+- Files: `packages/flowFlex-backend/WebApi/Program.cs:459-467`
+- Impact: In multi-pod deployments: rate limiting is bypassed (each pod has separate counters), cached data is inconsistent across instances, session data is not shared.
+- Fix approach: Configure `AddStackExchangeRedisCache` for non-development environments.
 
-**Broad `[AllowAnonymous]` surface on `UserController`:**
-- Issue: `UserController` has 9 anonymous endpoints (lines 41–291), including what appear to be auth, token refresh, and user lookup routes.
-- Files: `packages/flowFlex-backend/WebApi/Controllers/OW/UserController.cs`
-- Current mitigation: Some endpoints are expected to be public (login, password reset).
-- Recommendations: Audit each `[AllowAnonymous]` endpoint to confirm it requires no identity context. Add rate limiting to all anonymous auth endpoints.
+**Rate Limiting Uses In-Memory Cache (Per-Process, Not Distributed):**
+- Issue: `RateLimitAttribute` uses `IMemoryCache` for sliding-window rate limiting. With multiple pods, each maintains separate counters.
+- Files: `packages/flowFlex-backend/WebApi/Filters/RateLimitAttribute.cs:34,45-68`
+- Impact: Rate limits are trivially bypassed in multi-instance deployments. An attacker hitting different pods gets `N * pod_count` requests per window.
+- Fix approach: Switch to `IDistributedCache` or a Redis-backed rate limiter. Depends on fixing the distributed cache configuration first.
 
-**`StageController` has an `[AllowAnonymous]` endpoint bypassing JWT for Portal tokens:**
-- Risk: Line 542 of `StageController.cs` has `[AllowAnonymous]` with the comment "Allow anonymous to bypass JWT expiration check for Portal tokens". This means stage data is accessible without standard JWT validation.
-- Files: `packages/flowFlex-backend/WebApi/Controllers/OW/StageController.cs` (line 542)
-- Current mitigation: Presumably validated by a separate portal token mechanism.
-- Recommendations: Document the portal token validation logic explicitly; add integration tests covering the auth bypass path.
+**Massive Service Files (God Objects):**
+- Issue: Multiple files far exceed maintainable size, violating single responsibility:
+- Files (line counts):
+  - `packages/flowFlex-backend/Application/Services/OW/ChangeLog/BaseOperationLogService.cs` — 4,726 lines
+  - `packages/flowFlex-backend/Application/Services/OW/StageService.cs` — 3,223 lines
+  - `packages/flowFlex-backend/Application/Services/Action/ActionManagementService.cs` — 2,513 lines
+  - `packages/flowFlex-backend/Application/Services/Integration/ExternalIntegrationService.cs` — 2,468 lines
+  - `packages/flowFlex-backend/Application/Services/AI/Providers/AIProviderAdapter.cs` — 2,327 lines
+  - `packages/flowFlex-backend/Application/Services/OW/UserService.cs` — 2,322 lines
+  - `packages/flowFlex-backend/Application/Services/OW/ChangeLog/QuestionnaireAnswerParser.cs` — 2,195 lines
+  - `packages/flowFlex-common/src/app/components/ai/AIWorkflowGenerator.vue` — 6,378 lines
+  - `packages/flowFlex-common/src/app/components/actionTools/HttpConfig.vue` — 3,679 lines
+  - `packages/flowFlex-common/src/app/views/onboard/overview/customer-overview.vue` — 3,398 lines
+- Impact: High cognitive load, difficult to test, frequent merge conflicts. Single changes require understanding thousands of lines of context.
+- Fix approach: Extract cohesive sub-services/composables. Prioritize `BaseOperationLogService` (already has `LegacyAdapter` hinting at migration) and `StageService` (contains 10 stubs that should be a separate interface).
 
-**Broad `catch (Exception)` throughout the codebase:**
-- Risk: Hundreds of `catch (Exception ex)` blocks across services, helpers, and AutoMapper profiles swallow unexpected errors and log them without re-throwing. Some use bare `catch { break; }` or `catch { return; }` with no logging at all.
-- Files: `packages/flowFlex-backend/Application/Maps/OnboardingMapProfile.cs` (line 273), `packages/flowFlex-backend/Application/Services/Action/ActionContextBuilder.cs` (line 271), and many others
-- Current mitigation: Global exception middleware catches unhandled exceptions.
-- Recommendations: Replace silent catches with specific exception types. Never use bare `catch { }` without at minimum a log statement.
+**10 NotImplementedException Stubs Exposed via Public API:**
+- Issue: Ten public interface methods in `StageService` throw `NotImplementedException` at runtime.
+- Files: `packages/flowFlex-backend/Application/Services/OW/StageService.cs:1221,1227,1233,1239,1245,1251,1449,1455,1461,1467`
+- Impact: Any consumer calling these methods gets a 500 error. The global exception handler catches it but the endpoint still fails.
+- Fix approach: Either implement, remove from the interface, or return a proper `CRMException(ErrorCodeEnum.NotSupported, ...)` business error.
 
-**`throw new Exception(...)` used for domain errors:**
-- Risk: Domain and service errors are thrown as base `System.Exception` rather than typed domain exceptions. This makes it impossible for callers to distinguish error categories.
-- Files: `packages/flowFlex-backend/Application/Services/OW/UserService.cs`, `packages/flowFlex-backend/Application/Services/OW/UserInvitationService.cs`, `packages/flowFlex-backend/Application/Services/OW/PluginPriceListService.cs`, `packages/flowFlex-backend/Application/Services/OW/IdmUserDataClient.cs`
-- Impact: Global exception handler cannot differentiate 400-level from 500-level errors without string matching.
-- Fix approach: Introduce typed exceptions (e.g., `NotFoundException`, `ValidationException`, `UnauthorizedException`) and map them in the global handler.
+**Mixed JSON Libraries (Newtonsoft + System.Text.Json):**
+- Issue: 176 Newtonsoft.Json usages vs 482 System.Text.Json usages across Application/Services. Several files import both.
+- Files: `packages/flowFlex-backend/Application/Services/Action/` (primarily Newtonsoft), `packages/flowFlex-backend/Application/Services/OW/StageCondition/StageConditionService.cs` (uses both)
+- Impact: Inconsistent serialization behavior (null handling, date formats, property naming). Subtle bugs when objects cross library boundaries.
+- Fix approach: Standardize on `System.Text.Json`. Replace `Newtonsoft.Json.Linq.JToken` with `System.Text.Json.Nodes.JsonNode`.
+
+**Static ConcurrentDictionary in AIProviderAdapter (Memory Leak):**
+- Issue: `_jwtTokenCache` is a static `ConcurrentDictionary` with no eviction. Entries are added (line 2119) but never removed, even after token expiry.
+- Files: `packages/flowFlex-backend/Application/Services/AI/Providers/AIProviderAdapter.cs:27,2074,2119`
+- Impact: Tokens accumulate indefinitely over application lifetime. Each unique cache key adds an entry that persists until app restart.
+- Fix approach: Add periodic cleanup of expired entries, or use `IMemoryCache` with absolute expiration.
+
+**Static ConcurrentDictionary in OnboardingStageProgressService (Leak on Failure):**
+- Issue: `_initializingEntities` tracks entities being initialized. Added at line 569, removed at line 607 on success. Exception paths may not clean up.
+- Files: `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingStageProgressService.cs:40,569,607`
+- Impact: If initialization fails without reaching the cleanup code, the entity ID remains in the static dictionary permanently, blocking future initialization attempts for that entity.
+- Fix approach: Wrap in try/finally to ensure cleanup. Consider using a distributed lock (Redis) for cross-instance coordination.
 
 ---
 
-## Performance Bottlenecks
+## Medium (Code Quality, Maintainability)
 
-**`BaseOperationLogService.cs` at 4,726 lines likely contains repeated DB queries:**
-- Problem: The change log service is the largest file in the codebase. Without further profiling, large log services commonly perform per-entity queries in loops.
-- Files: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/BaseOperationLogService.cs`
-- Cause: Monolithic design makes it hard to batch or cache log lookups.
-- Improvement path: Profile with slow query logging enabled; extract batch-load patterns.
+**Swallowed Exceptions (Empty Catch Blocks) — 30+ Locations:**
+- Issue: Bare `catch { }` or `catch { return; }` blocks silently discard errors with no logging.
+- Files:
+  - `packages/flowFlex-backend/Application/Services/Action/ActionContextBuilder.cs:271`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingCrudService.cs:224,1088,1402,1419`
+  - `packages/flowFlex-backend/Application/Services/OW/QuestionnaireService.cs:130`
+  - `packages/flowFlex-backend/Application/Services/OW/StageCondition/ActionExecutor.cs:184`
+  - `packages/flowFlex-backend/Application/Services/OW/StageService.cs:1750`
+  - `packages/flowFlex-backend/Application/Services/OW/WorkflowService.cs:1551`
+  - `packages/flowFlex-backend/Application/Maps/OnboardingMapProfile.cs:251,273,297,337`
+  - `packages/flowFlex-backend/Application/Maps/OperationChangeLogMapProfile.cs:89,130,138,173`
+  - `packages/flowFlex-backend/Application/Maps/MessageMapProfile.cs:62,75`
+  - `packages/flowFlex-backend/Application/Maps/QuestionnaireMapProfile.cs:78,93`
+  - `packages/flowFlex-backend/Application/Maps/StageMapProfile.cs:313,328,370`
+  - `packages/flowFlex-backend/Application/Maps/WorkflowMapProfile.cs:106`
+  - `packages/flowFlex-backend/Application/Helpers/OW/OnboardingSharedUtilities.cs:69,89,306`
+  - `packages/flowFlex-backend/Application/Helpers/JsonParseHelper.cs:176`
+- Impact: Silent failures make debugging extremely difficult. Data corruption can occur without any trace.
+- Fix approach: At minimum, add `_logger.LogWarning(ex, "...")` in every catch block. For critical paths (ActionExecutor, CrudService), rethrow or return error status.
 
-**`QuestionnaireAnswerParser.cs` uses JSON serialization for equality comparison:**
-- Problem: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/QuestionnaireAnswerParser.cs` (line 1705–1707) serializes two objects to JSON strings and compares the strings to check equality. This is called during change log diffing.
-- Files: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/QuestionnaireAnswerParser.cs`
-- Cause: No structural equality implementation on answer types.
-- Improvement path: Implement `IEquatable<T>` on answer DTOs or use `JsonNode.DeepEquals` (System.Text.Json).
+**Deprecated Code Still Wired Into the System (20+ Locations):**
+- Issue: Entities, interfaces, and methods marked `[Obsolete]` are still registered and callable.
+- Files:
+  - `packages/flowFlex-backend/Domain/Entities/OW/Checklist.cs:13` — deprecated DTO
+  - `packages/flowFlex-backend/Domain/Entities/OW/Questionnaire.cs:13` — deprecated DTO
+  - `packages/flowFlex-backend/Domain/Entities/Integration/FieldMapping.cs:58` — old entity
+  - `packages/flowFlex-backend/Application.Contracts/IServices/Integration/IFieldMappingService.cs:49` — old service
+  - `packages/flowFlex-backend/Application.Contracts/Dtos/OW/Onboarding/OnboardingInputDto.cs:167` — `CustomFieldsJson` deprecated
+  - `packages/flowFlex-backend/Domain.Shared/Models/QueryConditionModel.cs:68,80,138` — deprecated methods
+  - `packages/flowFlex-backend/Application/Services/OW/StageService.cs:1847` — deprecated method
+- Impact: Developers may accidentally use deprecated APIs. Dead code increases cognitive load and maintenance burden.
+- Fix approach: Create a migration plan with removal timeline. Migrate callers of `IFieldMappingService` to `IInboundFieldMappingService`.
 
-**In-memory distributed cache prevents horizontal scaling:**
-- Problem: `AddDistributedMemoryCache()` is used as the `IDistributedCache` implementation. Under load with multiple API pods, each pod has its own cache island.
-- Files: `packages/flowFlex-backend/WebApi/Program.cs` (lines 459–467)
-- Cause: Redis not yet configured (see Tech Debt section).
-- Improvement path: Configure Redis as described in the Tech Debt section.
+**FluentValidation Installed But No Validators Implemented:**
+- Issue: `FluentValidation.AspNetCore` DLL is present but no `AbstractValidator<T>` classes exist in the codebase. Validation is done ad-hoc inside service methods.
+- Files: `packages/flowFlex-backend/packages/fluentvalidation/11.5.1/` (DLL only)
+- Impact: Request DTOs are not validated at the pipeline level. Each service must remember to validate inputs manually. Missing validation = silent data corruption.
+- Fix approach: Create validators for critical input DTOs (onboarding creation, workflow configuration, action config). Register via `AddFluentValidationAutoValidation()`.
+
+**Raw SQL Bypasses Multi-Tenancy Global Filters (25+ Locations):**
+- Issue: `db.Ado.ExecuteCommandAsync` with raw SQL strings bypasses SqlSugar's global filters for `AppCode`, `TenantId`, and `IsValid` (soft-delete).
+- Files:
+  - `packages/flowFlex-backend/Application/Services/Integration/ExternalIntegrationService.cs:358,390,439`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingCrudService.cs:356,470,745,1449,1479,1497`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingStageProgressService.cs:710,802,834,853,951`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingStatusService.cs:134`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingUserManagementService.cs:474`
+  - `packages/flowFlex-backend/Application/Services/OW/OnboardingServices/OnboardingStageManagementService.cs:689`
+  - `packages/flowFlex-backend/Application/Services/OW/StageService.cs:3127`
+  - `packages/flowFlex-backend/Application/Services/OW/StagesProgressSyncService.cs:750`
+- Impact: Each raw SQL must manually include `app_code`, `tenant_id`, and `is_valid` conditions. Missing any one of these filters = cross-tenant data leak or operating on soft-deleted records.
+- Fix approach: Audit every raw SQL for correct tenant/soft-delete filters. Prefer SqlSugar's queryable API where possible. Create a code review checklist item for raw SQL.
+
+**TODO Comments Indicating Incomplete Features:**
+- Issue: 10+ TODO comments marking unfinished production features.
+- Files:
+  - `packages/flowFlex-backend/WebApi/Program.cs:463` — Redis cache for production
+  - `packages/flowFlex-backend/Application/Services/Action/ActionManagementService.cs:758` — Email config validation
+  - `packages/flowFlex-backend/Application/Services/Action/ActionManagementService.cs:1277` — Migration for nullable fields
+  - `packages/flowFlex-backend/Application/Services/OW/ChangeLog/StageLogService.cs:1901` — Get task/question IDs
+  - `packages/flowFlex-backend/Application/Services/OW/CloudFileStorageService.cs:258` — File deletion not implemented
+  - `packages/flowFlex-backend/Application/Services/OW/ComponentDataService.cs:690` — Dynamic question fields
+  - `packages/flowFlex-backend/Application/Services/OW/QuestionnaireService.cs:424` — Clean up duplicate records
+  - `packages/flowFlex-backend/WebApi/Controllers/AI/AIWorkflowController.cs:247` — Workflow existence validation
+  - `packages/flowFlex-common/src/app/components/RichTextEditor/index.vue:219` — Server upload
+  - `packages/flowFlex-common/src/app/views/messageCenter/index.vue:933` — Save draft
+- Impact: Incomplete features reachable by users, leading to silent failures or 500 errors.
+- Fix approach: Triage each TODO — implement, explicitly disable the UI trigger, or document as known limitation.
+
+**Broad [AllowAnonymous] Surface on UserController (9 Endpoints):**
+- Issue: `UserController` has 9 anonymous endpoints including login, register, send-code, refresh-token, and third-party-login.
+- Files: `packages/flowFlex-backend/WebApi/Controllers/OW/UserController.cs:41,57,73,88,104,120,179,291`
+- Impact: Large anonymous attack surface. While rate limiting is applied to most, any vulnerability in these endpoints is exploitable without authentication.
+- Fix approach: Audit each endpoint to confirm it requires no identity context. Ensure all have `[RateLimit]` applied (confirmed present on most). Add IP-based blocking for repeated failures.
+
+**Background Task Queue Has No Retry/Persistence:**
+- Issue: `BackgroundTaskService` catches exceptions from work items, logs them, and discards. No retry, no dead-letter queue, no persistence.
+- Files: `packages/flowFlex-backend/Infrastructure/Services/BackgroundTaskService.cs:46-49`
+- Impact: Failed background tasks (email notifications, AI history saving, log writing) are permanently lost with no audit trail.
+- Fix approach: For critical tasks, use Hangfire (already in project dependencies) which provides retry, persistence, and dashboard. Reserve the in-memory queue for non-critical fire-and-forget work only.
 
 ---
 
-## Fragile Areas
+## Low (Minor Improvements, Nice-to-Haves)
 
-**`StageService` constructor has 20+ injected dependencies:**
-- Files: `packages/flowFlex-backend/Application/Services/OW/StageService.cs` (line 80)
-- Why fragile: Constructor injection of 20+ services makes the class hard to instantiate in tests, increases coupling, and makes it a target for further bloat. Two parameters (`IRulesEngineService`, `IConditionActionExecutor`) are optional (`= null`), which hides required dependencies.
-- Safe modification: Any change to `StageService` requires updating the test mock setup in `ActionExecutorTests.cs`. Extract sub-responsibilities before adding more dependencies.
-- Test coverage: `StageConditionServiceTests.cs` covers condition logic; core stage CRUD and the 10 `NotImplementedException` methods have no test coverage.
+**JSONB Columns Without Database Indexes (30+ Columns):**
+- Issue: Extensive JSONB usage across entities (`Onboarding`, `Message`, `Event`, `ChecklistTask`, `ActionDefinition`, `ActionExecution`, `DataValue`, `DefineField`, etc.) with no GIN indexes defined.
+- Files: `packages/flowFlex-backend/Domain/Entities/OW/Onboarding.cs:215,262,270,278,286,299` (and 25+ others across entities)
+- Impact: Queries filtering on JSONB contents do full table scans. Acceptable at low data volumes but will degrade with growth.
+- Fix approach: Add GIN indexes on frequently-queried JSONB columns (`custom_fields_json`, `stages_progress_json`). Monitor query plans.
 
-**`ExternalIntegrationService.cs` duplicates OAuth2 credential handling:**
-- Files: `packages/flowFlex-backend/Application/Services/Integration/ExternalIntegrationService.cs` (line 1527), `packages/flowFlex-backend/Application/Services/Integration/IntegrationHttpClient.cs` (line 327), `packages/flowFlex-backend/Application/Services/Action/ActionContextBuilder.cs` (line 400)
-- Why fragile: OAuth2 client credential flow (clientId/clientSecret extraction and Base64 encoding) is copy-pasted across three files. A change to the credential format must be applied in all three places.
-- Safe modification: Extract into a shared `OAuthCredentialHelper` and update all three call sites together.
-- Test coverage: No dedicated OAuth credential tests found.
+**DashboardService Request-Scoped Cache With Unnecessary Locking:**
+- Issue: `DashboardService` maintains a `Dictionary<long, Workflow> _workflowCache` with `lock(_workflowCacheLock)` as an instance field. Since it's a scoped service, only one thread accesses it per request.
+- Files: `packages/flowFlex-backend/Application/Services/OW/DashboardService.cs:40-41,72-89`
+- Impact: Lock overhead with no benefit (scoped services are per-request). The cache pattern provides no cross-request benefit and misleads future developers.
+- Fix approach: Remove the lock. If cross-request caching is needed, use `IDistributedCache` or `IMemoryCache`.
 
-**`EmailBindingService` uses `lock` on `_stateStoreLock` in a service that may be scoped:**
-- Files: `packages/flowFlex-backend/Application/Services/MessageCenter/EmailBindingService.cs` (line 791)
-- Why fragile: If `EmailBindingService` is registered as scoped, the lock object is per-request and provides no cross-request mutual exclusion. If singleton, the lock is correct but the service must be thread-safe throughout.
-- Safe modification: Verify registration lifetime before modifying any state-mutation code paths.
+**Legacy OperationChangeLogService Adapter Still Active:**
+- Issue: `OperationChangeLogServiceLegacyAdapter` routes old interface calls to specialized services with logging warnings.
+- Files: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/OperationChangeLogServiceLegacyAdapter.cs`
+- Impact: Adds indirection and noise in logs ("consider migrating to..."). Callers should use specialized services directly.
+- Fix approach: Identify callers of `IOperationChangeLogService`, migrate to specialized services, then remove adapter.
 
-**Frontend `AIWorkflowGenerator.vue` is 6,378 lines:**
-- Files: `packages/flowFlex-common/src/app/components/ai/AIWorkflowGenerator.vue`
-- Why fragile: A single Vue SFC of this size is extremely difficult to reason about, test, or modify safely. It contains rendering logic, API calls, state management, and utility functions all in one file.
-- Safe modification: Any change risks unintended side effects. Add component-level tests before refactoring.
-- Test coverage: No frontend test files found anywhere in `packages/flowFlex-common/src`.
+**Utility Files Marked for Removal:**
+- Issue: `storageCache.ts` has `// TODO 移除此文件夹下全部代码`; `is.ts` has ambiguous `isObject`/`isArray` semantics.
+- Files:
+  - `packages/flowFlex-common/src/app/utils/cache/storageCache.ts:10`
+  - `packages/flowFlex-common/src/app/utils/is.ts:46,51`
+- Impact: Dead/confusing code increases maintenance burden.
+- Fix approach: Audit imports, migrate callers, delete dead code. Clarify type utility semantics.
+
+**No CSRF Protection (API-only, JWT-based):**
+- Issue: No anti-forgery token validation anywhere in the backend. Only one reference to CSRF (in EmailBindingService for OAuth state).
+- Files: `packages/flowFlex-backend/Application/Services/MessageCenter/EmailBindingService.cs:63`
+- Impact: Low risk for JWT-based APIs (tokens not auto-sent by browsers). However, any cookie-based auth paths would be vulnerable.
+- Fix approach: Document that the API relies on JWT (not cookies) for CSRF protection. If cookies are ever introduced, add anti-forgery tokens.
+
+**Duplicate OAuth2 Credential Handling (3 Locations):**
+- Issue: OAuth2 client credentials flow (token acquisition) is copy-pasted across three separate files.
+- Files:
+  - `packages/flowFlex-backend/Application/Services/Integration/ExternalIntegrationService.cs:1553`
+  - `packages/flowFlex-backend/Application/Services/Integration/IntegrationHttpClient.cs:313`
+  - `packages/flowFlex-backend/Application/Services/Action/ActionContextBuilder.cs:414`
+- Impact: A change to credential format must be applied in all three places. Inconsistency risk.
+- Fix approach: Extract into a shared `OAuthCredentialHelper` utility.
 
 ---
 
 ## Test Coverage Gaps
 
-**No frontend tests at all:**
-- What's not tested: All Vue components, composables, API layer, routing guards, and utility functions in `packages/flowFlex-common/src`.
-- Files: Entire `packages/flowFlex-common/src/` directory
-- Risk: UI regressions go undetected. Complex components like `AIWorkflowGenerator.vue` (6,378 lines), `customer-overview.vue` (3,398 lines), and `portal.vue` (1,954 lines) have zero automated coverage.
+**No Frontend Tests:**
+- What's not tested: All Vue components, composables, API layer, routing guards, and utilities
+- Files: Entire `packages/flowFlex-common/src/` directory (no test files found)
+- Risk: UI regressions in 6,378-line `AIWorkflowGenerator.vue`, 3,398-line `customer-overview.vue` go undetected
 - Priority: High
 
-**Backend tests cover only a narrow slice:**
-- What's not tested: `OnboardingCrudService`, `WorkflowService`, `QuestionnaireService`, `MessageService`, `OutlookService`, `ExternalIntegrationService`, `AIProviderAdapter`, all AutoMapper profiles, all controllers, and all 10 `NotImplementedException` stubs in `StageService`.
-- Files: `packages/flowFlex-backend/Tests/FlowFlex.Tests/Services/` — only 10 test files exist for a backend with 100+ service files.
-- Risk: Core onboarding workflows, email sending, and external integrations can regress silently.
+**Backend Tests Cover Only ~10% of Services:**
+- What's not tested: `OnboardingCrudService`, `WorkflowService`, `QuestionnaireService`, `MessageService`, `OutlookService`, `ExternalIntegrationService`, `AIProviderAdapter`, AutoMapper profiles, controllers, and the 10 `NotImplementedException` stubs
+- Files: `packages/flowFlex-backend/Tests/FlowFlex.Tests/Services/` — approximately 10 test files for 100+ service files
+- Risk: Core workflows, email sending, and external integrations can regress silently
 - Priority: High
 
-**No integration or E2E tests:**
-- What's not tested: Full request/response cycles through the API, database interactions, multi-tenancy isolation (`AppCode` filtering), and authentication flows.
-- Files: `packages/flowFlex-backend/Tests/` — no integration test project found.
-- Risk: Multi-tenancy bugs (data leaking between `AppCode` tenants) would not be caught before production.
+**No Integration or E2E Tests:**
+- What's not tested: Full request/response cycles, database interactions, multi-tenancy isolation (`AppCode`/`TenantId` filtering), authentication flows
+- Files: No integration test project found under `packages/flowFlex-backend/Tests/`
+- Risk: Multi-tenancy bugs (data leaking between tenants) and raw SQL filter omissions would not be caught before production
 - Priority: High
 
 ---
 
-## Missing Critical Features
-
-**Save draft in message center not implemented:**
-- Problem: `packages/flowFlex-common/src/app/views/messageCenter/index.vue` (line 933) has `// TODO: Implement save draft functionality`. The UI likely shows a save draft button that does nothing.
-- Blocks: Users cannot save email drafts.
-
-**Rich text editor server upload not implemented:**
-- Problem: `packages/flowFlex-common/src/app/components/RichTextEditor/index.vue` (line 219) has `// TODO: Replace with actual server upload`. Image uploads in the rich text editor use a client-side placeholder.
-- Blocks: Persistent image storage in rich text content.
-
-**Cloud file deletion not implemented:**
-- Problem: `packages/flowFlex-backend/Application/Services/OW/CloudFileStorageService.cs` (line 258) has `// TODO: Implement deletion using underlying SDK if needed`. File deletion from cloud storage silently does nothing.
-- Blocks: Storage cleanup; files accumulate indefinitely in cloud storage.
-
-**Stage task/question ID lookup not implemented:**
-- Problem: `packages/flowFlex-backend/Application/Services/OW/ChangeLog/StageLogService.cs` (line 1901) has `// TODO: Implement actual logic to get task and question IDs for a stage`. Change log entries for stages may be missing component references.
-- Blocks: Accurate audit trail for stage-level changes.
-
-**Workflow existence validation missing in AI controller:**
-- Problem: `packages/flowFlex-backend/WebApi/Controllers/AI/AIWorkflowController.cs` (line 247) has `// TODO: 验证workflow是否存在` (validate workflow exists). The AI workflow endpoint does not validate the referenced workflow before proceeding.
-- Blocks: Proper error handling for invalid workflow IDs in AI operations.
-
----
-
-## Dependencies at Risk
-
-**`Item.Redis` is an internal package dependency:**
-- Risk: `CaseCodeGeneratorService` and `WorkflowService` depend on `Item.Redis.IRedisService`, an internal package not visible in the public NuGet feed. If this package is not available in a new environment, the build fails.
-- Impact: Onboarding new developers or deploying to new environments requires access to the internal package registry.
-- Migration plan: Document the internal feed URL; consider abstracting behind a local `ISequenceGenerator` interface to allow swapping implementations.
-
-**`Newtonsoft.Json` alongside `System.Text.Json`:**
-- Risk: `Newtonsoft.Json` is a legacy dependency being phased out of the .NET ecosystem. Maintaining both libraries doubles JSON-related dependency surface.
-- Impact: Increased binary size; potential version conflicts.
-- Migration plan: Migrate remaining `Newtonsoft.Json` usages to `System.Text.Json` incrementally, starting with `StageConditionService.cs` and `QuestionnaireAnswerParser.cs`.
-
----
-
-*Concerns audit: 2026-05-25*
+*Concerns audit: 2026-06-08*

@@ -1,15 +1,15 @@
-<!-- refreshed: 2026-05-25 -->
+<!-- refreshed: 2026-06-08 -->
 # Architecture
 
-**Analysis Date:** 2026-05-25
+**Analysis Date:** 2026-06-08
 
 ## System Overview
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Frontend (Vue 3 SPA)                          │
-│              packages/flowFlex-common/src/                           │
-│   Views → Stores (Pinia) → API Layer (Axios) → Backend REST API      │
+│              packages/flowFlex-common/src/app/                       │
+│   Views → Stores (Pinia) → API Layer (Axios) → Backend REST API     │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ HTTP/REST (JWT Bearer)
                                ▼
@@ -18,7 +18,7 @@
 │         packages/flowFlex-backend/WebApi/                            │
 │  Controllers → Middleware Pipeline → Auth (JWT + IDM + ItemIAM)      │
 └──────────┬──────────────────────────────────────────────────────────┘
-           │ Constructor Injection
+           │ Constructor Injection (IService interfaces)
            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │              Application Layer (Business Logic)                       │
@@ -27,14 +27,14 @@
 │   IServices (interfaces) ← Services (implementations)               │
 │   DTOs · AutoMapper Profiles · Notification Handlers                 │
 └──────────┬──────────────────────────────────────────────────────────┘
-           │ Repository Interfaces
+           │ Repository Interfaces (Domain layer)
            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Domain Layer                                       │
 │         packages/flowFlex-backend/Domain/                            │
-│   Entities · Repository Interfaces · Abstracts · Shared Enums        │
+│   Entities · Repository Interfaces · Abstracts · Filter Interfaces   │
 └──────────┬──────────────────────────────────────────────────────────┘
-           │ SqlSugar ORM
+           │ SqlSugar ORM (ISqlSugarClient)
            ▼
 ┌──────────────────────┬──────────────────────────────────────────────┐
 │  SqlSugarDB Layer    │  Infrastructure Layer                         │
@@ -46,196 +46,255 @@
 
 ## Component Responsibilities
 
-| Component | Responsibility | Path |
+| Component | Responsibility | File |
 |-----------|----------------|------|
-| WebApi Controllers | HTTP routing, request/response mapping, auth enforcement | `packages/flowFlex-backend/WebApi/Controllers/` |
-| Application Services | Business logic, orchestration, workflow rules | `packages/flowFlex-backend/Application/Services/` |
-| Application.Contracts | DTOs, service interfaces, options | `packages/flowFlex-backend/Application.Contracts/` |
-| Domain Entities | Core business objects, table mappings | `packages/flowFlex-backend/Domain/Entities/` |
-| Domain Repository Interfaces | Data access contracts | `packages/flowFlex-backend/Domain/Repository/` |
-| SqlSugarDB | Repository implementations, migrations | `packages/flowFlex-backend/SqlSugarDB/` |
-| Infrastructure | Logging, encryption, exception handling, background tasks | `packages/flowFlex-backend/Infrastructure/` |
-| Frontend Views | Page-level UI components | `packages/flowFlex-common/src/app/views/` |
-| Frontend Stores | Pinia state management | `packages/flowFlex-common/src/app/stores/` |
-| Frontend APIs | Axios-based HTTP client modules | `packages/flowFlex-common/src/app/apis/` |
+| ControllerBase | Success response wrapping, user ID extraction | `WebApi/Controllers/ControllerBase.cs` |
+| AppIsolationMiddleware | Extract AppCode + TenantId from headers/JWT/query | `WebApi/Middlewares/AppIsolationMiddleware.cs` |
+| TenantMiddleware | Ensure X-Tenant-Id header, Portal token tenant enforcement | `WebApi/Middlewares/TenantMiddleware.cs` |
+| TokenValidatedHandler | 3 JWT scheme validation (local, IDM, ItemIAM) | `WebApi/Authentication/TokenValidatedHandler.cs` |
+| WFEAuthorizeAttribute | Custom authorization attribute | `WebApi/Authorization/WFEAuthorizeAttribute.cs` |
+| RequirePermissionAttribute | Action filter for permission checks | `WebApi/Filters/RequirePermissionAttribute.cs` |
+| GlobalExceptionHandlingMiddleware | Catch-all exception handler | `Infrastructure/Exceptions/GlobalExceptionHandlingMiddleware.cs` |
+| BaseRepository<T> | Generic CRUD operations via SqlSugar | `SqlSugarDB/BaseRepository.cs` |
+| MigrationManager | SQL-file-based database migrations | `SqlSugarDB/Migrations/` |
+| ServiceCollectionExtensions | SqlSugar registration, UserContext, global filters, AOP | `WebApi/Extensions/ServiceCollectionExtensions.cs` |
 
 ## Pattern Overview
 
-**Overall:** Clean Architecture with vertical slice organization by domain (OW = Onboarding Workflow)
+**Overall:** Layered Architecture (Clean Architecture variant)
 
 **Key Characteristics:**
-- Dependency inversion: controllers depend on `IService` interfaces, not concrete implementations
-- Auto-registration: services implement `IScopedService`, `ISingletonService`, or `ITransientService` marker interfaces for DI scanning
-- Multi-tenancy: every entity carries `AppCode` + `TenantId`; `AppIsolationMiddleware` extracts these per-request
-- Soft deletes: `IsValid` flag on all entities via `IValidFilter` interface; SqlSugar applies global filter
-- Snowflake IDs: all primary keys are `long` generated via `SnowFlakeSingle.Instance.NextId()`
+- Dependency flows inward: WebApi → Application → Domain ← SqlSugarDB
+- Application.Contracts defines interfaces; Application provides implementations
+- Domain layer owns entity definitions and repository interfaces
+- SqlSugarDB implements repositories against PostgreSQL
+- Infrastructure provides cross-cutting concerns (logging, security, background tasks)
 
 ## Layers
 
 **WebApi Layer:**
-- Purpose: HTTP entry point, authentication, authorization, middleware pipeline
+- Purpose: HTTP API surface, middleware pipeline, authentication/authorization
 - Location: `packages/flowFlex-backend/WebApi/`
-- Contains: Controllers, Middlewares, Filters, Authentication handlers, Converters
-- Depends on: Application.Contracts (IServices, DTOs)
-- Used by: Frontend, external API consumers
+- Contains: Controllers, Middlewares, Filters, Authentication handlers, Program.cs
+- Depends on: Application.Contracts (IServices), Domain.Shared (models/enums)
+- Used by: Frontend SPA, external integrations
 
 **Application Layer:**
-- Purpose: Business logic, service orchestration, AutoMapper profiles
+- Purpose: Business logic, orchestration, mapping
 - Location: `packages/flowFlex-backend/Application/`
-- Contains: Service implementations, Maps (AutoMapper profiles), Helpers, Notification handlers, Email templates
-- Depends on: Application.Contracts, Domain, Infrastructure
-- Used by: WebApi
+- Contains: Service implementations, AutoMapper profiles, notification handlers, helpers
+- Depends on: Application.Contracts, Domain (entities, repository interfaces)
+- Used by: WebApi controllers via DI
 
 **Application.Contracts Layer:**
-- Purpose: Shared contracts between WebApi and Application
+- Purpose: Interface definitions, DTOs, options
 - Location: `packages/flowFlex-backend/Application.Contracts/`
-- Contains: DTOs (organized by domain), IService interfaces, Options classes
-- Depends on: Domain.Shared
-- Used by: WebApi, Application
+- Contains: IService interfaces, DTO classes, helper utilities, configuration options
+- Depends on: Domain.Shared (enums, models)
+- Used by: Application (implements), WebApi (consumes)
 
 **Domain Layer:**
-- Purpose: Core business entities and repository contracts
+- Purpose: Entity definitions, repository interface contracts, filter abstractions
 - Location: `packages/flowFlex-backend/Domain/`
-- Contains: Entities (OW, Action, DynamicData, Integration), Repository interfaces, Abstracts
-- Depends on: Domain.Shared only
+- Contains: Entities, Repository interfaces, Abstract filter interfaces
+- Depends on: Domain.Shared, SqlSugar (attributes only)
 - Used by: Application, SqlSugarDB
 
+**Domain.Shared Layer:**
+- Purpose: Shared enums, constants, models, DI marker interfaces
+- Location: `packages/flowFlex-backend/Domain.Shared/`
+- Contains: Enums, Constants, Models (UserContext, AppContext), helpers, JSON converters
+- Depends on: Nothing (leaf dependency)
+- Used by: All layers
+
 **SqlSugarDB Layer:**
-- Purpose: Data access implementation using SqlSugar ORM
+- Purpose: ORM configuration, repository implementations, database migrations
 - Location: `packages/flowFlex-backend/SqlSugarDB/`
-- Contains: `BaseRepository<T>`, concrete repository implementations, migrations, context setup
-- Depends on: Domain
-- Used by: Application (via injected repository interfaces)
+- Contains: BaseRepository<T>, concrete repositories, migration scripts, context
+- Depends on: Domain (IBaseRepository, entities), SqlSugar NuGet
+- Used by: WebApi DI registration
 
 **Infrastructure Layer:**
-- Purpose: Cross-cutting technical concerns
+- Purpose: Cross-cutting concerns not tied to domain
 - Location: `packages/flowFlex-backend/Infrastructure/`
-- Contains: `GlobalExceptionHandlingMiddleware`, `ApplicationLogger`, `EncryptionService`, `BackgroundTaskQueue`, `BackgroundTaskService`
+- Contains: Global exception handling, background task queue, Redis cache, security utilities
 - Depends on: Domain.Shared
-- Used by: WebApi, Application
+- Used by: WebApi (middleware/service registration)
 
 ## Data Flow
 
 ### Primary API Request Path
 
-1. HTTP request arrives at Kestrel → `Program.cs` middleware pipeline (`packages/flowFlex-backend/WebApi/Program.cs`)
-2. `GlobalExceptionHandlingMiddleware` wraps the pipeline for error capture (`packages/flowFlex-backend/Infrastructure/Exceptions/`)
-3. `AppIsolationMiddleware` extracts `AppCode` + `TenantId` from headers/JWT/query (`packages/flowFlex-backend/WebApi/Middlewares/AppIsolationMiddleware.cs`)
-4. `TenantMiddleware` sets tenant context (`packages/flowFlex-backend/WebApi/Middlewares/TenantMiddleware.cs`)
-5. JWT authentication validates Bearer token; `TokenValidatedHandler` enriches claims
-6. `WFEAuthorize` attribute checks fine-grained permissions via `IPermissionService`
-7. Controller method receives validated DTO, calls `IService` method (`packages/flowFlex-backend/WebApi/Controllers/OW/`)
-8. Service executes business logic, calls repository interface (`packages/flowFlex-backend/Application/Services/OW/`)
-9. `BaseRepository<T>` executes SqlSugar query against PostgreSQL (`packages/flowFlex-backend/SqlSugarDB/BaseRepository.cs`)
-10. AutoMapper maps entity → DTO; controller returns `Success<T>(data)` wrapped in `SuccessResponse`
+1. HTTP Request → Kestrel (`WebApi/Program.cs`)
+2. `GlobalExceptionHandlingMiddleware` catches unhandled exceptions (`Infrastructure/Exceptions/GlobalExceptionHandlingMiddleware.cs`)
+3. `AppIsolationMiddleware` extracts AppCode + TenantId, creates AppContext (`WebApi/Middlewares/AppIsolationMiddleware.cs`)
+4. `TenantMiddleware` validates/enforces tenant from Portal tokens (`WebApi/Middlewares/TenantMiddleware.cs`)
+5. `FilterValidationMiddleware` ensures query filters are correctly applied (`WebApi/Middlewares/FilterValidationMiddleware.cs`)
+6. JWT Authentication (one of 3 schemes) → `TokenValidatedHandler` populates `UserContext` (`WebApi/Authentication/TokenValidatedHandler.cs`)
+7. Authorization → `WfeAuthorizationHandler` checks policies (`WebApi/Authorization/WfeAuthorizationHandler.cs`)
+8. Controller action → calls `IService` method (`WebApi/Controllers/OW/`)
+9. Service implementation → Repository call → SqlSugar → PostgreSQL (`Application/Services/OW/`)
+10. AutoMapper transforms entity → DTO (`Application/Maps/`)
+11. Controller returns `Success<T>(data)` wrapped in `SuccessResponse` envelope
 
-### Frontend Request Path
+### Authentication Flow
 
-1. Vue component calls API module function (`packages/flowFlex-common/src/app/apis/`)
-2. Axios instance (configured in `packages/flowFlex-common/src/app/apis/axios/index.ts`) adds JWT token, `AppCode`, timezone headers
-3. `transformResponseHook` unwraps `SuccessResponse` envelope
-4. Result stored in Pinia store (`packages/flowFlex-common/src/app/stores/modules/`) or returned directly to component
+1. JWT token arrives in `Authorization: Bearer` header
+2. ASP.NET Core tries all registered schemes (Bearer, IDM, ItemIAM)
+3. On successful validation, `OnTokenValidated` event fires for matching scheme:
+   - **Bearer (local JWT):** `OnTokenValidated` → lookup user by email → set UserContext (`TokenValidatedHandler.cs:33`)
+   - **IDM:** `OnIdmTokenValidated` → call IdentityHub UserExtension API → populate UserContext with permissions/teams (`TokenValidatedHandler.cs:94`)
+   - **ItemIAM:** `OnIamItemTokenValidated` → determine grant_type (password/client_credentials) → populate UserContext (`TokenValidatedHandler.cs:186`)
+4. Client Credentials tokens: set `Schema = ItemIamClientIdentification`, `UserId = "0"`, bypass user-level permission checks
 
-### Background Task Flow
+### Multi-Tenancy Data Isolation
 
-1. Service enqueues work via `IBackgroundTaskQueue` (`packages/flowFlex-backend/Infrastructure/Services/`)
-2. `BackgroundTaskService` (hosted service) dequeues and executes
-3. `EmailSyncBackgroundService` runs independently for Outlook email sync
+1. Every entity inherits `ITenantFilter` (TenantId) and `IAppFilter` (AppCode) via `AbstractEntityBase`
+2. SqlSugar global query filters automatically append `WHERE tenant_id = X AND app_code = Y`
+3. Filters configured at repository level to avoid IServiceProvider disposal issues
+4. To bypass filters (cross-tenant query): use `.ClearFilter()` or `QueryFilterClearAndBackup()`
 
-**State Management (Frontend):**
-- Pinia stores in `packages/flowFlex-common/src/app/stores/modules/` handle: `user`, `permission`, `locale`, `multipleTab`, `menuFunction`, `workflowCanvas`
-- Persisted state via `pinia-plugin-persistedstate`
+**State Management:**
+- `UserContext` is scoped per-request (registered as `AddScoped<UserContext>`)
+- `AppContext` stored in `HttpContext.Items["AppContext"]`
+- `ISqlSugarClient` registered as scoped (`SqlSugarScope` handles thread safety)
 
 ## Key Abstractions
 
-**OwEntityBase / EntityBaseCreateInfo:**
-- Purpose: Base class for all domain entities; provides `Id` (snowflake), `AppCode`, `TenantId`, `IsValid`, audit fields
-- Examples: `packages/flowFlex-backend/Domain/Entities/Base/OwEntityBase.cs`, `packages/flowFlex-backend/Domain/Entities/Base/EntityBaseCreateInfo.cs`
-- Pattern: All OW entities extend `EntityBaseCreateInfo` which extends `EntityBase` → `AbstractEntityBase`
+**Entity Hierarchy:**
+- `IdEntityBase`: Snowflake long ID, `ICloneable`, domain events support (`Domain/Entities/Base/IdEntityBase.cs`)
+- `AbstractEntityBase` : IdEntityBase + `ITenantFilter` + `IAppFilter` (TenantId, AppCode) (`Domain/Entities/Base/AbstractEntityBase.cs`)
+- `EntityBase` : AbstractEntityBase + `IValidFilter` (IsValid soft-delete flag) (`Domain/Entities/Base/EntityBase.cs`)
+- `EntityBaseCreateInfo` : EntityBase + audit fields (CreateDate, ModifyDate, CreateBy, ModifyBy, CreateUserId, ModifyUserId) (`Domain/Entities/Base/EntityBaseCreateInfo.cs`)
+- `OwEntityBase`: Standalone base with all fields inline (Id, TenantId, AppCode, IsValid, audit) (`Domain/Entities/Base/OwEntityBase.cs`)
 
-**IBaseRepository<T>:**
-- Purpose: Generic CRUD contract for all repositories
-- Examples: `packages/flowFlex-backend/Domain/Repository/IBaseRepository.cs`
-- Pattern: Domain defines interface; `BaseRepository<T>` in SqlSugarDB implements it; specific repos (e.g., `IWorkflowRepository`) extend it
+**DI Auto-Registration:**
+- Services implement marker interfaces: `IScopedService`, `ITransientService`, `ISingletonService` (`Domain.Shared/IDIService.cs`)
+- Registration scanned at startup via `AddService()` extension
 
-**IScopedService / ISingletonService / ITransientService:**
-- Purpose: Marker interfaces for automatic DI registration scanning
-- Pattern: Services implement the appropriate marker; `AddService()` in `packages/flowFlex-backend/WebApi/Extensions/ServiceCollectionExtensions.cs` scans and registers
-
-**AutoMapper Profiles:**
-- Purpose: Entity ↔ DTO mapping
-- Examples: `packages/flowFlex-backend/Application/Maps/WorkflowMapProfile.cs`, `packages/flowFlex-backend/Application/Maps/OnboardingMapProfile.cs`
-- Pattern: One profile per aggregate root; registered explicitly in `Program.cs`
-
-**UserContext:**
-- Purpose: Per-request user identity (userId, email, tenantId, appCode)
-- Location: `packages/flowFlex-backend/Domain/Shared/Models/`
-- Pattern: Scoped service populated by middleware; injected into services via constructor
+**Repository Pattern:**
+- `IBaseRepository<T>`: Full CRUD + pagination + transactions (`Domain/Repository/IBaseRepository.cs`)
+- `BaseRepository<T>`: SqlSugar implementation with `ISqlSugarClient` injection (`SqlSugarDB/BaseRepository.cs`)
 
 ## Entry Points
 
 **Backend API:**
 - Location: `packages/flowFlex-backend/WebApi/Program.cs`
-- Triggers: Kestrel HTTP server
-- Responsibilities: DI registration, middleware pipeline, database initialization, hosted services startup
+- Triggers: HTTP requests (Kestrel)
+- Responsibilities: DI configuration, middleware pipeline, auth schemes, Swagger, database init
 
 **Frontend SPA:**
 - Location: `packages/flowFlex-common/src/main.ts`
-- Triggers: Browser load or Wujie micro-app mount (`window.__WUJIE_MOUNT`)
-- Responsibilities: App bootstrap, i18n setup, Pinia store setup, router guard setup, Element Plus registration
+- Triggers: Browser navigation
+- Responsibilities: Vue app bootstrap, router, Pinia stores, global components
 
-**Database Migrations:**
-- Location: `packages/flowFlex-backend/SqlSugarDB/Migrations/`
-- Triggers: `app.Services.InitializeDatabase()` called at startup in `Program.cs`
+## Authentication Schemes
+
+| Scheme | Config Key | Token Validated Handler | Purpose |
+|--------|-----------|----------------------|---------|
+| Bearer (default) | `Security:JwtSecretKey` | `OnTokenValidated` | Local JWT for direct login |
+| `Identification` (IDM) | `IdentityHubConfig` | `OnIdmTokenValidated` | IdentityHub SSO tokens |
+| `ItemIamIdentification` | `ItemIamConfig` | `OnIamItemTokenValidated` | Item IAM (user + client_credentials) |
+
+**Client Credentials bypass:**
+- Schema set to `AuthSchemes.ItemIamClientIdentification`
+- `UserId = "0"`, `SystemSource = SourceEnum.Client`
+- `ControllerBase.GetCurrentUserId()` returns 0 for client tokens
+- Permission checks skipped via `PermissionHelpers.IsClientCredentialsToken()`
+
+## Workflow Domain Model
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│  Workflow (ff_workflow)                                      │
+│  - Name, Status, Version, IsDefault, IsActive               │
+│  - ViewPermissionMode, ViewTeams, OperateTeams              │
+│  - VisibleInPortal, PortalPermission                        │
+├────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Stage (ff_stage) [1:N via WorkflowId]              │   │
+│  │  - Name, Order, Color, IsActive                      │   │
+│  │  - ChecklistId, QuestionnaireId (component refs)     │   │
+│  │  - DefaultAssignee, CoAssignees (JSONB)              │   │
+│  │  - ViewPermissionMode, ViewTeams, OperateTeams       │   │
+│  │  - components_json (JSONB - stage components config) │   │
+│  │  - AttachmentManagementNeeded, Required              │   │
+│  └────────────┬────────────────────────────────────────┘   │
+│               │                                             │
+│  ┌────────────▼────────────────────────────────────────┐   │
+│  │  StageCondition (ff_stage_condition) [1:N via StageId]│  │
+│  │  - RulesJson (Microsoft RulesEngine format)           │  │
+│  │  - ActionsJson (GoToStage, SkipStage, SendNotif)     │  │
+│  │  - FallbackStageId                                   │  │
+│  └─────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────┐
+│  Onboarding / Case (ff_onboarding)                          │
+│  - WorkflowId, CurrentStageId, CurrentStageOrder            │
+│  - CaseName, CaseCode, LeadEmail, ContactPerson             │
+│  - stages_progress (JSONB - OnboardingStageProgress[])      │
+├────────────────────────────────────────────────────────────┤
+│  OnboardingStageProgress (embedded JSONB per stage)          │
+│  - StageId, Status, IsCompleted, StartTime, CompletionTime  │
+│  - EndTime (computed: CustomEndTime > StartTime+Days)        │
+└────────────────────────────────────────────────────────────┘
+
+Related Components:
+- Checklist (ff_checklist) → ChecklistTask (ff_checklist_task) → ChecklistTaskCompletion
+- Questionnaire (ff_questionnaire) → QuestionnaireSection → QuestionnaireAnswer
+- InternalNote (ff_internal_note) - per-onboarding comments
+- OnboardingFile (ff_onboarding_file) - attachments per stage
+```
 
 ## Architectural Constraints
 
-- **Threading:** ASP.NET Core async/await throughout; `SqlSugarScope` (not singleton) used per-request to avoid concurrency conflicts
-- **Global state:** `SnowFlakeSingle.Instance` is a module-level singleton for ID generation (`packages/flowFlex-backend/Domain/Shared/`); `UserContext` is scoped (per-request)
-- **Multi-tenancy filter:** SqlSugar global filter applies `AppCode` + `IsValid` automatically on all queries; bypassing requires explicit `.Filter(null, true)`
-- **Long → string serialization:** All `long` IDs are serialized as strings in JSON responses via `LongToStringConverter` to avoid JavaScript precision loss
-- **Wujie micro-frontend:** The Vue app supports running as a Wujie sub-app; `window.__POWERED_BY_WUJIE__` controls mount/unmount lifecycle
+- **Threading:** Single-threaded per request (ASP.NET Core Kestrel). `SqlSugarScope` handles concurrent access. Background tasks use `BackgroundTaskQueue` (singleton).
+- **Global state:** `UserContext` is scoped per-request. No module-level singletons with mutable state.
+- **Circular imports:** None detected - layering is strict (WebApi → Application → Domain ← SqlSugarDB).
+- **ID precision:** Snowflake `long` IDs exceed JavaScript `Number.MAX_SAFE_INTEGER`. `LongToStringConverter` serializes as strings. Frontend must treat IDs as strings.
+- **JSON library coexistence:** Both `System.Text.Json` and `Newtonsoft.Json` are used. Controllers use Newtonsoft (configured in Program.cs). Use `System.Text.Json` for new code where possible.
+- **Database column naming:** SqlSugar auto-converts PascalCase properties to snake_case via `UtilMethods.ToUnderLine()`. Table names prefixed with `ff_`.
 
 ## Anti-Patterns
 
-### Duplicate using directives in service files
+### Bypassing Multi-Tenancy Filters
 
-**What happens:** Some service files (e.g., `WorkflowService.cs`) contain duplicate `using` statements for the same namespace
-**Why it's wrong:** Causes compiler warnings and indicates copy-paste without cleanup
-**Do this instead:** Keep one `using` per namespace; use IDE cleanup tools before committing
+**What happens:** Using raw SqlSugar queries or forgetting filter context causes cross-tenant data leakage.
+**Why it's wrong:** Silent data isolation breach - queries return data from all tenants.
+**Do this instead:** Always rely on repository methods that have filters applied. Use `ClearFilter()` only when explicitly performing cross-tenant operations (e.g., admin dashboards). Reference: `SqlSugarDB/BaseRepository.cs` filter methods.
 
-### Distributed cache fallback to memory in production
+### Mixing OwEntityBase and EntityBaseCreateInfo
 
-**What happens:** `Program.cs` uses `AddDistributedMemoryCache()` in non-development environments with a TODO comment for Redis
-**Why it's wrong:** Memory cache is not shared across instances; breaks horizontal scaling
-**Do this instead:** Configure `AddStackExchangeRedisCache()` for production; the Redis client is already registered via `builder.Services.AddRedis()`
-
-### Token blacklist validation disabled
-
-**What happens:** `OnTokenValidated` in `Program.cs` has the token revocation check commented out
-**Why it's wrong:** Revoked tokens remain valid until expiry; logout does not invalidate tokens server-side
-**Do this instead:** Uncomment and implement the `IAccessTokenService.ValidateTokenAsync` path when the access token table is stable
+**What happens:** Some entities use `OwEntityBase` (standalone), others use the `EntityBaseCreateInfo` hierarchy.
+**Why it's wrong:** Two parallel entity hierarchies with duplicated fields. Confusing which to extend.
+**Do this instead:** For new entities, extend `EntityBaseCreateInfo` (the standard path). `OwEntityBase` is a legacy alternative used by `StageCondition` and similar.
 
 ## Error Handling
 
-**Strategy:** Global exception middleware catches all unhandled exceptions; services throw typed `CRMException` with `ErrorCodeEnum`
+**Strategy:** Exception-based with global catch
 
 **Patterns:**
-- `GlobalExceptionHandlingMiddleware` in `packages/flowFlex-backend/Infrastructure/Exceptions/` converts exceptions to structured JSON responses
-- Services throw `CRMException(ErrorCodeEnum, message)` for business rule violations
-- Controllers use `Success<T>(data)` helper from `packages/flowFlex-backend/WebApi/Controllers/ControllerBase.cs` — never return raw `Ok()`
-- Frontend `transformResponseHook` in `packages/flowFlex-common/src/app/apis/axios/index.ts` handles non-success codes and shows `ElMessage` errors
+- Business errors: throw `CRMException(ErrorCodeEnum, message)` from services
+- Global handler: `GlobalExceptionHandlingMiddleware` catches all, returns structured error response (`Infrastructure/Exceptions/GlobalExceptionHandlingMiddleware.cs`)
+- Auth errors: `context.Fail("message")` in token validation handlers
+- Controller: never catches exceptions - let middleware handle them
+- Frontend: Axios interceptors show `ElMessage.error()` for HTTP errors
 
 ## Cross-Cutting Concerns
 
-**Logging:** Serilog (structured); `IApplicationLogger` wrapper in `packages/flowFlex-backend/Infrastructure/Services/Logging/`; slow requests (>3s) logged as warnings by `AppIsolationMiddleware`
+**Logging:** Serilog (production), `ILogger<T>` injection, SQL logging via SqlSugar AOP (configurable via `Database:EnableSqlLogging`)
 
-**Validation:** FluentValidation for request DTOs; model state validation suppressed (`SuppressModelStateInvalidFilter = true`) — validation errors pass through to manual handling in controllers
+**Validation:** FluentValidation on request DTOs; model state suppressed (`SuppressModelStateInvalidFilter = true`) for manual handling
 
-**Authentication:** Three JWT schemes supported simultaneously: local JWT Bearer, IdentityHub (IDM), ItemIAM — configured via `IdentityHubConfig` and `ItemIamConfig` sections; `WFEAuthorize` attribute enforces fine-grained permissions
+**Authentication:** Three JWT schemes registered simultaneously with priority ordering; `UserContext` populated on token validation
 
-**Multi-tenancy:** `AppCode` + `TenantId` extracted by `AppIsolationMiddleware` from headers (`X-App-Code`, `X-Tenant-Id`), query params, JWT claims, or email domain inference; stored in `HttpContext.Items["AppContext"]`
+**Audit Fields:** Automatically populated via SqlSugar `Aop.DataExecuting` hook - sets CreateDate, ModifyDate, CreateBy, ModifyBy, CreateUserId, ModifyUserId on insert/update (`WebApi/Extensions/ServiceCollectionExtensions.cs:122`)
+
+**Soft Deletes:** `IsValid = true` means active. Entities implement `IValidFilter`. SqlSugar global filter appends `WHERE is_valid = true`.
+
+**Background Tasks:** `BackgroundTaskQueue` (singleton) + `BackgroundTaskService` (hosted service) for fire-and-forget operations (`Infrastructure/Services/BackgroundTaskQueue.cs`)
 
 ---
 
-*Architecture analysis: 2026-05-25*
+*Architecture analysis: 2026-06-08*
