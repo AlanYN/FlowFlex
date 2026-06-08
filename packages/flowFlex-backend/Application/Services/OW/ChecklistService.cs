@@ -39,6 +39,7 @@ public class ChecklistService : IChecklistService, IScopedService
 {
     private readonly IChecklistRepository _checklistRepository;
     private readonly IChecklistTaskRepository _checklistTaskRepository;
+    private readonly IChecklistTaskNoteRepository _checklistTaskNoteRepository;
     private readonly IMapper _mapper;
     private readonly IStageRepository _stageRepository;
     private readonly UserContext _userContext;
@@ -56,6 +57,7 @@ public class ChecklistService : IChecklistService, IScopedService
     public ChecklistService(
         IChecklistRepository checklistRepository,
         IChecklistTaskRepository checklistTaskRepository,
+        IChecklistTaskNoteRepository checklistTaskNoteRepository,
         IMapper mapper,
         IStageRepository stageRepository,
         UserContext userContext,
@@ -72,6 +74,7 @@ public class ChecklistService : IChecklistService, IScopedService
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
+        _checklistTaskNoteRepository = checklistTaskNoteRepository;
         _mapper = mapper;
         _mappingService = mappingService;
         _stageRepository = stageRepository;
@@ -1058,6 +1061,7 @@ ASSIGNMENTS:
             {
                 var taskDtos = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
                 await FillActionMappingInfoAsync(taskDtos);
+                await FillNotesCountAsync(taskDtos);
                 checklist.Tasks = taskDtos;
             }
             else
@@ -1068,6 +1072,30 @@ ASSIGNMENTS:
     }
 
 
+
+    /// <summary>
+    /// Fill notes count for task DTOs by querying the notes repository directly.
+    /// This ensures notes count is accurate even when no completion record exists.
+    /// </summary>
+    private async Task FillNotesCountAsync(List<ChecklistTaskOutputDto> taskDtos)
+    {
+        if (taskDtos == null || !taskDtos.Any())
+            return;
+
+        var taskIds = taskDtos.Select(t => t.Id).ToList();
+
+        var notesCountMap = new Dictionary<long, int>();
+        foreach (var taskId in taskIds)
+        {
+            var count = await _checklistTaskNoteRepository.CountByTaskIdAsync(taskId, "General");
+            notesCountMap[taskId] = count;
+        }
+
+        foreach (var taskDto in taskDtos)
+        {
+            taskDto.NotesCount = notesCountMap.GetValueOrDefault(taskDto.Id, 0);
+        }
+    }
 
     /// <summary>
     /// Get checklist IDs by stage ID from mapping table (ultra-fast)

@@ -1,13 +1,12 @@
 <template>
 	<div class="pb-6">
 		<!-- 页面头部 -->
-		<PageHeader
-			:show-back-button="true"
-			@go-back="handleBack"
-		>
+		<PageHeader :show-back-button="true" @go-back="handleBack">
 			<template #title>
 				<span class="flex items-center gap-2">
-					<span>{{ onboardingData?.caseCode || '' }} - {{ onboardingData?.caseName || '' }}</span>
+					<span>
+						{{ onboardingData?.caseCode || '' }} - {{ onboardingData?.caseName || '' }}
+					</span>
 					<GradientTag
 						v-if="onboardingData?.status"
 						:type="statusTagType"
@@ -71,9 +70,9 @@
 		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="flex w-full gap-x-4">
+		<div class="flex w-full gap-x-4 main-content-area">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2] min-w-0 overflow-hidden">
+			<div class="flex-[2] min-w-0 overflow-hidden flex flex-col">
 				<EditableStageHeader
 					:current-stage="onboardingActiveStageInfo"
 					:disabled="
@@ -85,7 +84,7 @@
 					:onboardingId="onboardingId"
 					@update:stage-data="handleStageDataUpdate"
 				/>
-				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
+				<el-scrollbar ref="leftScrollbarRef" class="flex-1 min-h-0 px-2 w-full">
 					<div class="space-y-4 my-4">
 						<!-- AI Summary 组件 -->
 						<AISummary
@@ -1112,7 +1111,18 @@ const saveQuestionnaireAndField = async () => {
 			onboardingId: onboardingId.value,
 			stageId: activeStage.value,
 		});
-		loadOnboardingDetail();
+
+		// Preserve current active stage before reload
+		const savedStageId = activeStage.value;
+		await loadOnboardingDetail();
+
+		// Restore the stage user was working on (if it still exists)
+		if (savedStageId && workflowStages.value.some((s) => s.stageId === savedStageId)) {
+			activeStage.value = savedStageId;
+			onboardingActiveStageInfo.value =
+				workflowStages.value.find((stage) => stage.stageId === savedStageId) || null;
+			await loadCurrentStageData();
+		}
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
 	}
@@ -1360,6 +1370,12 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
+/* 主要内容区域固定高度，使左右列能独立滚动 */
+/* navbar(64) + layout-padding(16) + PageHeader(~90) + mb-4(16) + 底部安全余量 */
+.main-content-area {
+	height: calc(100vh - 220px);
+}
+
 /* 滚动条样式 */
 :deep(.el-scrollbar__view) {
 	padding: 0;

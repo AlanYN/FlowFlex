@@ -81,7 +81,14 @@
 													{{ note.createdByName || defaultStr }}
 												</span>
 												<span class="note-date">
-													on {{ timeZoneConvert(note.createdAt, false, projectTenMinutesSsecondsDate) }}
+													on
+													{{
+														timeZoneConvert(
+															note.createdAt,
+															false,
+															projectTenMinutesSsecondsDate
+														)
+													}}
 												</span>
 											</div>
 										</div>
@@ -274,7 +281,14 @@
 												{{ note.createdByName || defaultStr }}
 											</span>
 											<span class="note-date">
-												on {{ timeZoneConvert(note.createdAt, false, projectTenMinutesSsecondsDate) }}
+												on
+												{{
+													timeZoneConvert(
+														note.createdAt,
+														false,
+														projectTenMinutesSsecondsDate
+													)
+												}}
 											</span>
 										</div>
 									</div>
@@ -354,6 +368,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	'update:visible': [value: boolean];
 	'update:task': [task: TaskData];
+	'note-updated': [];
 }>();
 
 // 响应式数据
@@ -556,6 +571,7 @@ const addNote = async () => {
 			newNoteContent.value = '';
 			showAddNoteInput.value = false;
 			await loadTaskNotes();
+			emit('note-updated');
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
@@ -635,6 +651,7 @@ const removeNote = async (index: number) => {
 		if (res.code === '200') {
 			// 重新加载笔记列表
 			await loadTaskNotes();
+			emit('note-updated');
 
 			ElMessage.success(t('sys.api.operationSuccess'));
 		} else {
