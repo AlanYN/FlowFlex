@@ -196,9 +196,24 @@
 							class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-black-200 rounded"
 						>
 							<Icon icon="mdi:file-document" class="text-primary flex-shrink-0" />
-							<span class="text-sm flex-1 truncate" :title="file.fileName">
-								{{ file.fileName }}
-							</span>
+							<div class="flex-1 min-w-0">
+								<span class="text-sm truncate block" :title="file.fileName">
+									{{ file.fileName }}
+								</span>
+								<span
+									v-if="file.uploadedBy || file.uploadDate"
+									class="text-xs text-gray-500"
+								>
+									Uploaded by {{ file.uploadedBy }},
+									{{
+										timeZoneConvert(
+											file.uploadDate,
+											false,
+											projectTenMinutesSsecondsDate
+										)
+									}}
+								</span>
+							</div>
 							<span class="text-xs text-gray-400 flex-shrink-0">
 								{{ formatFileSizeDisplay(file.fileSize) }}
 							</span>
@@ -259,7 +274,7 @@
 import { ref, reactive, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { propertyTypeEnum } from '@/enums/appEnum';
-import { projectDate } from '@/settings/projectSetting';
+import { projectDate, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 import MergedArea from '@/components/form/inputPhone/mergedArea.vue';
@@ -273,6 +288,8 @@ interface UploadedFile {
 	id: string;
 	fileName: string;
 	fileSize: number | string;
+	uploadedBy?: string;
+	uploadDate?: string;
 }
 
 // 上传进度接口
@@ -334,8 +351,10 @@ const initFormValues = (initialData?: Record<string, any>) => {
 				// 文件对象数组
 				uploadedFilesMap[field.fieldName] = value.map((f: any) => ({
 					id: f?.id,
-					fileName: f.originalFileName || f.name || 'Unknown',
+					fileName: f.originalFileName || f.fileName || f.name || 'Unknown',
 					fileSize: f.fileSize || f.size || 0,
+					uploadedBy: f.uploadedBy,
+					uploadDate: f.uploadDate || f.uploadTime,
 				}));
 				// formValues 也存储完整的文件对象数组
 				formValues[field.fieldName] = [...uploadedFilesMap[field.fieldName]];
@@ -519,6 +538,8 @@ const handleFileChange = async (file: any, field: DynamicList) => {
 				id: response?.data?.data?.id,
 				fileName: response?.data?.data?.originalFileName || file.name,
 				fileSize: response?.data?.data?.fileSize || file.raw?.size || 0,
+				uploadedBy: response?.data?.data?.uploadedBy,
+				uploadDate: response?.data?.data?.uploadTime,
 			};
 
 			if (!uploadedFilesMap[field.fieldName]) {
@@ -549,11 +570,13 @@ const handleRemoveFile = (fieldName: string, fileId: string) => {
 // 更新 formValues 中的文件对象列表
 const updateFileIds = (fieldName: string) => {
 	const files = uploadedFilesMap[fieldName] || [];
-	// 存储完整的文件对象数组，包含 id, fileName, fileSize
+	// 存储完整的文件对象数组，包含 id, fileName, fileSize, uploadedBy, uploadDate
 	formValues[fieldName] = files.map((f) => ({
 		id: f.id,
 		fileName: f.fileName,
 		fileSize: f.fileSize,
+		uploadedBy: f.uploadedBy,
+		uploadDate: f.uploadDate,
 	}));
 };
 
@@ -597,6 +620,8 @@ const setFormData = async (data: Record<string, any>) => {
 					id: f?.id,
 					fileName: f?.fileName || f?.name || 'Unknown',
 					fileSize: f?.fileSize || f?.size || 0,
+					uploadedBy: f?.uploadedBy,
+					uploadDate: f?.uploadDate || f?.uploadTime,
 				}));
 				// formValues 存储完整的文件对象数组
 				formValues[key] = [...uploadedFilesMap[key]];

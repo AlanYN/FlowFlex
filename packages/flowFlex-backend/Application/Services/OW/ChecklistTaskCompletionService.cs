@@ -131,16 +131,11 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
         var (success, statusChanged) = await _completionRepository.SaveTaskCompletionAsync(completion);
 
-        // Log task completion
-        if (success)
+        // Log task completion and create status change note only when status actually changed
+        if (success && statusChanged)
         {
             await LogTaskCompletionAsync(onboarding, task, completion);
-
-            // Create a note when task completion status changes
-            if (statusChanged)
-            {
-                await CreateStatusChangeNoteAsync(task, completion);
-            }
+            await CreateStatusChangeNoteAsync(task, completion);
         }
 
         return success;
