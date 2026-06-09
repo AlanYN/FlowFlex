@@ -1112,17 +1112,26 @@ const saveQuestionnaireAndField = async () => {
 			stageId: activeStage.value,
 		});
 
-		// Preserve current active stage before reload
+		// Refresh onboarding data without changing active stage
+		// Only update stages progress info, keep current stage selected
 		const savedStageId = activeStage.value;
-		await loadOnboardingDetail();
+		const response = await getOnboardingByLead(onboardingId.value);
+		if (response.code === '200') {
+			// Update onboarding data and stages list without navigating
+			onboardingData.value = response.data;
+			workflowStages.value =
+				(response.data.stagesProgress.filter(
+					(stage: any) => stage?.permission?.canView
+				) as any as Stage[]) || [];
 
-		// Restore the stage user was working on (if it still exists)
-		if (savedStageId && workflowStages.value.some((s) => s.stageId === savedStageId)) {
-			activeStage.value = savedStageId;
-			onboardingActiveStageInfo.value =
-				workflowStages.value.find((stage) => stage.stageId === savedStageId) || null;
-			await loadCurrentStageData();
+			// Restore stage info reference to updated data
+			if (savedStageId) {
+				onboardingActiveStageInfo.value =
+					workflowStages.value.find((stage) => stage.stageId === savedStageId) || null;
+			}
+			updateAISummaryFromStageInfo();
 		}
+		refreshChangeLog();
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
 	}
