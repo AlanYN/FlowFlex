@@ -213,7 +213,7 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Form" width="200">
+						<el-table-column label="From" width="200">
 							<template #default="{ row }">
 								<div class="text-sm table-cell-content" :title="row?.source">
 									{{ row?.source }}
