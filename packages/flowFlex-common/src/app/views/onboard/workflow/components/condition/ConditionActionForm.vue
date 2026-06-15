@@ -178,7 +178,7 @@
 									v-model="getActionParams(action).emailBody"
 									type="textarea"
 									placeholder="Enter email content..."
-									:maxlength="textraTwoHundredLength"
+									:maxlength="emailBodyMaxLength"
 									:autosize="inputTextraAutosize"
 									show-word-limit
 								/>
@@ -305,7 +305,7 @@ import { conditionAction } from '@/apis/ow';
 import { getActiveIntegrations, getActionsByIntegration } from '@/apis/ow';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
-import { textraTwoHundredLength, inputTextraAutosize } from '@/settings/projectSetting';
+import { emailBodyMaxLength, inputTextraAutosize } from '@/settings/projectSetting';
 import {
 	getAvailableActionTypes,
 	getDefaultActionType,
