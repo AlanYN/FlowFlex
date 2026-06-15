@@ -367,7 +367,16 @@
 								<span
 									v-if="file.uploadedBy || file.uploadDate"
 									class="text-xs text-gray-500 ml-2"
-								>Uploaded by {{ file.uploadedBy }}, {{ timeZoneConvert(file.uploadDate, false, projectTenMinutesSsecondsDate) }}</span>
+								>
+									Uploaded by {{ file.uploadedBy }},
+									{{
+										timeZoneConvert(
+											file.uploadDate,
+											false,
+											projectTenMinutesSsecondsDate
+										)
+									}}
+								</span>
 							</div>
 						</div>
 					</div>
@@ -897,6 +906,26 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 				Object.keys(responseText).forEach((key) => {
 					formData.value[key] = responseText[key];
 				});
+			}
+		} else if (ans.type === 'file' || ans.type === 'file_upload') {
+			// 文件上传：对旧文件补充 uploadedBy / uploadDate
+			if (Array.isArray(ans.answer)) {
+				const createdEntry = ans.changeHistory?.find((h) => h.action === 'created');
+				const fallbackUser = createdEntry?.user || '';
+				const fallbackDate = createdEntry?.timestamp || '';
+
+				formData.value[ans.questionId] = ans.answer.map((file: any) => {
+					if (!file.uploadedBy) {
+						return {
+							...file,
+							uploadedBy: fallbackUser,
+							uploadDate: fallbackDate,
+						};
+					}
+					return file;
+				});
+			} else {
+				formData.value[ans.questionId] = ans.answer;
 			}
 		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
 			// 确保数字类型的答案保持为数字
@@ -1603,7 +1632,10 @@ const findSectionIndexById = (sectionId: string) => {
 const scrollToTop = () => {
 	nextTick(() => {
 		const parent = dynamicFormRootRef.value?.closest('.wfe-global-block-bg');
-		(parent || dynamicFormRootRef.value)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		(parent || dynamicFormRootRef.value)?.scrollIntoView({
+			behavior: 'smooth',
+			block: 'start',
+		});
 	});
 };
 
