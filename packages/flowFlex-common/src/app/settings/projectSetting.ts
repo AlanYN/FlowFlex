@@ -18,7 +18,7 @@ export const questionMaxlength = 500; // 问题最大长度
 
 export const textraTwoHundredLength = 1000;
 
-export const emailBodyMaxLength = 3000; // Email Body (Condition Action) 最大长度
+export const emailBodyMaxLength = 30000; // Email Body (Condition Action) 最大长度
 
 export const textraMaxLength = 100; // 普通富文本的输入长度
 
