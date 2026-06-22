@@ -666,6 +666,8 @@ namespace FlowFlex.Application.Services.Action
             try
             {
                 var contextDict = ConvertToContextDictionary(contextData);
+                // Also convert to JToken for dot-notation path resolution
+                var contextJToken = contextData is JToken jt ? jt : JToken.FromObject(contextData);
                 var applied = false;
 
                 foreach (var mapping in lookupMappings)
@@ -679,11 +681,27 @@ namespace FlowFlex.Application.Services.Action
                         continue;
 
                     // Determine if this field needs a default value:
-                    // 1. Field is empty/missing in contextData
+                    // 1. Field is empty/missing in contextData (supports dot-notation paths)
                     // 2. Field went through lookup but failed to match (unmatched metadata)
                     var needsDefault = false;
 
-                    if (!contextDict.TryGetValue(apiField, out var existing) || IsEmptyValue(existing))
+                    // Try flat dict lookup first, then dot-notation path resolution
+                    var hasValue = false;
+                    if (contextDict.TryGetValue(apiField, out var existing) && !IsEmptyValue(existing))
+                    {
+                        hasValue = true;
+                    }
+                    else if (apiField.Contains('.'))
+                    {
+                        // Dot-notation path — resolve through JToken (e.g. questionnaireAnswerByQuestionId.xxxxx)
+                        var resolved = ResolveNestedPath(contextJToken, apiField);
+                        if (resolved != null && resolved.Type != JTokenType.Null && !string.IsNullOrEmpty(resolved.ToString()))
+                        {
+                            hasValue = true;
+                        }
+                    }
+
+                    if (!hasValue)
                     {
                         needsDefault = true;
                     }
@@ -730,6 +748,43 @@ namespace FlowFlex.Application.Services.Action
             {
                 _logger.LogWarning(ex, "Failed to apply default values, returning original context");
                 return contextData;
+            }
+        }
+
+        /// <summary>
+        /// Resolve a dot-notation path through a JToken (e.g. "questionnaireAnswerByQuestionId.12345")
+        /// </summary>
+        private static JToken? ResolveNestedPath(JToken root, string path)
+        {
+            try
+            {
+                // Try exact flat key first
+                if (root is JObject rootObj)
+                {
+                    var flat = rootObj[path];
+                    if (flat != null) return flat;
+                }
+
+                var segments = path.Split('.');
+                var current = root;
+                foreach (var segment in segments)
+                {
+                    if (current == null || current.Type == JTokenType.Null)
+                        return null;
+
+                    var child = current[segment];
+                    if (child == null)
+                        child = current.SelectToken(segment);
+                    if (child == null)
+                        return null;
+
+                    current = child;
+                }
+                return current == root ? null : current;
+            }
+            catch
+            {
+                return null;
             }
         }
 
