@@ -15,6 +15,29 @@ nodes:
       Action Disabled:
         d: Action is disabled and will not execute.
         c: "Entry condition: IsEnabled set to false. Action exists but will not execute even when trigger events occur. Exit condition: IsEnabled set to true (re-enabled)."
+  ActionExecution:
+    t: BusinessObject
+    d: "Records the execution of an ActionDefinition triggered by an ActionTriggerMapping. Tracks execution status, timing, input/output, and errors."
+    c: "ActionExecution is the runtime execution record for actions. Properties: ActionDefinitionId, ExecutionId (unique string), ActionTriggerMappingId, ActionName, ActionType, TriggerContext (JSONB - event context that triggered execution), ExecutionStatus (Pending/Running/Completed/Failed/Cancelled/Timeout/Retrying), StartedAt, CompletedAt, DurationMs, ExecutionInput (JSONB), ExecutionOutput (JSONB), ErrorMessage, ErrorStackTrace, ExecutorInfo (JSONB). Database table: ff_action_executions."
+    states:
+      Execution Pending:
+        d: Action execution created but not yet started.
+        c: "Entry condition: Created with default status Pending. Exit condition: Execution starts (Running)."
+      Execution Running:
+        d: Action is currently executing.
+        c: "Entry condition: Execution engine picks up the action. StartedAt is set. Exit condition: Completed, Failed, Cancelled, or Timeout."
+      Execution Completed:
+        d: Action executed successfully.
+        c: "Entry condition: Action finishes without error. CompletedAt and DurationMs set. ExecutionOutput contains result. Terminal state."
+      Execution Failed:
+        d: Action execution failed with error.
+        c: "Entry condition: Action throws error during execution. ErrorMessage and ErrorStackTrace captured. Exit condition: May transition to Retrying."
+      Execution Timeout:
+        d: Action exceeded its timeout threshold.
+        c: "Entry condition: Execution duration exceeds configured timeout. Terminal state."
+      Execution Retrying:
+        d: Action is being retried after failure.
+        c: "Entry condition: Retry logic triggered after Failed state. Exit condition: Completed, Failed, or Timeout on retry."
   ActionTriggerMapping:
     t: BusinessObject
     d: "Maps an ActionDefinition to a specific trigger source (Stage, Task, or Question) with event type, conditions, and execution order. Enables reusable action-to-event binding."
@@ -48,14 +71,30 @@ nodes:
     t: BusinessObject
     d: "Dynamic data system consisting of DefineField (field definitions) and BusinessData (field values). Enables configurable custom fields per module without schema changes."
     c: "DynamicData is a meta-field system. DefineField defines field metadata: ModuleId, FieldName, Description, DataType (text/number/date/select/multi-select etc.), SourceType, IsSystemDefine, IsStatic, IsDisplayField, IsMustUse, IsRequired, IsHidden, IsComputed, AllowEdit, Sort, AdditionalInfo (JSONB). BusinessData stores actual values as JSONB. FieldGroup organizes fields. Supports computed fields, static fields, system-defined fields. Database tables: ff_define_field, ff_business_data, ff_data_value, ff_field_group."
+  EmailBinding:
+    t: BusinessObject
+    d: "Manages email account bindings for Outlook integration. Tracks OAuth tokens, sync state, and delta links for incremental email synchronization."
+    c: "EmailBinding connects a user's email account to FlowFlex for email sync. Properties: UserId, Email, Provider (e.g. Microsoft), AccessToken, RefreshToken, TokenExpireTime, LastSyncTime, SyncStatus, LastSyncError, AutoSyncEnabled, SyncIntervalMinutes, DeltaLinkInbox, DeltaLinkSent, DeltaLinkDeleted. Delta links enable incremental sync via Microsoft Graph API. Database table: ff_email_bindings."
   EntityMapping:
     t: BusinessObject
     d: "Maps external system entity types to FlowFlex entity types for integration data sync. Defines which external entities map to which workflows."
     c: "EntityMapping links external entity types to FlowFlex. Properties: IntegrationId, SystemId (auto-generated snowflake for external reference), ExternalEntityName, ExternalEntityType, WfeEntityType, WorkflowIds (JSON array), IsActive. Each mapping links an external entity type to WFE entity type and specific workflow IDs. Database table: ff_entity_mapping."
+  Event:
+    t: BusinessObject
+    d: "System event record for tracking business events, supporting event sourcing patterns with retry logic and metadata."
+    c: "Event captures business events in FlowFlex. Properties: EventId (unique string), EventType, EventVersion, EventTimestamp, AggregateId, AggregateType, EventSource, EventData (JSONB), EventMetadata (JSONB), EventDescription, EventStatus, ProcessCount, LastProcessedAt, ErrorMessage, RelatedEntityId, RelatedEntityType, EventTags (JSONB), RequiresRetry, NextRetryAt, MaxRetryCount. Supports retry logic for failed event processing. Database table: ff_events."
+  FieldMapping:
+    t: BusinessObject
+    d: "Maps fields between an external system and FlowFlex for integration data synchronization. Defines field-level mapping with sync direction and type."
+    c: "FieldMapping defines how individual fields map between external systems and FlowFlex during data sync. Properties: ActionId (links to IntegrationAction), ExternalFieldName, WfeFieldId, FieldType (enum), SyncDirection (enum - inbound/outbound/bidirectional), SortOrder, IsRequired, DefaultValue. Essential for Sync Integration Data process to know which external fields correspond to which FlowFlex fields. Database table: ff_inbound_field_mapping."
   Integration:
     t: BusinessObject
     d: "Represents a connection to an external system (CRM, ERP, Marketing, etc.). Manages authentication, entity mappings, field mappings, and data synchronization."
     c: "Integration connects FlowFlex to external systems. Properties: Type (CRM/ERP/Marketing), Name, Description, Status (Connected/Disconnected/Error/Pending), SystemName, EndpointUrl, AuthMethod (OAuth2/ApiKey/BasicAuth), EncryptedCredentials, LastSyncDate, ErrorMessage, InboundAttachments (JSON), OutboundAttachments (JSON). Has EntityMappings, IntegrationActions, QuickLinks. Database table: ff_integration."
+  IntegrationAction:
+    t: BusinessObject
+    d: "Defines an action bound to an Integration that can be executed against the external system. Supports assignment to specific workflows."
+    c: "IntegrationAction represents executable operations on an external system via Integration. Properties: IntegrationId, ActionCode, ActionName, ActionType (enum), Status (enum), AssignedWorkflowIds (JSON array - which workflows can use this action), Configuration (JSON - action-specific config). Links FieldMappings to define data transformation. Database table: ff_integration_action."
   InternalNote:
     t: BusinessObject
     d: "Internal team notes on an Onboarding or Stage. Supports threading (ParentNoteId), mentions, resolution tracking, and visibility control."
@@ -64,10 +103,14 @@ nodes:
     t: BusinessObject
     d: "Unified message entity supporting Internal messages, Email (via Outlook integration), and Portal messages. Supports threading, folders, labels, attachments, and read/star/archive states."
     c: "Message is the unified communication entity. Properties: Subject, Body, BodyPreview, MessageType (Internal/Email/Portal), Folder (Inbox/Sent/Starred/Archive/Trash), Labels (JSONB), SenderId, SenderName, SenderEmail, Recipients (JSONB), CcRecipients, BccRecipients, RelatedEntityType, RelatedEntityId, RelatedEntityCode, IsRead, IsStarred, IsArchived, IsDraft, HasAttachments, SentDate, ReceivedDate, ParentMessageId (threading), ConversationId (grouping), OwnerId (mailbox owner), OriginalFolder (for restore). Database table: ff_messages."
+  MessageAttachment:
+    t: BusinessObject
+    d: "File attachment associated with a Message. Supports both regular attachments and inline content (e.g., embedded images)."
+    c: "MessageAttachment stores file metadata for message attachments. Properties: MessageId, FileName, FileSize, ContentType, StoragePath, ExternalAttachmentId (for synced email attachments), ContentId (for inline images referenced in HTML body), IsInline (distinguishes inline vs regular attachment). Database table: ff_message_attachments."
   Onboarding:
     t: BusinessObject
     d: "A customer/lead onboarding workflow instance (also called \"Case\" in UI and permission system). Each Onboarding is created from a Workflow template and tracks the progress of a specific customer through all stages."
-    c: "Onboarding is the core runtime business entity in FlowFlex. It tracks stage progress (CurrentStageId, CurrentStageOrder, StagesProgressJson), assignees, permissions (team-based and user-based), priority, completion rate, ownership, and lifecycle dates. Linked to CRM leads via LeadId/EntityId. CaseCode is the unique business identifier generated from CaseName. Supports complex permission model with ViewPermissionMode, OperateTeams, ViewUsers, OperateUsers. Database table: ff_onboarding."
+    c: "Onboarding is the core runtime business entity in FlowFlex. It tracks stage progress (CurrentStageId, CurrentStageOrder, StagesProgressJson), assignees, permissions (team-based and user-based via ViewPermissionSubjectType/OperatePermissionSubjectType toggle), priority, completion rate, ownership, lifecycle dates, and CRM lifecycle stage (LifeCycleStageId/LifeCycleStageName). Linked to CRM leads via LeadId/EntityId. CaseCode is the unique business identifier generated from CaseName. Supports complex permission model with ViewPermissionSubjectType (Team/User), OperatePermissionSubjectType (Team/User), ViewPermissionMode, ViewTeams, ViewUsers, OperateTeams, OperateUsers. Unlike Workflow/Stage which only support Team-based permissions, Onboarding supports both Team-based and User-based permission subjects. Database table: ff_onboarding."
     states:
       Onboarding Inactive:
         d: Onboarding is created but not yet started. Initial state.
@@ -135,7 +178,7 @@ nodes:
   Stage:
     t: BusinessObject
     d: "A step/phase within a Workflow. Stages are ordered and contain components (Checklists, Questionnaires, Static Fields, QuickLinks, Files). Each Onboarding instance progresses through stages sequentially."
-    c: "Stage is the structural building block of a Workflow. It defines assignees (DefaultAssignee, CoAssignees), estimated duration, portal visibility/permission, components configuration (components_json), view/operate team permissions, color, and ordering. Stages bridge Workflow templates and Onboarding execution. In the context of an Onboarding, stage progress tracks: Pending -> InProgress -> Completed/Rejected/Terminated. Database table: ff_stage."
+    c: "Stage is the structural building block of a Workflow. It defines assignees (DefaultAssignee, CoAssignees), estimated duration, portal visibility/permission, components configuration (components_json), view/operate team permissions, color, and ordering. Stages bridge Workflow templates and Onboarding execution. In the context of an Onboarding, stage progress tracks: Pending -> InProgress -> Completed/Skipped/Rejected/Terminated. Database table: ff_stage."
     states:
       Stage Active:
         d: Stage is active and participates in workflow execution.
@@ -146,7 +189,7 @@ nodes:
   StageCondition:
     t: BusinessObject
     d: "Defines condition rules for a stage using Microsoft RulesEngine format. When a stage is completed, conditions are evaluated and configured actions are executed or fallback stage is applied."
-    c: "StageCondition uses Microsoft RulesEngine for condition evaluation on stage completion. Properties: StageId, WorkflowId, Name, Description, RulesJson (JSONB - RulesEngine workflow format), ActionsJson (JSONB - action configurations), FallbackStageId (redirect when condition not met), IsActive, Status (Valid/Invalid/Draft). One active condition per stage. Database table: ff_stage_condition."
+    c: "StageCondition uses Microsoft RulesEngine for condition evaluation on stage completion. Properties: StageId, WorkflowId, Name, Description, RulesJson (JSONB - RulesEngine workflow format), ActionsJson (JSONB - action configurations supporting 7 types: GoToStage, SkipStage, EndWorkflow, SendNotification, UpdateField, TriggerAction, AssignUser), FallbackStageId (redirect when condition not met), IsActive, Status (Valid/Invalid/Draft). One active condition per stage. GoToStage/SkipStage/EndWorkflow are stage control actions and are mutually exclusive (only one can execute per evaluation). Database table: ff_stage_condition."
     states:
       Condition Valid:
         d: Condition is valid and active, will be evaluated on stage completion.
@@ -216,7 +259,7 @@ nodes:
   Cancel Onboarding:
     t: BusinessProcess
     d: Cancels onboarding with reason. Terminal state.
-    c: "Trigger: CancelAsync with reason. Checks operate permission. Sets Status=Cancelled. Appends reason to Notes. Logs operation. Outcome: Status transitions to Cancelled (terminal)."
+    c: "Trigger: CancelAsync with reason. Precondition: Status must not be \"Completed\" (only completed onboardings cannot be cancelled). Checks operate permission. Sets Status=Cancelled. Appends reason to Notes. Logs operation. Outcome: Status transitions to Cancelled (terminal)."
   Check Resource Permission:
     t: BusinessProcess
     d: "Unified permission check using STRICT MODE: Final permission = Workflow ∩ Stage ∩ Case (intersection). Admin/Owner bypass all checks."
@@ -309,6 +352,14 @@ nodes:
     t: BusinessProcess
     d: Publishes a draft questionnaire making it available for use.
     c: "Trigger: PublishAsync. Precondition: Structure is not null AND Status != Published. Sets Status=Published. Outcome: Questionnaire available for stage assignment and customer filling."
+  Archive Questionnaire:
+    t: BusinessProcess
+    d: Archives a published questionnaire, making it unavailable for new assignments.
+    c: "Trigger: ArchiveAsync. Precondition: Status is Published. Sets Status=Archived. Existing answers are preserved. Outcome: Questionnaire transitions to Archived (terminal). No longer available for new stage assignments."
+  Submit QuestionnaireAnswer:
+    t: BusinessProcess
+    d: Submits a questionnaire answer for review. Transitions from Draft to Submitted status.
+    c: "Trigger: User action via submit endpoint. Precondition: Answer exists in Draft status with sufficient completion. Sets Status=Submitted, SubmitTime=now. Creates new version if versioning enabled (increments Version, sets IsLatest=true on new, false on previous). May trigger ActionTriggerMappings configured on questions. Outcome: Answer transitions from Draft to Submitted."
   Reactivate Onboarding:
     t: BusinessProcess
     d: Reactivates an aborted onboarding back to active state.
@@ -316,7 +367,7 @@ nodes:
   Reject Onboarding:
     t: BusinessProcess
     d: Rejects onboarding during review. Can optionally terminate the entire workflow.
-    c: "Trigger: RejectAsync with input. Checks operate permission. If TerminateWorkflow=true: Status=Terminated. Otherwise: Status=Rejected. Both are terminal states. Logs operation. Outcome: Status transitions to Rejected or Terminated."
+    c: "Trigger: RejectAsync with input. Precondition: Status must not be \"Completed\", \"Rejected\", or \"Terminated\". Checks operate permission. If TerminateWorkflow=true: Status=Terminated. Otherwise: Status=Rejected. Both are terminal states. Logs operation. Outcome: Status transitions to Rejected or Terminated."
   Resume Onboarding:
     t: BusinessProcess
     d: Resumes a paused onboarding back to active state.
@@ -363,6 +414,10 @@ nodes:
     t: SourceArtifact
     d: Domain entity for ActionDefinition.
     c: "Path: packages/flowFlex-backend/Domain/Entities/Action/ActionDefinition.cs. Defines: ActionCode, ActionName, ActionType, Description, ActionConfig (JSONB), IsEnabled, IsTools, IsAIGenerated, TriggerType. Maps to ff_action_definitions."
+  ActionExecution.cs:
+    t: SourceArtifact
+    d: Domain entity for ActionExecution records.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/Action/ActionExecution.cs. Defines: ActionDefinitionId, ExecutionId, ActionTriggerMappingId, ActionName, ActionType, TriggerContext (JSONB), ExecutionStatus, StartedAt, CompletedAt, DurationMs, ExecutionInput (JSONB), ExecutionOutput (JSONB), ErrorMessage, ErrorStackTrace, ExecutorInfo (JSONB). Maps to ff_action_executions."
   ActionTriggerMapping.cs:
     t: SourceArtifact
     d: Domain entity for ActionTriggerMapping.
@@ -387,10 +442,30 @@ nodes:
     t: SourceArtifact
     d: Domain entity for field definitions in the dynamic data system.
     c: "Path: packages/flowFlex-backend/Domain/Entities/DynamicData/DefineField.cs. Defines: ModuleId, FieldName, Description, DataType, SourceType, SourceName, FormatId, ValidateId, RefFieldId, IsSystemDefine, IsStatic, IsDisplayField, IsMustUse, IsRequired, IsTableMustShow, IsHidden, IsComputed, AllowEdit, AllowEditItem, Sort, AdditionalInfo (JSONB). Maps to ff_define_field."
+  BusinessData.cs:
+    t: SourceArtifact
+    d: Domain entity for dynamic business data records.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/DynamicData/BusinessData.cs. Defines: ModuleId, InternalData (JSONB). Stores per-module business data records with flexible JSON structure. Maps to ff_business_data."
+  DataValue.cs:
+    t: SourceArtifact
+    d: Domain entity for individual field values in the dynamic data system.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/DynamicData/DataValue.cs. Defines: ModuleId, BusinessId, FieldId, FieldName, DataType, LongValue, IntValue, DoubleValue, TextValue, Varchar100Value, Varchar500Value, VarcharValue, BoolValue, DateTimeValue, StringListValue (JSONB). Uses typed columns for efficient querying by data type. Maps to ff_data_value."
+  FieldGroup.cs:
+    t: SourceArtifact
+    d: Domain entity for organizing fields into groups.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/DynamicData/FieldGroup.cs. Defines: ModuleId, GroupName, Sort, IsSystemDefine, IsDefault, Fields (bigint array - field IDs in this group). Maps to ff_field_group."
   EntityMapping.cs:
     t: SourceArtifact
     d: Domain entity for entity mappings between external and FlowFlex systems.
     c: "Path: packages/flowFlex-backend/Domain/Entities/Integration/EntityMapping.cs. Defines: IntegrationId, SystemId, ExternalEntityName, ExternalEntityType, WfeEntityType, WorkflowIds (JSON array), IsActive. Maps to ff_entity_mapping."
+  FieldMapping.cs:
+    t: SourceArtifact
+    d: Domain entity for field-level integration mappings.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/Integration/FieldMapping.cs. Defines: ActionId, ExternalFieldName, WfeFieldId, FieldType (enum), SyncDirection (enum), SortOrder, IsRequired, DefaultValue. Maps to ff_inbound_field_mapping."
+  IntegrationAction.cs:
+    t: SourceArtifact
+    d: Domain entity for integration-bound actions.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/Integration/IntegrationAction.cs. Defines: IntegrationId, ActionCode, ActionName, ActionType (enum), Status (enum), AssignedWorkflowIds (JSON), Configuration (JSON). Maps to ff_integration_action."
   Integration.cs:
     t: SourceArtifact
     d: Domain entity for Integration connections.
@@ -403,6 +478,18 @@ nodes:
     t: SourceArtifact
     d: Domain entity for unified Message.
     c: "Path: packages/flowFlex-backend/Domain/Entities/OW/Message.cs. Defines all message properties including threading (ParentMessageId, ConversationId), folder management, owner-based mailbox model. Maps to ff_messages."
+  MessageAttachment.cs:
+    t: SourceArtifact
+    d: Domain entity for message attachments.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/OW/MessageAttachment.cs. Defines: MessageId, FileName, FileSize, ContentType, StoragePath, ExternalAttachmentId, ContentId, IsInline. Maps to ff_message_attachments."
+  EmailBinding.cs:
+    t: SourceArtifact
+    d: Domain entity for email account bindings.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/OW/EmailBinding.cs. Defines: UserId, Email, Provider, AccessToken, RefreshToken, TokenExpireTime, LastSyncTime, SyncStatus, LastSyncError, AutoSyncEnabled, SyncIntervalMinutes, DeltaLinkInbox, DeltaLinkSent, DeltaLinkDeleted. Maps to ff_email_bindings."
+  Event.cs:
+    t: SourceArtifact
+    d: Domain entity for system events.
+    c: "Path: packages/flowFlex-backend/Domain/Entities/OW/Event.cs. Defines: EventId, EventType, EventVersion, EventTimestamp, AggregateId, AggregateType, EventSource, EventData (JSONB), EventMetadata (JSONB), EventDescription, EventStatus, ProcessCount, LastProcessedAt, ErrorMessage, RelatedEntityId, RelatedEntityType, EventTags (JSONB), RequiresRetry, NextRetryAt, MaxRetryCount. Maps to ff_events."
   Onboarding.cs:
     t: SourceArtifact
     d: Domain entity definition for Onboarding with all properties and ORM mapping.
@@ -479,6 +566,10 @@ nodes:
     t: SourceArtifact
     d: PostgreSQL table for action definitions.
     c: "Database table: public.ff_action_definitions. Stores action definitions: action_code, action_name, action_type, description, action_config (jsonb), is_enabled, is_tools, is_ai_generated, trigger_type."
+  ff_action_executions:
+    t: SourceArtifact
+    d: PostgreSQL table for action execution records.
+    c: "Database table: public.ff_action_executions. Stores execution records: action_definition_id, execution_id, action_trigger_mapping_id, action_name, action_type, trigger_context (jsonb), execution_status, started_at, completed_at, duration_ms, execution_input (jsonb), execution_output (jsonb), error_message, error_stack_trace, executor_info (jsonb)."
   ff_action_trigger_mappings:
     t: SourceArtifact
     d: PostgreSQL table for trigger mappings.
@@ -499,14 +590,46 @@ nodes:
     t: SourceArtifact
     d: PostgreSQL table for dynamic field definitions.
     c: "Database table: public.ff_define_field. Stores field metadata: module_id, field_name, description, data_type, source_type, is_system_define, is_static, is_display_field, is_must_use, is_required, is_hidden, is_computed, allow_edit, sort, additional_info (jsonb)."
+  ff_business_data:
+    t: SourceArtifact
+    d: PostgreSQL table for dynamic business data records.
+    c: "Database table: public.ff_business_data. Stores per-module business data: module_id, internal_data (jsonb)."
+  ff_data_value:
+    t: SourceArtifact
+    d: PostgreSQL table for individual dynamic field values.
+    c: "Database table: public.ff_data_value. Stores typed field values: module_id, business_id, field_id, field_name, data_type, long_value, int_value, double_value, text_value, varchar100_value, varchar500_value, varchar_value, bool_value, date_time_value, string_list_value (jsonb)."
+  ff_field_group:
+    t: SourceArtifact
+    d: PostgreSQL table for field groups.
+    c: "Database table: public.ff_field_group. Stores field grouping: module_id, group_name, sort, is_system_define, is_default, fields (bigint array)."
+  ff_email_bindings:
+    t: SourceArtifact
+    d: PostgreSQL table for email account bindings.
+    c: "Database table: public.ff_email_bindings. Stores email sync config: user_id, email, provider, access_token, refresh_token, token_expire_time, last_sync_time, sync_status, last_sync_error, auto_sync_enabled, sync_interval_minutes, delta_link_inbox, delta_link_sent, delta_link_deleted."
+  ff_events:
+    t: SourceArtifact
+    d: PostgreSQL table for system events.
+    c: "Database table: public.ff_events. Stores business events: event_id, event_type, event_version, event_timestamp, aggregate_id, aggregate_type, event_source, event_data (jsonb), event_metadata (jsonb), event_description, event_status, process_count, last_processed_at, error_message, related_entity_id, related_entity_type, event_tags (jsonb), requires_retry, next_retry_at, max_retry_count."
+  ff_inbound_field_mapping:
+    t: SourceArtifact
+    d: PostgreSQL table for integration field mappings.
+    c: "Database table: public.ff_inbound_field_mapping. Stores field-level mappings: action_id, external_field_name, wfe_field_id, field_type, sync_direction, sort_order, is_required, default_value."
   ff_integration:
     t: SourceArtifact
     d: PostgreSQL table for integrations.
     c: "Database table: public.ff_integration. Stores integration config: type, name, description, status, system_name, endpoint_url, auth_method, credentials, last_sync_date, error_message, inbound_attachments, outbound_attachments."
+  ff_integration_action:
+    t: SourceArtifact
+    d: PostgreSQL table for integration actions.
+    c: "Database table: public.ff_integration_action. Stores integration-bound actions: integration_id, action_code, action_name, action_type, status, assigned_workflow_ids, configuration."
   ff_messages:
     t: SourceArtifact
     d: PostgreSQL table for messages.
     c: "Database table: public.ff_messages. Stores unified messages: subject, body, message_type, folder, labels, sender_id, recipients, related_entity_id, is_read, is_starred, is_draft, parent_message_id, conversation_id, owner_id."
+  ff_message_attachments:
+    t: SourceArtifact
+    d: PostgreSQL table for message attachments.
+    c: "Database table: public.ff_message_attachments. Stores attachment metadata: message_id, file_name, file_size, content_type, storage_path, external_attachment_id, content_id, is_inline."
   ff_onboarding:
     t: SourceArtifact
     d: PostgreSQL table storing onboarding instances.
@@ -542,13 +665,17 @@ nodes:
   ff_workflow:
     t: SourceArtifact
     d: PostgreSQL table storing workflow template definitions.
-    c: "Database table: public.ff_workflow. Stores workflow configuration including name, description, status, dates, version, permissions, portal settings. Primary key: id (snowflake). Key columns: name, status, is_default, is_active, start_date, end_date, version, view_permission_mode, view_teams, operate_teams, components_json, visible_in_portal, portal_permission."
+    c: "Database table: public.ff_workflow. Stores workflow configuration including name, description, status, dates, version, permissions, portal settings. Primary key: id (snowflake). Key columns: name, status, is_default, is_active, start_date, end_date, version, view_permission_mode, view_teams, operate_teams, visible_in_portal, portal_permission."
 
   # --- Rule ---
   Action Execution Order:
     t: Rule
     d: When multiple mappings match the same trigger, they execute in order of execution_order field (smaller first).
     c: "Condition: Multiple mappings on same trigger source. Effect: Actions execute sequentially by execution_order (ascending). Evidence: ActionTriggerMapping.ExecutionOrder property."
+  Action Failure Non-Blocking:
+    t: Rule
+    d: A single action execution failure does not prevent subsequent actions in the same trigger from executing.
+    c: "Condition: An action in a sequence fails (throws error or times out). Effect: Error is logged and recorded in ActionExecution, but remaining actions in the execution_order sequence continue to execute. This is a deliberate fault-tolerance design — one broken action should not block the entire workflow progression. Evidence: ConditionActionExecutor continues executing remaining actions even if one fails."
   Action Trigger Condition:
     t: Rule
     d: ActionTriggerMapping can have trigger_conditions JSON that must evaluate to true before the action executes.
@@ -577,6 +704,14 @@ nodes:
     t: Rule
     d: When condition is not met and FallbackStageId is configured, onboarding is redirected to the fallback stage.
     c: "Condition: Condition evaluation returns false AND FallbackStageId is not null. Effect: Onboarding CurrentStageId is updated to FallbackStageId instead of advancing normally. Evidence: StageService.CompleteStageAsync redirects to fallback stage when condition not met."
+  ConditionAction Types:
+    t: Rule
+    d: "StageCondition ActionsJson supports 7 action types: GoToStage, SkipStage, EndWorkflow, SendNotification, UpdateField, TriggerAction, AssignUser."
+    c: "Each action type has specific behavior: GoToStage (jump to specific stage), SkipStage (skip next N stages), EndWorkflow (force complete the onboarding), SendNotification (send email to users/teams), UpdateField (update onboarding field value), TriggerAction (execute a predefined ActionDefinition via HTTP), AssignUser (assign user/team to a stage). Actions execute sequentially by order field. Per-type timeouts: default 30s, SendNotification 60s, TriggerAction 45s. TriggerAction results are passed as prev_ prefixed fields to subsequent actions (chaining). Evidence: ConditionActionExecutor.cs, StageConditionConstants.cs."
+  ConditionAction Stage Control Mutual Exclusion:
+    t: Rule
+    d: "GoToStage, SkipStage, and EndWorkflow are stage control actions — only one can execute per condition evaluation."
+    c: "Condition: ActionsJson contains multiple stage control actions (GoToStage/SkipStage/EndWorkflow). Effect: Only one stage control action is allowed per condition. These three actions directly affect stage progression and are mutually exclusive — GoToStage redirects, SkipStage advances past stages, EndWorkflow terminates. Other action types (SendNotification, UpdateField, TriggerAction, AssignUser) can execute alongside any stage control action. Evidence: StageConditionConstants.cs categorizes these as StageControlActions."
   Integration Authentication Methods:
     t: Rule
     d: "Integration.AuthMethod determines auth strategy: OAuth2 (token refresh flow), ApiKey (header-based), BasicAuth (username/password)."
@@ -596,7 +731,7 @@ nodes:
   Onboarding Status Transition Guard:
     t: Rule
     d: Each status operation validates current status before allowing transition.
-    c: "Start: only from Inactive. Pause: only from Active. Resume: only from Paused. Abort: only from Active. Reactivate: only from Aborted. Cancel/Reject/ForceComplete: from non-terminal states. Effect: Throws BusinessError if invalid transition attempted. Evidence: OnboardingStatusService validates Status field before each transition."
+    c: "Start: only from Inactive. Pause: only from Active. Resume: only from Paused. Abort: only from Active. Reactivate: only from Aborted. Cancel: only blocked from Completed. Reject: blocked from Completed/Rejected/Terminated. ForceComplete: blocked from Completed/Force Completed. Effect: Throws BusinessError if invalid transition attempted. Evidence: OnboardingStatusService validates Status field before each transition."
   Operate Permission Always Whitelist:
     t: Rule
     d: "Operate permission is ALWAYS whitelist-based regardless of ViewPermissionMode. In Public mode, empty OperateTeams means everyone can operate."
@@ -608,7 +743,7 @@ nodes:
   Permission Strict Mode (Intersection):
     t: Rule
     d: "Three-level permission intersection: Workflow ∩ Stage ∩ Case. No Workflow permission means no access to Stage or Case."
-    c: "Final permission = Workflow ∩ Stage ∩ Case (intersection). Admin/Owner bypass all checks. Assigned users get special Stage privileges. ViewPermissionMode controls visibility: Public, VisibleToTeams, InvisibleToTeams, Private. Supports both Team-based and User-based subject types. Evidence: PermissionService.cs implements strict intersection mode."
+    c: "Final permission = Workflow ∩ Stage ∩ Case (intersection). Admin/Owner bypass all checks. Assigned users get special Stage privileges. ViewPermissionMode controls visibility: Public, VisibleToTeams, InvisibleToTeams, Private. At Workflow/Stage level, permissions are always Team-based (ViewTeams/OperateTeams). At Onboarding (Case) level, ViewPermissionSubjectType and OperatePermissionSubjectType (Team/User enum) determine whether the system checks Teams or Users fields. When SubjectType=Team, ViewTeams/OperateTeams are used; when SubjectType=User, ViewUsers/OperateUsers are used. Evidence: PermissionService.cs implements strict intersection mode, CasePermissionService checks SubjectType."
   Portal Token Bypass:
     t: Rule
     d: Portal users accessing PortalAccess endpoints bypass stage permission checks.
@@ -648,7 +783,7 @@ nodes:
   View Permission Mode Configuration:
     t: Rule
     d: "ViewPermissionMode controls visibility: Public (all can view), VisibleToTeams (whitelist), InvisibleToTeams (blacklist), Private (owner only)."
-    c: "Applied at Workflow, Stage, and Onboarding levels independently. Public: returns true for all users. VisibleToTeams: user must be in at least one team listed in ViewTeams. InvisibleToTeams: user must NOT be in any team listed in ViewTeams. Private: only the resource creator (CreateUserId) can view. Evidence: WorkflowPermissionService.CheckViewPermission switch expression."
+    c: "Applied at Workflow, Stage, and Onboarding levels independently. Public: returns true for all users. VisibleToTeams: user must be in at least one team listed in ViewTeams. InvisibleToTeams: user must NOT be in any team listed in ViewTeams. Private: only the resource creator (CreateUserId) can view. At Workflow/Stage level, ViewTeams is always the checked field (Team-based only). At Onboarding level, ViewPermissionSubjectType determines whether ViewTeams or ViewUsers is checked. Evidence: WorkflowPermissionService.CheckViewPermission switch expression, CasePermissionService.CheckViewPermission checks SubjectType."
   Workflow Auto-Expiration:
     t: Rule
     d: Workflows with EndDate in the past are automatically set to inactive by background processing.
@@ -674,6 +809,9 @@ rels:
 
   # --- composition ---
   - Complete Stage -> includes_condition_evaluation -> Evaluate Stage Condition
+  - Integration -> has_actions -> IntegrationAction
+  - IntegrationAction -> has_field_mappings -> FieldMapping
+  - Message -> has_attachments -> MessageAttachment
   - Stage -> contains_checklist_component -> Checklist
   - Stage -> contains_questionnaire_component -> Questionnaire
   - Workflow -> contains_stages -> Stage
@@ -681,11 +819,14 @@ rels:
   # --- dependency ---
   - Abort Onboarding -> governed_by -> Onboarding Operate Permission
   - Abort Onboarding -> governed_by -> Onboarding Status Transition Guard
+  - ActionExecution -> records_execution_of -> ActionDefinition
+  - ActionExecution -> triggered_by_mapping -> ActionTriggerMapping
   - ActionTriggerMapping -> references_action -> ActionDefinition
   - ActionTriggerMapping -> can_trigger_on_task -> ChecklistTask
   - ActionTriggerMapping -> can_trigger_on_questionnaire -> Questionnaire
   - ActionTriggerMapping -> can_trigger_on_stage -> Stage
   - Advance Stage -> governed_by -> Onboarding Completion Rate Calculation
+  - Archive Questionnaire -> governed_by -> Questionnaire Publish Guard
   - Cancel Onboarding -> governed_by -> Onboarding Operate Permission
   - Check Resource Permission -> governed_by -> Admin Permission Bypass
   - Check Resource Permission -> checks_permission_on -> Onboarding
@@ -713,14 +854,22 @@ rels:
   - Create Workflow -> governed_by -> Workflow Team Permission Control
   - Delete Workflow -> governed_by -> Workflow Delete Guard
   - DynamicData -> extends_with_custom_fields -> Onboarding
+  - EmailBinding -> belongs_to_user -> User
   - EntityMapping -> belongs_to_integration -> Integration
   - Evaluate Stage Condition -> governed_by -> Condition Fallback Stage
+  - Evaluate Stage Condition -> governed_by -> ConditionAction Types
+  - Evaluate Stage Condition -> governed_by -> ConditionAction Stage Control Mutual Exclusion
+  - Execute Action -> governed_by -> Action Failure Non-Blocking
   - Execute Action -> governed_by -> Action Type Configuration
   - Execute Action -> consumes -> ActionDefinition
+  - Execute Action -> produces -> ActionExecution
+  - FieldMapping -> belongs_to_action -> IntegrationAction
   - Force Complete Onboarding -> governed_by -> Onboarding Operate Permission
   - Integration -> creates_onboardings_from_external -> Onboarding
+  - IntegrationAction -> belongs_to_integration -> Integration
   - InternalNote -> belongs_to_onboarding -> Onboarding
   - Message -> related_to_onboarding -> Onboarding
+  - MessageAttachment -> belongs_to_message -> Message
   - Onboarding -> progresses_through -> Stage
   - Onboarding -> created_from_template -> Workflow
   - OnboardingFile -> belongs_to_onboarding -> Onboarding
@@ -744,7 +893,9 @@ rels:
   - Start Onboarding -> governed_by -> Onboarding Status Transition Guard
   - StaticFieldValue -> value_for_onboarding -> Onboarding
   - StaticFieldValue -> value_at_stage -> Stage
+  - Submit QuestionnaireAnswer -> submits -> QuestionnaireAnswer
   - Sync Integration Data -> governed_by -> Integration Authentication Methods
+  - Sync Integration Data -> uses_field_mappings -> FieldMapping
   - Trigger Action Event -> governed_by -> Action Execution Order
   - Trigger Action Event -> governed_by -> Action Trigger Condition
   - Uncomplete ChecklistTask -> governed_by -> Task Uncomplete Guard
@@ -757,6 +908,7 @@ rels:
   # --- flow ---
   - Abort Onboarding -> transitions_to -> Onboarding Aborted
   - Activate Workflow -> transitions_to -> Workflow Active
+  - Archive Questionnaire -> transitions_to -> Questionnaire Archived
   - Cancel Onboarding -> transitions_to -> Onboarding Cancelled
   - Complete ChecklistTask -> transitions_to -> Task Completed
   - Complete ChecklistTask -> may_trigger_actions -> Trigger Action Event
@@ -771,6 +923,7 @@ rels:
   - Reject Onboarding -> transitions_to -> Onboarding Rejected
   - Resume Onboarding -> transitions_to -> Onboarding Active
   - Start Onboarding -> transitions_to -> Onboarding Active
+  - Submit QuestionnaireAnswer -> transitions_to -> Answer Submitted
   - Trigger Action Event -> triggers -> Execute Action
   - Uncomplete ChecklistTask -> transitions_to -> Task Pending
 
@@ -778,6 +931,7 @@ rels:
   - Abort Onboarding -> aborts -> Onboarding
   - Activate Workflow -> activates -> Workflow
   - Advance Stage -> advances_stage -> Onboarding
+  - Archive Questionnaire -> archives -> Questionnaire
   - Assign ChecklistTask -> assigns -> ChecklistTask
   - Assign Onboarding -> assigns -> Onboarding
   - Batch Complete Tasks -> batch_completes -> ChecklistTask
@@ -799,6 +953,7 @@ rels:
   - Duplicate Stage -> duplicates -> Stage
   - Duplicate Workflow -> duplicates -> Workflow
   - Evaluate Stage Condition -> evaluates -> StageCondition
+  - Execute Action -> creates -> ActionExecution
   - Force Complete Onboarding -> force_completes -> Onboarding
   - Pause Onboarding -> pauses -> Onboarding
   - Process Expired Workflows -> auto_deactivates -> Workflow
@@ -809,6 +964,7 @@ rels:
   - Sort ChecklistTasks -> reorders -> ChecklistTask
   - Sort Stages -> reorders -> Stage
   - Start Onboarding -> starts -> Onboarding
+  - Submit QuestionnaireAnswer -> submits -> QuestionnaireAnswer
   - Sync Integration Data -> syncs_via -> Integration
   - Uncomplete ChecklistTask -> uncompletes -> ChecklistTask
   - Update Stage -> updates -> Stage
@@ -818,6 +974,7 @@ rels:
 
   # --- constraint ---
   - Action Execution Order -> constrains -> ActionTriggerMapping
+  - Action Failure Non-Blocking -> constrains -> ActionExecution
   - Action Trigger Condition -> constrains -> ActionTriggerMapping
   - Action Type Configuration -> constrains -> ActionDefinition
   - Admin Permission Bypass -> constrains -> Onboarding
@@ -825,6 +982,8 @@ rels:
   - Component Portal Access Control -> constrains -> Stage
   - Component Uniqueness Within Workflow -> constrains -> Stage
   - Condition Fallback Stage -> constrains -> StageCondition
+  - ConditionAction Stage Control Mutual Exclusion -> constrains -> StageCondition
+  - ConditionAction Types -> constrains -> StageCondition
   - Integration Authentication Methods -> constrains -> Integration
   - No Circular Dependencies -> constrains -> ChecklistTask
   - Onboarding Completion Rate Calculation -> constrains -> Onboarding
@@ -856,10 +1015,13 @@ rels:
   # --- mapping ---
   - Abort Onboarding -> implemented_in -> OnboardingStatusService.cs
   - Action Execution Order -> evidenced_by -> ActionTriggerMapping.cs
+  - Action Failure Non-Blocking -> evidenced_by -> ActionExecution.cs
   - Action Trigger Condition -> evidenced_by -> ActionTriggerMapping.cs
   - Action Type Configuration -> evidenced_by -> ActionDefinition.cs
   - ActionDefinition -> evidenced_by -> ActionDefinition.cs
   - ActionDefinition -> evidenced_by -> ff_action_definitions
+  - ActionExecution -> evidenced_by -> ActionExecution.cs
+  - ActionExecution -> evidenced_by -> ff_action_executions
   - ActionTriggerMapping -> evidenced_by -> ActionTriggerMapping.cs
   - ActionTriggerMapping -> evidenced_by -> ff_action_trigger_mappings
   - Activate Workflow -> implemented_in -> WorkflowService.cs
@@ -884,6 +1046,8 @@ rels:
   - Component Portal Access Control -> evidenced_by -> StageComponent.cs
   - Component Uniqueness Within Workflow -> evidenced_by -> StageService.cs
   - Condition Fallback Stage -> evidenced_by -> StageCondition.cs
+  - ConditionAction Types -> evidenced_by -> StageCondition.cs
+  - ConditionAction Stage Control Mutual Exclusion -> evidenced_by -> StageCondition.cs
   - Create ChecklistTask -> implemented_in -> ChecklistTaskService.cs
   - Create New Version -> implemented_in -> WorkflowService.cs
   - Create Onboarding -> implemented_in -> OnboardingCrudService.cs
@@ -895,14 +1059,30 @@ rels:
   - Duplicate Stage -> implemented_in -> StageService.cs
   - Duplicate Workflow -> implemented_in -> WorkflowService.cs
   - DynamicData -> evidenced_by -> DefineField.cs
+  - DynamicData -> evidenced_by -> BusinessData.cs
+  - DynamicData -> evidenced_by -> DataValue.cs
+  - DynamicData -> evidenced_by -> FieldGroup.cs
   - DynamicData -> evidenced_by -> ff_define_field
+  - DynamicData -> evidenced_by -> ff_business_data
+  - DynamicData -> evidenced_by -> ff_data_value
+  - DynamicData -> evidenced_by -> ff_field_group
+  - EmailBinding -> evidenced_by -> EmailBinding.cs
+  - EmailBinding -> evidenced_by -> ff_email_bindings
   - EntityMapping -> evidenced_by -> EntityMapping.cs
+  - Event -> evidenced_by -> Event.cs
+  - Event -> evidenced_by -> ff_events
+  - FieldMapping -> evidenced_by -> FieldMapping.cs
+  - FieldMapping -> evidenced_by -> ff_inbound_field_mapping
   - Force Complete Onboarding -> implemented_in -> OnboardingStatusService.cs
   - Integration -> evidenced_by -> Integration.cs
   - Integration -> evidenced_by -> ff_integration
+  - IntegrationAction -> evidenced_by -> IntegrationAction.cs
+  - IntegrationAction -> evidenced_by -> ff_integration_action
   - InternalNote -> evidenced_by -> InternalNote.cs
   - Message -> evidenced_by -> Message.cs
   - Message -> evidenced_by -> ff_messages
+  - MessageAttachment -> evidenced_by -> MessageAttachment.cs
+  - MessageAttachment -> evidenced_by -> ff_message_attachments
   - No Circular Dependencies -> evidenced_by -> ChecklistTaskService.cs
   - Onboarding -> evidenced_by -> Onboarding.cs
   - Onboarding -> evidenced_by -> OnboardingCrudService.cs

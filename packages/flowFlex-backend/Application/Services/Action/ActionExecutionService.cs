@@ -135,6 +135,17 @@ namespace FlowFlex.Application.Services.Action
                         }
                         execution.ExecutionInput = JToken.FromObject(executionInputData);
                         await _actionExecutionRepository.UpdateAsync(execution);
+
+                        // Apply default values — use aiMetadata to detect unmatched fields
+                        if (lookupMappings != null && lookupMappings.Any())
+                        {
+                            contextData = ApplyDefaultValues(contextData, lookupMappings, aiMetadata);
+                        }
+                    }
+                    else if (lookupMappings != null && lookupMappings.Any())
+                    {
+                        // No lookup was performed, but some fields may have defaultValue configured
+                        contextData = ApplyDefaultValues(contextData, lookupMappings, null);
                     }
 
                     // Get executor and execute
@@ -353,6 +364,17 @@ namespace FlowFlex.Application.Services.Action
                 {
                     if (lookupResult.Status != "success" || !lookupResult.Options.Any())
                     {
+                        // Record metadata so ApplyDefaultValues knows this field's lookup yielded nothing
+                        metadata[lookupResult.ApiField] = new AiMatchMetadata
+                        {
+                            OriginalInput = string.Empty,
+                            MatchedValue = null,
+                            Confidence = 0,
+                            Reasoning = lookupResult.Status != "success"
+                                ? $"Lookup failed: {lookupResult.Error ?? "unknown error"}"
+                                : "Lookup returned empty options list",
+                            Source = "lookup_empty"
+                        };
                         continue;
                     }
 
@@ -634,6 +656,93 @@ namespace FlowFlex.Application.Services.Action
             }
         }
 
+        /// <summary>
+        /// Apply default values from lookupMappings for fields that are still empty/missing in contextData,
+        /// or fields that went through lookup but failed to match (detected via aiMetadata).
+        /// This runs after lookup + AI matching, as a final fallback to prevent JSON corruption from empty placeholders.
+        /// </summary>
+        private object ApplyDefaultValues(object contextData, List<FieldMappingItem> lookupMappings, Dictionary<string, AiMatchMetadata>? aiMetadata)
+        {
+            try
+            {
+                var contextDict = ConvertToContextDictionary(contextData);
+                var applied = false;
+
+                foreach (var mapping in lookupMappings)
+                {
+                    // DefaultValue is C# null when not configured (JToken? = null means key absent in JSON)
+                    if (mapping.DefaultValue == null)
+                        continue;
+
+                    var apiField = mapping.ApiField;
+                    if (string.IsNullOrWhiteSpace(apiField))
+                        continue;
+
+                    // Determine if this field needs a default value:
+                    // 1. Field is empty/missing in contextData
+                    // 2. Field went through lookup but failed to match (unmatched metadata)
+                    var needsDefault = false;
+
+                    if (!contextDict.TryGetValue(apiField, out var existing) || IsEmptyValue(existing))
+                    {
+                        needsDefault = true;
+                    }
+                    else if (aiMetadata != null && aiMetadata.TryGetValue(apiField, out var meta))
+                    {
+                        // Field has a value but lookup/AI failed to match — the current value is
+                        // the raw source value (not a resolved lookup value). Apply default.
+                        var isUnmatched = meta.MatchedValue == null ||
+                                          meta.Source == "ai_unmatched" ||
+                                          meta.Source == "source_missing" ||
+                                          meta.Source == "lookup_empty";
+                        if (isUnmatched)
+                        {
+                            needsDefault = true;
+                        }
+                    }
+
+                    if (!needsDefault)
+                        continue;
+
+                    // Inject default value
+                    object valueToInject;
+                    if (mapping.DefaultValue.Type == JTokenType.Null)
+                    {
+                        // JSON null literal — inject string "null" so template renders as: null
+                        valueToInject = "null";
+                    }
+                    else
+                    {
+                        valueToInject = mapping.DefaultValue.ToObject<object>()!;
+                    }
+
+                    contextDict[apiField] = valueToInject;
+                    applied = true;
+
+                    _logger.LogDebug("Applied default value for field {ApiField}: {DefaultValue} (reason: {Reason})",
+                        apiField, mapping.DefaultValue.ToString(Newtonsoft.Json.Formatting.None),
+                        needsDefault && aiMetadata?.ContainsKey(apiField) == true ? "lookup_unmatched" : "empty_value");
+                }
+
+                return applied ? contextDict : contextData;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to apply default values, returning original context");
+                return contextData;
+            }
+        }
+
+        /// <summary>
+        /// Check if a value is considered "empty" for defaultValue injection purposes
+        /// </summary>
+        private static bool IsEmptyValue(object? value)
+        {
+            if (value == null) return true;
+            if (value is string str) return string.IsNullOrEmpty(str);
+            if (value is JToken jt) return jt.Type == JTokenType.Null || (jt.Type == JTokenType.String && string.IsNullOrEmpty(jt.ToString()));
+            return false;
+        }
 
         #endregion
     }

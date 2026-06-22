@@ -287,7 +287,10 @@
 												>
 													<el-table-column type="expand">
 														<template #default="{ row, $index }">
-															<div class="px-4 py-3">
+															<div
+																v-if="row.lookupEnabled"
+																class="px-4 py-3"
+															>
 																<div
 																	class="text-xs text-text-secondary mb-1"
 																>
@@ -302,7 +305,9 @@
 																</div>
 																<LookupConfigPanel
 																	v-model="row.lookup"
-																	:integration-id="currentIntegrationId"
+																	:integration-id="
+																		currentIntegrationId
+																	"
 																	:disabled="shouldDisableFields"
 																	@update:model-value="
 																		(val) =>
@@ -324,19 +329,19 @@
 															<el-input
 																v-model="row.sourceField"
 																placeholder="{{salesRep}}"
-																:disabled="shouldDisableFields"
+																disabled
 															/>
 														</template>
 													</el-table-column>
 
 													<el-table-column
-														label="Target Param (API)"
-														min-width="180"
+														label="Default Value"
+														min-width="140"
 													>
 														<template #default="{ row }">
 															<el-input
-																v-model="row.targetParam"
-																placeholder="sales_rep_id"
+																v-model="row.defaultValueInput"
+																placeholder='null / 0 / "" / value'
 																:disabled="shouldDisableFields"
 															/>
 														</template>
@@ -761,7 +766,37 @@ interface IOutboundLookupItem {
 	targetParam: string;
 	lookupEnabled: boolean;
 	lookup?: LookupConfig;
+	defaultValueInput: string;
 	__key: string;
+}
+
+/**
+ * Parse user input for defaultValue into the appropriate JSON value.
+ * - Empty string input → undefined (no default configured)
+ * - "null" → null (JSON null literal)
+ * - '""' → "" (empty string)
+ * - Numeric string → number
+ * - Other → string as-is
+ */
+function parseDefaultValue(input: string): any {
+	if (input === 'null') return null;
+	if (input === '""') return '';
+	if (/^-?\d+(\.\d+)?$/.test(input)) return Number(input);
+	return input;
+}
+
+/**
+ * Format a stored defaultValue back to user-visible input text.
+ * - undefined → "" (empty input, no default configured)
+ * - null → "null"
+ * - "" (empty string) → '""'
+ * - other → String(value)
+ */
+function formatDefaultValue(value: any): string {
+	if (value === undefined) return '';
+	if (value === null) return 'null';
+	if (value === '') return '""';
+	return String(value);
 }
 
 let outboundLookupKeyCounter = 0;
@@ -833,6 +868,7 @@ function handleAddOutboundLookup() {
 			displayPath: '',
 			valuePath: '',
 		},
+		defaultValueInput: '',
 		__key: key,
 	});
 	expandedLookupRowKeys.value.push(key);
@@ -864,7 +900,8 @@ function handleOutboundLookupToggle(row: IOutboundLookupItem) {
 }
 
 function handleLookupExpandChange(_row: IOutboundLookupItem, expandedRows: IOutboundLookupItem[]) {
-	expandedLookupRowKeys.value = expandedRows.map((r) => r.__key);
+	// Only allow expanding rows that have AI Match enabled
+	expandedLookupRowKeys.value = expandedRows.filter((r) => r.lookupEnabled).map((r) => r.__key);
 }
 
 function handleOutboundLookupConfigUpdate(index: number, val: LookupConfig) {
@@ -952,6 +989,7 @@ function handleAddDetectedPlaceholder(name: string) {
 			displayPath: '',
 			valuePath: '',
 		},
+		defaultValueInput: '',
 		__key: key,
 	});
 	expandedLookupRowKeys.value.push(key);
@@ -1113,12 +1151,13 @@ const loadActionDetail = async (actionId: string) => {
 			const parsedConfig = formData.value.actionConfig;
 			if (parsedConfig?.lookupMappings && Array.isArray(parsedConfig.lookupMappings)) {
 				outboundLookups.value = parsedConfig.lookupMappings
-					.filter((cf: any) => cf.lookup)
+					.filter((cf: any) => cf.lookup || cf.defaultValue !== undefined)
 					.map((cf: any) => ({
 						sourceField: cf.wfeField || '',
 						targetParam: cf.apiField || '',
-						lookupEnabled: true,
+						lookupEnabled: !!cf.lookup,
 						lookup: cf.lookup,
+						defaultValueInput: formatDefaultValue(cf.defaultValue),
 						__key: `lookup_${++outboundLookupKeyCounter}`,
 					}));
 				if (outboundLookups.value.length > 0) {
@@ -1276,12 +1315,23 @@ const onSave = async () => {
 				timeout: formData.value.actionConfig.timeout || 30,
 				followRedirects: formData.value.actionConfig.followRedirects !== false,
 				lookupMappings: outboundLookups.value
-					.filter((item) => item.lookupEnabled && item.lookup)
-					.map((item) => ({
-						wfeField: item.sourceField,
-						apiField: item.targetParam,
-						lookup: item.lookup,
-					})),
+					.filter(
+						(item) =>
+							(item.lookupEnabled && item.lookup) || item.defaultValueInput !== ''
+					)
+					.map((item) => {
+						const entry: any = {
+							wfeField: item.sourceField,
+							apiField: item.targetParam,
+						};
+						if (item.lookupEnabled && item.lookup) {
+							entry.lookup = item.lookup;
+						}
+						if (item.defaultValueInput !== '') {
+							entry.defaultValue = parseDefaultValue(item.defaultValueInput);
+						}
+						return entry;
+					}),
 			};
 		}
 
