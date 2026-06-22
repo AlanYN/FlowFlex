@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
 {
@@ -37,6 +38,13 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Optional lookup configuration for this field
         /// </summary>
         public LookupConfig? Lookup { get; set; }
+
+        /// <summary>
+        /// Optional default value to inject into contextData when the field resolves to empty/null
+        /// after lookup and matching. When JToken is C# null, no default is configured.
+        /// When JToken is JTokenType.Null, the configured default is JSON null (rendered as literal "null").
+        /// </summary>
+        public JToken? DefaultValue { get; set; }
     }
 
     /// <summary>
