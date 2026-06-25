@@ -124,19 +124,6 @@ namespace FlowFlex.Domain.Entities.OW
         public List<string> CustomStageCoAssignees { get; set; }
 
         /// <summary>
-        /// Completing By - User currently executing the Complete flow (concurrency lock)
-        /// When set (and not expired), other users cannot Complete this stage.
-        /// </summary>
-        [StringLength(100)]
-        public string CompletingBy { get; set; }
-
-        /// <summary>
-        /// Completing At - Timestamp when CompletingBy was set (for timeout detection)
-        /// If more than 5 minutes have passed, the lock is considered expired.
-        /// </summary>
-        public DateTimeOffset? CompletingAt { get; set; }
-
-        /// <summary>
         /// Is Saved - Indicates if the stage has been saved by user
         /// </summary>
         public bool IsSaved { get; set; } = false;
