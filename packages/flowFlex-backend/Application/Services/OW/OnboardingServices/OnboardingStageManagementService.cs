@@ -13,6 +13,7 @@ using FlowFlex.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SqlSugar;
 using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -217,6 +218,49 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
 
+            // === Concurrency control: Check if stage is already completed or being completed ===
+            var db = _onboardingRepository.GetSqlSugarClient();
+            const int completingTimeoutMinutes = 5;
+
+            await db.Ado.UseTranAsync(async () =>
+            {
+                // Lock the onboarding row to prevent concurrent complete
+                var lockedEntity = await db.Queryable<Onboarding>()
+                    .Where(o => o.Id == id && o.IsValid)
+                    .With(SqlWith.UpdLock)
+                    .FirstAsync();
+
+                if (lockedEntity == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Parse stages progress and check the target stage
+                _stageProgressService.LoadStagesProgressFromJson(lockedEntity);
+                var targetProgress = lockedEntity.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageIdToComplete);
+
+                if (targetProgress != null)
+                {
+                    // Check if already completed
+                    if (targetProgress.IsCompleted)
+                    {
+                        var completedBy = targetProgress.CompletedBy ?? "another user";
+                        var completedAt = targetProgress.CompletionTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "unknown time";
+                        throw new CRMException(ErrorCodeEnum.BusinessError,
+                            $"This stage has already been completed by {completedBy} at {completedAt}");
+                    }
+
+                    // Check if someone else is currently completing (with timeout)
+                    if (!string.IsNullOrEmpty(targetProgress.CompletingBy)
+                        && targetProgress.CompletingAt.HasValue
+                        && (DateTimeOffset.UtcNow - targetProgress.CompletingAt.Value).TotalMinutes < completingTimeoutMinutes)
+                    {
+                        throw new CRMException(ErrorCodeEnum.BusinessError,
+                            $"This stage is currently being completed by {targetProgress.CompletingBy}. Please try again later.");
+                    }
+                }
+            });
+
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
@@ -315,11 +359,83 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
             }
 
+            // === Concurrency control: Acquire completing lock via transaction + row lock ===
+            var db = _onboardingRepository.GetSqlSugarClient();
+            var currentUserName = GetCurrentUserName();
+            const int completingTimeoutMinutes = 5;
+
+            await db.Ado.UseTranAsync(async () =>
+            {
+                // Lock the onboarding row to prevent concurrent complete
+                var lockedEntity = await db.Queryable<Onboarding>()
+                    .Where(o => o.Id == id && o.IsValid)
+                    .With(SqlWith.UpdLock)
+                    .FirstAsync();
+
+                if (lockedEntity == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                // Parse stages progress and check the target stage
+                _stageProgressService.LoadStagesProgressFromJson(lockedEntity);
+                var targetProgress = lockedEntity.StagesProgress?.FirstOrDefault(sp => sp.StageId == targetStageId);
+
+                if (targetProgress == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, "Stage not found in progress");
+                }
+
+                // Check if already completed
+                if (targetProgress.IsCompleted)
+                {
+                    var completedBy = targetProgress.CompletedBy ?? "another user";
+                    var completedAt = targetProgress.CompletionTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "unknown time";
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"This stage has already been completed by {completedBy} at {completedAt}");
+                }
+
+                // Check if someone else is currently completing (with timeout)
+                if (!string.IsNullOrEmpty(targetProgress.CompletingBy)
+                    && targetProgress.CompletingAt.HasValue
+                    && (DateTimeOffset.UtcNow - targetProgress.CompletingAt.Value).TotalMinutes < completingTimeoutMinutes)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"This stage is currently being completed by {targetProgress.CompletingBy}. Please try again later.");
+                }
+
+                // Acquire the completing lock
+                targetProgress.CompletingBy = currentUserName;
+                targetProgress.CompletingAt = DateTimeOffset.UtcNow;
+
+                // Save the lock to database
+                lockedEntity.StagesProgressJson = _stageProgressService.SerializeStagesProgress(lockedEntity.StagesProgress);
+                var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                await db.Ado.ExecuteCommandAsync(progressSql, new
+                {
+                    StagesProgressJson = lockedEntity.StagesProgressJson,
+                    Id = lockedEntity.Id
+                });
+            });
+
+            // Reload entity after lock acquisition (stages progress may have changed)
+            entity = await _onboardingRepository.GetByIdAsync(id);
+            await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+
             // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
             // This ensures external API errors (CRM/IAM) block the stage completion
             // Execute for ALL stages including the last one (Case Complete scenario)
             bool conditionActionExecuted = false;
-            conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+            try
+            {
+                conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+            }
+            catch (Exception)
+            {
+                // Actions failed - release the completing lock so others can retry
+                await ReleaseCompletingLockAsync(id, targetStageId);
+                throw;
+            }
 
             // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
 
@@ -349,6 +465,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+            // Clear the completing lock now that stage is being marked as completed
+            var completedStageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == targetStageId);
+            if (completedStageProgress != null)
+            {
+                completedStageProgress.CompletingBy = null;
+                completedStageProgress.CompletingAt = null;
+            }
 
             // Calculate new completion rate - ensure it never decreases
             var previousRate = entity.CompletionRate;
@@ -699,6 +823,45 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 _logger.LogError(ex, "Failed to save onboarding changes for {OnboardingId}", entity.Id);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save onboarding changes: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+
+        #region Concurrency Control
+
+        /// <summary>
+        /// Release the completing lock for a stage, allowing others to retry
+        /// </summary>
+        private async Task ReleaseCompletingLockAsync(long onboardingId, long stageId)
+        {
+            try
+            {
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null) return;
+
+                _stageProgressService.LoadStagesProgressFromJson(onboarding);
+                var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                if (stageProgress == null) return;
+
+                stageProgress.CompletingBy = null;
+                stageProgress.CompletingAt = null;
+
+                onboarding.StagesProgressJson = _stageProgressService.SerializeStagesProgress(onboarding.StagesProgress);
+                var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                await db.Ado.ExecuteCommandAsync(progressSql, new
+                {
+                    StagesProgressJson = onboarding.StagesProgressJson,
+                    Id = onboarding.Id
+                });
+
+                _logger.LogInformation("Released completing lock for OnboardingId={OnboardingId}, StageId={StageId}", onboardingId, stageId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to release completing lock for OnboardingId={OnboardingId}, StageId={StageId}", onboardingId, stageId);
             }
         }
 
