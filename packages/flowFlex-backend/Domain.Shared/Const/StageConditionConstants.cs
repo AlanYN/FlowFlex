@@ -8,6 +8,11 @@ namespace FlowFlex.Domain.Shared.Const
         #region Status Values
 
         /// <summary>
+        /// Maximum number of conditions allowed per stage
+        /// </summary>
+        public const int MaxConditionsPerStage = 10;
+
+        /// <summary>
         /// Valid condition status
         /// </summary>
         public const string StatusValid = "Valid";

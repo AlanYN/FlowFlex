@@ -145,6 +145,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool Required { get; set; }
 
         /// <summary>
+        /// Condition Fallback Stage ID - The stage to jump to when all conditions are not met.
+        /// NULL means "Continue to next stage" (default behavior).
+        /// </summary>
+        public long? ConditionFallbackStageId { get; set; }
+
+        /// <summary>
         /// Whether it's valid
         /// </summary>
         public bool IsValid { get; set; }

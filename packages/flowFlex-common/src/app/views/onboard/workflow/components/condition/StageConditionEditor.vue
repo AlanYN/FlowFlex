@@ -1,9 +1,9 @@
 <template>
 	<el-drawer
 		v-model="visible"
-		:title="isEditMode ? 'Edit Condition' : 'Add Condition'"
+		title="Edit Condition"
 		direction="rtl"
-		size="500px"
+		size="550px"
 		:close-on-click-modal="false"
 		:close-on-press-escape="false"
 		class="stage-condition-editor"
@@ -13,78 +13,102 @@
 	>
 		<template #header>
 			<div class="drawer-header">
-				<span class="drawer-title">
-					{{ isEditMode ? 'Edit Condition' : 'Add Condition' }}
-				</span>
+				<span class="drawer-title">Edit Condition</span>
 				<span class="drawer-subtitle">
 					Set up conditions to create dynamic workflow paths based on stage results
 				</span>
 			</div>
 		</template>
 
-		<el-form
-			ref="formRef"
-			:model="formData"
-			:rules="formRules"
-			label-position="top"
-			@submit.prevent
-		>
-			<!-- 基本信息 -->
-			<div class="form-section">
-				<div class="section-title">Basic Information</div>
-				<el-form-item label="Condition Name" prop="name">
-					<el-input
-						v-model="formData.name"
-						placeholder="Enter condition name"
-						maxlength="100"
-						show-word-limit
+		<div class="editor-body">
+			<!-- Condition List -->
+			<div class="conditions-list">
+				<TransitionGroup name="condition-list" tag="div">
+					<ConditionCard
+						v-for="(condition, index) in localConditions"
+						:key="condition.id"
+						ref="cardRefs"
+						:condition="condition"
+						:stages="stages"
+						:current-stage-id="currentStageId"
+						:current-stage-index="currentStageIndex"
+						:is-first="index === 0"
+						:is-last="index === localConditions.length - 1"
+						:initial-expanded="
+							expandConditionId
+								? condition.id === expandConditionId
+								: condition.id.startsWith('temp-') || localConditions.length === 1
+						"
+						@update="(data) => handleConditionUpdate(index, data)"
+						@delete="handleConditionDelete(index)"
+						@move-up="handleMoveUp(index)"
+						@move-down="handleMoveDown(index)"
 					/>
-				</el-form-item>
-				<el-form-item label="Description" prop="description">
-					<el-input
-						v-model="formData.description"
-						type="textarea"
-						placeholder="Enter description (optional)"
-						:rows="3"
-						maxlength="500"
-						show-word-limit
-					/>
-				</el-form-item>
+				</TransitionGroup>
 			</div>
 
-			<!-- 条件规则 -->
-			<div class="form-section">
-				<div class="section-title">Condition Rules</div>
-				<ConditionRuleForm
-					ref="ruleFormRef"
-					v-model="formData.rules"
-					v-model:logic="formData.logic"
-					:stages="availableSourceStages"
-					:current-stage-index="currentStageIndex"
-				/>
+			<!-- Add Condition Button -->
+			<el-button
+				class="add-condition-btn"
+				:disabled="localConditions.length >= maxConditions"
+				@click="handleAddCondition"
+			>
+				<el-icon><Plus /></el-icon>
+				Add Condition
+			</el-button>
+			<div v-if="localConditions.length >= maxConditions" class="max-hint">
+				Maximum {{ maxConditions }} conditions reached
 			</div>
 
-			<!-- 动作配置 -->
-			<div class="form-section">
-				<div class="section-title">Actions</div>
-				<ConditionActionForm
-					ref="actionFormRef"
-					v-model="formData.actions"
-					:stages="stages"
-					:current-stage-index="currentStageIndex"
-					:currentStageId="currentStageId"
-				/>
-			</div>
+			<!-- Fallback Stage Section -->
+			<div class="fallback-section">
+				<div class="fallback-title">Fallback Stage</div>
+				<div class="fallback-subtitle">
+					Applies when none of the conditions above are met
+				</div>
 
-			<!-- Fallback 配置 -->
-			<div class="form-section">
-				<ConditionFallbackForm
-					v-model="formData.fallback"
-					:stages="stages"
-					:current-stage-index="currentStageIndex"
-				/>
+				<el-radio-group v-model="fallbackType" class="fallback-radio-group">
+					<div
+						class="fallback-option"
+						:class="{ 'is-active': fallbackType === 'continue' }"
+						@click="fallbackType = 'continue'"
+					>
+						<el-radio value="continue">
+							<div class="option-content">
+								<span class="option-title">Continue to next stage</span>
+								<span class="option-desc">Proceed to the next stage in order</span>
+							</div>
+						</el-radio>
+					</div>
+					<div
+						class="fallback-option"
+						:class="{ 'is-active': fallbackType === 'jump' }"
+						@click="fallbackType = 'jump'"
+					>
+						<el-radio value="jump">
+							<div class="option-content">
+								<span class="option-title">Jump to a chosen stage</span>
+								<span class="option-desc">Go to a specific stage</span>
+							</div>
+						</el-radio>
+						<el-select
+							v-if="fallbackType === 'jump'"
+							v-model="fallbackStageId"
+							placeholder="Select stage"
+							class="fallback-stage-select"
+							@click.stop
+						>
+							<el-option
+								v-for="stage in availableFallbackStages"
+								:key="stage.id"
+								:label="stage.name"
+								:value="stage.id"
+							/>
+						</el-select>
+					</div>
+				</el-radio-group>
 			</div>
-		</el-form>
+		</div>
 
 		<template #footer>
 			<div class="editor-footer">
@@ -98,15 +122,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import type { FormInstance, FormRules } from 'element-plus';
+import { ref, computed } from 'vue';
+import { ElMessage } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
 import type { Stage } from '#/onboard';
-import type { StageCondition, RuleFormItem, ActionFormItem, FallbackConfig } from '#/condition';
-import ConditionRuleForm from './ConditionRuleForm.vue';
-import ConditionActionForm from './ConditionActionForm.vue';
-import ConditionFallbackForm from './ConditionFallbackForm.vue';
-import { createCondition, updateCondition } from '@/apis/ow';
+import type { StageCondition, RuleFormItem, ActionFormItem } from '#/condition';
+import ConditionCard from './ConditionCard.vue';
+import {
+	getConditionsByStage,
+	createCondition,
+	updateCondition,
+	deleteCondition,
+	reorderConditions,
+	updateConditionFallback,
+} from '@/apis/ow';
 import { getDefaultActionType } from '@/utils/actionTypeUtils';
 
 // Props
@@ -117,289 +146,267 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	(e: 'save', condition: StageCondition): void;
+	(e: 'save'): void;
 	(e: 'cancel'): void;
 }>();
 
-// 内部状态
+// Constants
+const maxConditions = 10;
+
+// State
 const visible = ref(false);
-const currentStageId = ref('');
-const currentStageName = ref('');
-const currentStageIndex = ref(0);
-const currentCondition = ref<StageCondition | null>(null);
-
-// Refs
-const formRef = ref<FormInstance>();
-const ruleFormRef = ref<InstanceType<typeof ConditionRuleForm>>();
-const actionFormRef = ref<InstanceType<typeof ConditionActionForm>>();
 const saving = ref(false);
+const currentStageId = ref('');
+const currentStageIndex = ref(0);
+const cardRefs = ref<InstanceType<typeof ConditionCard>[]>([]);
+const expandConditionId = ref<string | null>(null); // which condition to auto-expand
 
-// 表单数据
-const formData = reactive({
-	name: '',
-	description: '',
-	logic: 'AND' as 'AND' | 'OR',
-	rules: [] as RuleFormItem[],
-	actions: [] as ActionFormItem[],
-	fallback: {
-		type: 'default',
-		fallbackStageId: undefined,
-	} as FallbackConfig,
-});
+// Condition list state
+const localConditions = ref<StageCondition[]>([]);
+const originalConditions = ref<StageCondition[]>([]); // snapshot for diff
+const deletedConditionIds = ref<string[]>([]);
 
-// 表单验证规则
-const formRules: FormRules = {
-	name: [
-		{ required: true, message: 'Please enter condition name', trigger: 'blur' },
-		{ max: 100, message: 'Name must be less than 100 characters', trigger: 'blur' },
-	],
-	description: [
-		{ max: 500, message: 'Description must be less than 500 characters', trigger: 'blur' },
-	],
-};
+// Fallback state
+const fallbackType = ref<'continue' | 'jump'>('continue');
+const fallbackStageId = ref<string | undefined>(undefined);
+const originalFallbackStageId = ref<string | null>(null);
 
 // Computed
-const isEditMode = computed(() => !!currentCondition.value);
-
-// 可选的 Source Stage（当前及之前的 Stage）
-const availableSourceStages = computed(() => {
-	return props.stages.slice(0, currentStageIndex.value + 1);
+const availableFallbackStages = computed(() => {
+	return props.stages.filter((s: any) => s.id !== currentStageId.value);
 });
 
-// 初始化表单数据
-const initFormData = () => {
-	if (currentCondition.value) {
-		// 编辑模式：加载现有数据
-		formData.name = currentCondition.value.name;
-		formData.description = currentCondition.value.description || '';
-
-		// 解析 rulesJson - 格式为 JSON 字符串，解析后是 {logic, rules}
-		let parsedRules: RuleFormItem[] = [];
-		let logic: 'AND' | 'OR' = 'AND';
-
-		try {
-			const rulesData =
-				typeof currentCondition.value.rulesJson === 'string'
-					? JSON.parse(currentCondition.value.rulesJson)
-					: currentCondition.value.rulesJson;
-			logic = rulesData?.logic || 'AND';
-			parsedRules = (rulesData?.rules || []).map((rule: any) => ({ ...rule }));
-		} catch (e) {
-			console.error('Failed to parse rulesJson:', e);
-		}
-
-		formData.logic = logic;
-		formData.rules = parsedRules;
-
-		// 解析 actionsJson（可能是字符串或对象）
-		let actionsData = currentCondition.value.actionsJson;
-		if (typeof actionsData === 'string') {
-			try {
-				actionsData = JSON.parse(actionsData);
-			} catch (e) {
-				console.error('Failed to parse actionsJson:', e);
-				actionsData = [];
-			}
-		}
-
-		formData.actions = (actionsData || []).map((action: any) => ({
-			...action,
-		}));
-
-		formData.fallback = {
-			type: currentCondition.value.fallbackStageId ? 'specified' : 'default',
-			fallbackStageId: currentCondition.value.fallbackStageId,
-		};
-
-		// 如果没有规则，添加默认规则
-		if (formData.rules.length === 0) {
-			formData.rules = [
-				{
-					sourceStageId: currentStageId.value,
-					componentType: '',
-					fieldPath: '',
-					operator: '==',
-					value: '',
-				},
-			];
-		}
-
-		// 如果没有动作，添加默认动作
-		if (formData.actions.length === 0) {
-			formData.actions = [
-				{
-					type: getDefaultActionType(currentStageIndex.value, props.stages.length, []),
-					targetStageId: '',
-					order: 0,
-				},
-			];
-		}
-	} else {
-		// 新建模式：初始化默认值
-		formData.name = '';
-		formData.description = '';
-		formData.logic = 'AND';
-		formData.rules = [
-			{
-				sourceStageId: currentStageId.value,
-				componentType: '',
-				fieldPath: '',
-				operator: '==',
-				value: '',
-			},
-		];
-		formData.actions = [
-			{
-				type: getDefaultActionType(currentStageIndex.value, props.stages.length, []),
-				targetStageId: '',
-				order: 0,
-			},
-		];
-		formData.fallback = {
-			type: 'default',
-			fallbackStageId: undefined,
-		};
-	}
-};
-
-// 打开弹窗
-const open = (
+// Open drawer
+const open = async (
 	stageId: string,
 	stageName: string,
 	stageIndex: number,
-	condition?: StageCondition | null
+	conditionId?: string
 ) => {
 	currentStageId.value = stageId;
-	currentStageName.value = stageName;
 	currentStageIndex.value = stageIndex;
-	currentCondition.value = condition || null;
-	initFormData();
+	deletedConditionIds.value = [];
+	expandConditionId.value = conditionId || null;
+
+	// Load existing conditions
+	try {
+		const res = await getConditionsByStage(stageId);
+		const conditions = (res as any)?.data || res || [];
+		localConditions.value = Array.isArray(conditions) ? [...conditions] : [];
+		originalConditions.value = JSON.parse(JSON.stringify(localConditions.value));
+	} catch {
+		localConditions.value = [];
+		originalConditions.value = [];
+	}
+
+	// Load stage fallback (from stage data)
+	const currentStage = props.stages.find((s: any) => String(s.id) === String(stageId));
+	const stageFallback = (currentStage as any)?.conditionFallbackStageId || null;
+	originalFallbackStageId.value = stageFallback;
+	if (stageFallback) {
+		fallbackType.value = 'jump';
+		fallbackStageId.value = String(stageFallback);
+	} else {
+		fallbackType.value = 'continue';
+		fallbackStageId.value = undefined;
+	}
+
 	visible.value = true;
 };
 
-// 关闭弹窗
 const close = () => {
 	visible.value = false;
 };
 
-// 重置表单数据
-const resetFormData = () => {
-	formData.name = '';
-	formData.description = '';
-	formData.logic = 'AND';
-	formData.rules = [];
-	formData.actions = [];
-	formData.fallback = {
-		type: 'default',
-		fallbackStageId: undefined,
+// Add new condition
+const handleAddCondition = () => {
+	const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+	const newCondition: StageCondition = {
+		id: tempId, // temp ID for stable key, treated as "new" if starts with "temp-"
+		stageId: currentStageId.value,
+		name: '',
+		description: '',
+		order: localConditions.value.length,
+		rulesJson: { logic: 'AND', rules: [] } as any,
+		actionsJson: [] as any,
+		isActive: true,
 	};
-	// 重置内部状态
-	currentStageId.value = '';
-	currentStageName.value = '';
-	currentStageIndex.value = 0;
-	currentCondition.value = null;
-	// 清除表单验证状态
-	formRef.value?.resetFields();
+	localConditions.value.push(newCondition);
 };
 
-// 处理取消
-const handleCancel = () => {
-	resetFormData();
-	emit('cancel');
-	close();
+// Handle condition update from card
+const handleConditionUpdate = (
+	index: number,
+	data: {
+		name: string;
+		description: string;
+		logic: string;
+		rules: RuleFormItem[];
+		actions: ActionFormItem[];
+	}
+) => {
+	const condition = localConditions.value[index];
+	if (condition) {
+		condition.name = data.name;
+		condition.description = data.description;
+		condition.rulesJson = { logic: data.logic, rules: data.rules } as any;
+		condition.actionsJson = data.actions as any;
+	}
 };
 
-// 构建提交数据
-const buildSubmitData = () => {
-	// 构建 rulesJson - 格式为 {logic, rules}
-	const rulesJson = JSON.stringify({
-		logic: formData.logic,
-		rules: formData.rules,
-	});
+// Handle delete (local removal + track for API call)
+const handleConditionDelete = (index: number) => {
+	const condition = localConditions.value[index];
+	if (condition.id && !condition.id.startsWith('temp-')) {
+		deletedConditionIds.value.push(condition.id);
+	}
+	localConditions.value.splice(index, 1);
+};
 
-	// 构建 actionsJson
-	const actionsJson = JSON.stringify(
-		formData.actions.map((action, index) => ({
-			...action,
-			order: index,
-		}))
-	);
+// Move condition up
+const handleMoveUp = (index: number) => {
+	if (index <= 0) return;
+	const temp = localConditions.value[index];
+	localConditions.value[index] = localConditions.value[index - 1];
+	localConditions.value[index - 1] = temp;
+};
+
+// Move condition down
+const handleMoveDown = (index: number) => {
+	if (index >= localConditions.value.length - 1) return;
+	const temp = localConditions.value[index];
+	localConditions.value[index] = localConditions.value[index + 1];
+	localConditions.value[index + 1] = temp;
+};
+
+// Build submit data for a single condition
+const buildConditionPayload = (condition: StageCondition) => {
+	const rulesJson =
+		typeof condition.rulesJson === 'string'
+			? condition.rulesJson
+			: JSON.stringify(condition.rulesJson);
+	const actionsJson =
+		typeof condition.actionsJson === 'string'
+			? condition.actionsJson
+			: JSON.stringify(
+					(condition.actionsJson || []).map((a: any, i: number) => ({ ...a, order: i }))
+			  );
 
 	return {
 		stageId: currentStageId.value,
 		workflowId: props.workflowId,
-		name: formData.name,
-		description: formData.description || undefined,
+		name: condition.name,
+		description: condition.description || undefined,
 		rulesJson,
 		actionsJson,
-		fallbackStageId:
-			formData.fallback.type === 'specified' ? formData.fallback.fallbackStageId : undefined,
-		isActive: true,
+		isActive: condition.isActive ?? true,
 	};
 };
 
-// 处理保存
+// Save all changes
 const handleSave = async () => {
-	if (!formRef.value) return;
+	// Validate all cards
+	if (cardRefs.value && cardRefs.value.length > 0) {
+		for (const card of cardRefs.value) {
+			if (card) {
+				const validation = await card.validate();
+				if (!validation.valid) {
+					ElMessage.error(validation.message);
+					return;
+				}
+			}
+		}
+	}
+
+	saving.value = true;
+
 	try {
-		// 并行验证所有表单
-		const [formValid, ruleValidation, actionValidation] = await Promise.all([
-			formRef.value
-				.validate()
-				.then(() => true)
-				.catch(() => false),
-			ruleFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
-			actionFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
-		]);
-
-		// 任意一个校验失败则返回
-		if (!formValid || !ruleValidation.valid || !actionValidation.valid) {
-			return;
+		// Phase 1: Delete removed conditions
+		const deletePromises: Promise<any>[] = [];
+		for (const id of deletedConditionIds.value) {
+			deletePromises.push(deleteCondition(id));
+		}
+		if (deletePromises.length > 0) {
+			await Promise.allSettled(deletePromises);
 		}
 
-		saving.value = true;
+		// Phase 2: Create new conditions / Update existing (need to be sequential for creates to get IDs back)
+		const createUpdatePromises: Promise<any>[] = [];
+		const newConditionIndices: number[] = []; // track which indices are new
 
-		const submitData = buildSubmitData();
-		let res: any;
-
-		if (isEditMode.value && currentCondition.value) {
-			// 更新 - PUT /stage-conditions/v1/{id}
-			res = await updateCondition(currentCondition.value.id, submitData);
-		} else {
-			// 创建 - POST /stage-conditions/v1
-			res = await createCondition(submitData);
+		for (let i = 0; i < localConditions.value.length; i++) {
+			const condition = localConditions.value[i];
+			const payload = buildConditionPayload(condition);
+			if (!condition.id || condition.id.startsWith('temp-')) {
+				// New condition — create and store the returned ID
+				newConditionIndices.push(i);
+				createUpdatePromises.push(
+					createCondition(payload).then((res: any) => {
+						// Store the new ID back so we can reorder it
+						if (res?.code === '200' && res?.data?.id) {
+							localConditions.value[i].id = String(res.data.id);
+						}
+					})
+				);
+			} else {
+				// Check if changed
+				const original = originalConditions.value.find((c) => c.id === condition.id);
+				if (
+					original &&
+					JSON.stringify(payload) !== JSON.stringify(buildConditionPayload(original))
+				) {
+					createUpdatePromises.push(updateCondition(condition.id, payload));
+				}
+			}
 		}
 
-		if (res.code === '200') {
-			ElMessage.success(
-				isEditMode.value
-					? 'Condition updated successfully'
-					: 'Condition created successfully'
-			);
-			emit('save', res.data);
-			close();
-		} else {
-			res.msg &&
-				ElMessageBox.confirm(res.msg, '⚠️ Save Condition Error', {
-					confirmButtonText: 'Confirm',
-					confirmButtonClass: 'danger-confirm-btn',
-					showCancelButton: false,
-					showConfirmButton: true,
-					beforeClose: async (action, instance, done) => {
-						done(); // 取消或关闭时直接关闭对话框
-					},
-				});
+		if (createUpdatePromises.length > 0) {
+			const results = await Promise.allSettled(createUpdatePromises);
+			const failed = results.filter((r) => r.status === 'rejected');
+			if (failed.length > 0) {
+				ElMessage.warning(`${failed.length} save operation(s) failed. Please try again.`);
+				// Refresh and return
+				const res = await getConditionsByStage(currentStageId.value);
+				const conditions = (res as any)?.data || res || [];
+				localConditions.value = Array.isArray(conditions) ? [...conditions] : [];
+				originalConditions.value = JSON.parse(JSON.stringify(localConditions.value));
+				deletedConditionIds.value = [];
+				return;
+			}
 		}
+
+		// Phase 3: Reorder — now all conditions have real IDs (temp- replaced after create)
+		const conditionsWithIds = localConditions.value.filter(
+			(c) => !!c.id && !c.id.startsWith('temp-')
+		);
+		if (conditionsWithIds.length > 1) {
+			const reorderItems = conditionsWithIds.map((c, i) => ({ id: c.id, order: i }));
+			await reorderConditions(currentStageId.value, reorderItems);
+		}
+
+		// Phase 4: Update fallback if changed
+		const newFallback = fallbackType.value === 'jump' ? fallbackStageId.value || null : null;
+		if (newFallback !== originalFallbackStageId.value) {
+			await updateConditionFallback(currentStageId.value, newFallback);
+		}
+
+		ElMessage.success('Conditions saved successfully');
+		emit('save');
+		close();
+	} catch (err: any) {
+		ElMessage.error(err?.message || 'Failed to save conditions');
 	} finally {
 		saving.value = false;
 	}
 };
 
-// 暴露方法给父组件
-defineExpose({
-	open,
-	close,
-});
+// Cancel
+const handleCancel = () => {
+	emit('cancel');
+	close();
+};
+
+defineExpose({ open, close });
 </script>
 
 <style lang="scss">
@@ -407,6 +414,10 @@ defineExpose({
 	.el-drawer__header {
 		margin-bottom: 0px !important;
 		align-items: start;
+	}
+
+	.el-drawer__body {
+		text-align: left;
 	}
 }
 </style>
@@ -429,22 +440,120 @@ defineExpose({
 	color: var(--el-text-color-secondary);
 }
 
-.form-section {
-	@apply mb-2 pb-2;
-	border-bottom: 1px solid var(--el-border-color-lighter);
+.editor-body {
+	padding: 0 4px;
+}
 
-	&:last-child {
-		margin-bottom: 0;
-		padding-bottom: 0;
-		border-bottom: none;
+.conditions-list {
+	min-height: 60px;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+/* FLIP animation for condition reorder */
+.condition-list-move {
+	transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.condition-list-enter-active {
+	transition: all 0.3s ease-out;
+}
+
+.condition-list-leave-active {
+	transition: all 0.2s ease-in;
+	position: absolute;
+	width: 100%;
+}
+
+.condition-list-enter-from {
+	opacity: 0;
+	transform: translateY(-10px);
+}
+
+.condition-list-leave-to {
+	opacity: 0;
+	transform: translateX(20px);
+}
+
+.add-condition-btn {
+	width: 100%;
+	margin: 8px 0 24px;
+	border-style: dashed;
+}
+
+.max-hint {
+	text-align: center;
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+	margin-top: -16px;
+	margin-bottom: 24px;
+}
+
+.fallback-section {
+	border-top: 1px solid var(--el-border-color-lighter);
+	padding-top: 20px;
+}
+
+.fallback-title {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--el-text-color-primary);
+	margin-bottom: 4px;
+}
+
+.fallback-subtitle {
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+	margin-bottom: 16px;
+}
+
+.fallback-radio-group {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 100%;
+	align-items: flex-start;
+}
+
+.fallback-option {
+	border: 1px solid var(--el-border-color);
+	border-radius: 8px;
+	padding: 12px 16px;
+	cursor: pointer;
+	transition: all 0.2s;
+	width: 100%;
+
+	&.is-active {
+		border-color: var(--el-color-primary);
+		background: var(--el-color-primary-light-9);
+	}
+
+	&:hover {
+		border-color: var(--el-color-primary-light-3);
 	}
 }
 
-.section-title {
+.option-content {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.option-title {
 	font-size: 14px;
-	font-weight: 600;
-	color: var(--el-text-color-primary);
-	margin-bottom: 16px;
+	font-weight: 500;
+}
+
+.option-desc {
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+}
+
+.fallback-stage-select {
+	margin-top: 8px;
+	margin-left: 24px;
+	width: calc(100% - 24px);
 }
 
 .editor-footer {

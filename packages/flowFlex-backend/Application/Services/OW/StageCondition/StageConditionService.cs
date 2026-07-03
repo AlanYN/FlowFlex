@@ -79,18 +79,25 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, "The specified stage does not exist.");
             }
 
-            // Validate one condition per stage
+            // Validate max conditions per stage
             var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var existingCondition = await _db.Queryable<StageConditionEntity>()
+            var existingCount = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == input.StageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
-                .FirstAsync();
+                .CountAsync();
 
-            if (existingCondition != null)
+            if (existingCount >= StageConditionConstants.MaxConditionsPerStage)
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Stage \"{stage.Name}\" already has a condition configured. Each stage can only have one condition.");
+                    $"Stage \"{stage.Name}\" already has {existingCount} conditions configured. Maximum allowed is {StageConditionConstants.MaxConditionsPerStage}.");
             }
+
+            // Auto-assign order (append to end)
+            var maxOrder = await _db.Queryable<StageConditionEntity>()
+                .Where(c => c.StageId == input.StageId && c.IsValid)
+                .Where(c => c.TenantId == tenantId)
+                .MaxAsync(c => (int?)c.Order) ?? -1;
+            var nextOrder = maxOrder + 1;
 
             // Validate RulesJson format
             var rulesValidation = await ValidateRulesJsonAsync(input.RulesJson);
@@ -123,8 +130,8 @@ namespace FlowFlex.Application.Services.OW
                 Description = input.Description ?? string.Empty,
                 RulesJson = input.RulesJson,
                 ActionsJson = input.ActionsJson,
-                FallbackStageId = input.FallbackStageId,
                 IsActive = input.IsActive,
+                Order = nextOrder,
                 Status = StageConditionConstants.StatusValid
             };
 
@@ -253,7 +260,6 @@ namespace FlowFlex.Application.Services.OW
             condition.Description = input.Description ?? string.Empty;
             condition.RulesJson = input.RulesJson;
             condition.ActionsJson = input.ActionsJson;
-            condition.FallbackStageId = input.FallbackStageId;
             condition.IsActive = input.IsActive;
             condition.Status = StageConditionConstants.StatusValid;
             condition.ModifyDate = DateTimeOffset.UtcNow;
@@ -485,25 +491,60 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get condition by stage ID
+        /// Get conditions by stage ID (ordered by priority)
         /// </summary>
-        public async Task<StageConditionOutputDto?> GetByStageIdAsync(long stageId)
+        public async Task<List<StageConditionOutputDto>> GetByStageIdAsync(long stageId)
         {
             var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var entity = await _db.Queryable<StageConditionEntity>()
+            var entities = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
-                .FirstAsync();
+                .OrderBy(c => c.Order)
+                .ToListAsync();
 
-            if (entity == null)
+            if (entities.Count == 0)
             {
-                return null;
+                return new List<StageConditionOutputDto>();
             }
 
-            // Validate read permission
-            await ValidateWorkflowPermissionAsync(entity.WorkflowId, OperationTypeEnum.View);
+            // Validate read permission using the first entity's workflow
+            await ValidateWorkflowPermissionAsync(entities[0].WorkflowId, OperationTypeEnum.View);
 
-            return MapToOutputDto(entity);
+            return entities.Select(MapToOutputDto).ToList();
+        }
+
+        /// <summary>
+        /// Reorder conditions for a stage
+        /// </summary>
+        public async Task<bool> ReorderAsync(long stageId, List<ReorderItemDto> items)
+        {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var entities = await _db.Queryable<StageConditionEntity>()
+                .Where(c => c.StageId == stageId && c.IsValid)
+                .Where(c => c.TenantId == tenantId)
+                .ToListAsync();
+
+            if (entities.Count == 0) return true;
+
+            // Validate permission
+            await ValidateWorkflowPermissionAsync(entities[0].WorkflowId, OperationTypeEnum.Operate);
+
+            foreach (var item in items)
+            {
+                var entity = entities.FirstOrDefault(e => e.Id == item.Id);
+                if (entity != null)
+                {
+                    entity.Order = item.Order;
+                    entity.ModifyDate = DateTimeOffset.UtcNow;
+                    entity.ModifyBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
+                }
+            }
+
+            await _db.Updateable(entities)
+                .UpdateColumns(e => new { e.Order, e.ModifyDate, e.ModifyBy })
+                .ExecuteCommandAsync();
+
+            return true;
         }
 
         /// <summary>

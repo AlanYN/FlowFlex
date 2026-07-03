@@ -28,6 +28,12 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<List<StageComponent>> GetComponentsAsync(long id);
 
         /// <summary>
+        /// Update the condition fallback stage for a stage.
+        /// NULL means "Continue to next stage" (default).
+        /// </summary>
+        Task<bool> UpdateConditionFallbackAsync(long id, long? fallbackStageId);
+
+        /// <summary>
         /// Manually sync assignments between stage components and checklist/questionnaire assignments
         /// </summary>
         /// <param name="stageId">Stage ID</param>

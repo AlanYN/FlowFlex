@@ -33,9 +33,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<StageConditionOutputDto?> GetByIdAsync(long id);
 
         /// <summary>
-        /// Get stage condition by Stage ID
+        /// Get stage conditions by Stage ID (ordered by priority)
         /// </summary>
-        Task<StageConditionOutputDto?> GetByStageIdAsync(long stageId);
+        Task<List<StageConditionOutputDto>> GetByStageIdAsync(long stageId);
+
+        /// <summary>
+        /// Reorder conditions for a stage
+        /// </summary>
+        Task<bool> ReorderAsync(long stageId, List<ReorderItemDto> items);
 
         /// <summary>
         /// Get all conditions for a workflow

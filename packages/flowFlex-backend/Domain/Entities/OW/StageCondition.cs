@@ -50,10 +50,16 @@ namespace FlowFlex.Domain.Entities.OW
         public string ActionsJson { get; set; } = string.Empty;
 
         /// <summary>
-        /// Fallback Stage ID (when condition is not met)
+        /// Fallback Stage ID (DEPRECATED - moved to Stage level, kept for backward compatibility)
         /// </summary>
-        [SugarColumn(ColumnName = "fallback_stage_id")]
+        [SugarColumn(IsIgnore = true)]
         public long? FallbackStageId { get; set; }
+
+        /// <summary>
+        /// Condition evaluation order (lower = higher priority, first-match-wins)
+        /// </summary>
+        [SugarColumn(ColumnName = "order")]
+        public int Order { get; set; } = 0;
 
         /// <summary>
         /// Is Active

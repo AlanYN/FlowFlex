@@ -66,17 +66,27 @@ namespace FlowFlex.Application.Services.OW
         #region Public Methods
 
         /// <summary>
-        /// Evaluate condition for a completed stage
+        /// Select the winning condition from a list of matched conditions.
+        /// Default: first-match-wins (by order). Change this method to switch to random selection.
+        /// </summary>
+        private Domain.Entities.OW.StageCondition SelectWinningCondition(List<Domain.Entities.OW.StageCondition> matchedConditions)
+        {
+            // First-match-wins: return the condition with lowest order
+            return matchedConditions.OrderBy(c => c.Order).First();
+        }
+
+        /// <summary>
+        /// Evaluate conditions for a completed stage (multi-condition, first-match-wins)
         /// </summary>
         public async Task<ConditionEvaluationResult> EvaluateConditionAsync(long onboardingId, long stageId)
         {
             try
             {
-                var condition = await GetConditionByStageIdAsync(stageId);
+                var conditions = await GetConditionsByStageIdAsync(stageId);
 
-                if (condition == null || !condition.IsActive || condition.Status != StageConditionConstants.StatusValid)
+                if (conditions == null || conditions.Count == 0)
                 {
-                    _logger.LogDebug("No active condition found for stage {StageId}, proceeding to next stage", stageId);
+                    _logger.LogDebug("No active conditions found for stage {StageId}, proceeding to next stage", stageId);
                     return new ConditionEvaluationResult
                     {
                         IsConditionMet = false,
@@ -84,35 +94,49 @@ namespace FlowFlex.Application.Services.OW
                     };
                 }
 
-                // Extract source stage IDs from rules to support multi-stage data collection
-                var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
-                var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
-                
-                // Build stage name map for logging
-                var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
-                var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
-                var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
-
-                var result = new ConditionEvaluationResult
+                // Evaluate conditions in order (first-match-wins)
+                foreach (var condition in conditions.OrderBy(c => c.Order))
                 {
-                    IsConditionMet = isConditionMet,
-                    RuleResults = ruleResults
+                    if (!condition.IsActive || condition.Status != StageConditionConstants.StatusValid)
+                    {
+                        continue;
+                    }
+
+                    // Extract source stage IDs from rules to support multi-stage data collection
+                    var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
+                    var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
+                    
+                    // Build stage name map for logging
+                    var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
+                    var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
+                    var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
+
+                    if (isConditionMet)
+                    {
+                        var logic = GetLogicFromRulesJson(condition.RulesJson) ?? StageConditionConstants.LogicAnd;
+                        _logger.LogInformation("Condition '{ConditionName}' (order={Order}) met for onboarding {OnboardingId}, stage {StageId} (Logic={Logic}, {SuccessCount}/{TotalCount} rules passed)",
+                            condition.Name, condition.Order, onboardingId, stageId, logic, ruleResults.Count(r => r.IsSuccess), ruleResults.Count);
+
+                        return new ConditionEvaluationResult
+                        {
+                            IsConditionMet = true,
+                            RuleResults = ruleResults,
+                            MatchedConditionId = condition.Id,
+                            MatchedConditionName = condition.Name
+                        };
+                    }
+                }
+
+                // No condition matched — use stage-level fallback
+                var fallbackStageId = await GetStageFallbackStageIdAsync(stageId) ?? await GetNextStageIdAsync(stageId);
+                _logger.LogInformation("No conditions met for onboarding {OnboardingId}, stage {StageId}, fallback to stage {NextStageId}",
+                    onboardingId, stageId, fallbackStageId);
+
+                return new ConditionEvaluationResult
+                {
+                    IsConditionMet = false,
+                    NextStageId = fallbackStageId
                 };
-
-                var logic = GetLogicFromRulesJson(condition.RulesJson) ?? StageConditionConstants.LogicAnd;
-                if (isConditionMet)
-                {
-                    _logger.LogInformation("Condition '{ConditionName}' met for onboarding {OnboardingId}, stage {StageId} (Logic={Logic}, {SuccessCount}/{TotalCount} rules passed)",
-                        condition.Name, onboardingId, stageId, logic, ruleResults.Count(r => r.IsSuccess), ruleResults.Count);
-                }
-                else
-                {
-                    result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId);
-                    _logger.LogInformation("Condition '{ConditionName}' not met for onboarding {OnboardingId}, stage {StageId}, fallback to stage {NextStageId}",
-                        condition.Name, onboardingId, stageId, result.NextStageId);
-                }
-
-                return result;
             }
             catch (JsonException ex)
             {
@@ -121,7 +145,7 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error evaluating condition for onboarding {OnboardingId}, stage {StageId}. Exception: {ExceptionType}",
+                _logger.LogError(ex, "Error evaluating conditions for onboarding {OnboardingId}, stage {StageId}. Exception: {ExceptionType}",
                     onboardingId, stageId, ex.GetType().Name);
                 return CreateFallbackResult(stageId, ex.Message);
             }
@@ -231,7 +255,7 @@ namespace FlowFlex.Application.Services.OW
             IConditionActionExecutor actionExecutor,
             IOperationChangeLogService changeLogService)
         {
-            Domain.Entities.OW.StageCondition condition = null;
+            Domain.Entities.OW.StageCondition matchedCondition = null;
             ConditionEvaluationResult result = null;
 
             try
@@ -250,11 +274,11 @@ namespace FlowFlex.Application.Services.OW
                         };
                     }
 
-                    // 2. Load condition
-                    condition = await GetConditionByStageIdAsync(stageId);
-                    if (condition == null || !condition.IsActive || condition.Status != StageConditionConstants.StatusValid)
+                    // 2. Load all conditions for this stage
+                    var conditions = await GetConditionsByStageIdAsync(stageId);
+                    if (conditions == null || conditions.Count == 0)
                     {
-                        _logger.LogDebug("No active condition for stage {StageId}, proceeding to next stage", stageId);
+                        _logger.LogDebug("No active conditions for stage {StageId}, proceeding to next stage", stageId);
                         return new ConditionEvaluationResult
                         {
                             IsConditionMet = false,
@@ -262,38 +286,71 @@ namespace FlowFlex.Application.Services.OW
                         };
                     }
 
-                    // 3. Evaluate rules - extract source stage IDs to support multi-stage data collection
-                    var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
-                    var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
-                    
-                    // Build stage name map for logging
-                    var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
-                    var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
-                    var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
+                    // 3. Evaluate conditions in order (first-match-wins)
+                    foreach (var condition in conditions.OrderBy(c => c.Order))
+                    {
+                        if (!condition.IsActive || condition.Status != StageConditionConstants.StatusValid)
+                        {
+                            continue;
+                        }
 
+                        var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
+                        var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
+                        
+                        var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
+                        var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
+                        var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
+
+                        if (isConditionMet)
+                        {
+                            matchedCondition = condition;
+                            result = new ConditionEvaluationResult
+                            {
+                                IsConditionMet = true,
+                                RuleResults = ruleResults,
+                                MatchedConditionId = condition.Id,
+                                MatchedConditionName = condition.Name
+                            };
+
+                            // 4. Execute actions for the matched condition
+                            var context = new ActionExecutionContext
+                            {
+                                OnboardingId = onboardingId,
+                                StageId = stageId,
+                                ConditionId = condition.Id,
+                                TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                                UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0
+                            };
+
+                            if (actionExecutor != null)
+                            {
+                                await HandleConditionMetAsync(result, condition, context, actionExecutor);
+                            }
+
+                            return result;
+                        }
+                    }
+
+                    // 5. No condition matched — use stage-level fallback
+                    var fallbackStageId = await GetStageFallbackStageIdAsync(stageId) ?? await GetNextStageIdAsync(stageId);
                     result = new ConditionEvaluationResult
                     {
-                        IsConditionMet = isConditionMet,
-                        RuleResults = ruleResults
+                        IsConditionMet = false,
+                        NextStageId = fallbackStageId
                     };
 
-                    // 4. Execute actions based on condition result
-                    var context = new ActionExecutionContext
+                    // Execute fallback actions if any executor is available
+                    if (actionExecutor != null)
                     {
-                        OnboardingId = onboardingId,
-                        StageId = stageId,
-                        ConditionId = condition.Id,
-                        TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
-                        UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0
-                    };
-
-                    if (isConditionMet && actionExecutor != null)
-                    {
-                        await HandleConditionMetAsync(result, condition, context, actionExecutor);
-                    }
-                    else if (!isConditionMet)
-                    {
-                        await HandleConditionNotMetAsync(result, condition, context, actionExecutor);
+                        var fallbackContext = new ActionExecutionContext
+                        {
+                            OnboardingId = onboardingId,
+                            StageId = stageId,
+                            ConditionId = 0,
+                            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                            UserId = long.TryParse(_userContext?.UserId, out var uid2) ? uid2 : 0
+                        };
+                        await HandleConditionNotMetAsync(result, null, fallbackContext, actionExecutor);
                     }
 
                     return result;
@@ -301,10 +358,10 @@ namespace FlowFlex.Application.Services.OW
 
                 result = dbResult.Data;
 
-                // 5. Log changes after transaction commits
-                if (changeLogService != null && condition != null)
+                // 6. Log changes after transaction commits
+                if (changeLogService != null && matchedCondition != null)
                 {
-                    await LogConditionEvaluationAsync(changeLogService, onboardingId, stageId, condition, result);
+                    await LogConditionEvaluationAsync(changeLogService, onboardingId, stageId, matchedCondition, result);
                 }
 
                 return result;
@@ -402,25 +459,27 @@ namespace FlowFlex.Application.Services.OW
             ActionExecutionContext context,
             IConditionActionExecutor actionExecutor)
         {
-            result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(context.StageId);
+            // When condition is null (multi-condition mode, none matched), use stage-level fallback
+            long? fallbackStageId = condition?.FallbackStageId ?? await GetStageFallbackStageIdAsync(context.StageId);
+            result.NextStageId = fallbackStageId ?? await GetNextStageIdAsync(context.StageId);
 
-            if (condition.FallbackStageId.HasValue && actionExecutor != null)
+            if (fallbackStageId.HasValue && actionExecutor != null)
             {
                 var fallbackActionsJson = System.Text.Json.JsonSerializer.Serialize(new[]
                 {
-                    new { type = "GoToStage", order = 0, targetStageId = condition.FallbackStageId.Value.ToString() }
+                    new { type = "GoToStage", order = 0, targetStageId = fallbackStageId.Value.ToString() }
                 });
 
                 var actionResult = await actionExecutor.ExecuteActionsAsync(fallbackActionsJson, context);
                 result.ActionResults = actionResult.Details;
 
-                _logger.LogInformation("Condition '{ConditionName}' not met, executed fallback GoToStage to stage {FallbackStageId}",
-                    condition.Name, condition.FallbackStageId.Value);
+                _logger.LogInformation("Condition not met, executed fallback GoToStage to stage {FallbackStageId}",
+                    fallbackStageId.Value);
             }
             else
             {
-                _logger.LogInformation("Condition '{ConditionName}' not met, fallback to stage {NextStageId}",
-                    condition.Name, result.NextStageId);
+                _logger.LogInformation("Condition not met, fallback to next stage {NextStageId}",
+                    result.NextStageId);
             }
         }
 
@@ -619,7 +678,30 @@ namespace FlowFlex.Application.Services.OW
             return await _db.Queryable<Domain.Entities.OW.StageCondition>()
                 .Where(c => c.StageId == stageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
+                .OrderBy(c => c.Order)
                 .FirstAsync();
+        }
+
+        /// <summary>
+        /// Get all active conditions for a stage, ordered by priority
+        /// </summary>
+        private async Task<List<Domain.Entities.OW.StageCondition>> GetConditionsByStageIdAsync(long stageId)
+        {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            return await _db.Queryable<Domain.Entities.OW.StageCondition>()
+                .Where(c => c.StageId == stageId && c.IsValid)
+                .Where(c => c.TenantId == tenantId)
+                .OrderBy(c => c.Order)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get the stage-level condition fallback stage ID
+        /// </summary>
+        private async Task<long?> GetStageFallbackStageIdAsync(long stageId)
+        {
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            return stage?.ConditionFallbackStageId;
         }
 
         private async Task<long?> GetNextStageIdAsync(long currentStageId, string tenantId = null)

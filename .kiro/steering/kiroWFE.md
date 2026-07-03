@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Frontend (Vue.js) — working directory: `packages/flowFlex-common/`
+
 ```bash
 pnpm dev                    # Start development server
 pnpm serve:local           # Start with localhost config
@@ -20,6 +21,7 @@ pnpm test                  # Run Jest tests
 ```
 
 ### Backend (.NET) — working directory: `packages/flowFlex-backend/`
+
 ```bash
 dotnet restore             # Restore NuGet packages
 dotnet build              # Build the solution
@@ -31,6 +33,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 ## Architecture Overview
 
 ### System Overview
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Frontend (Vue 3 SPA)                          │
@@ -73,6 +76,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 ### Request Data Flow
 
 **Backend API Request:**
+
 1. HTTP → Kestrel → `GlobalExceptionHandlingMiddleware`
 2. → `AppIsolationMiddleware` (extracts `AppCode` + `TenantId` from headers/JWT)
 3. → `TenantMiddleware` → JWT authentication → `WFEAuthorize` permission check
@@ -80,6 +84,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 5. → AutoMapper (entity → DTO) → Controller returns `Success<T>(data)`
 
 **Frontend Request:**
+
 1. Component calls API function (e.g., `getWorkflows()`)
 2. → Axios instance adds JWT token + `AppCode` + timezone headers
 3. → `transformResponseHook` unwraps `SuccessResponse` envelope
@@ -96,6 +101,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 - **Micro-Frontend**: Supports Wujie sub-app mode (`window.__POWERED_BY_WUJIE__`)
 
 ### Database Conventions
+
 - All tables prefixed with `ff_` (e.g., `ff_workflow`, `ff_onboarding_stage_progress`)
 - Columns: snake_case (auto-converted from PascalCase by SqlSugar `ToUnderLine()`)
 - Primary keys: `id` (snowflake long)
@@ -105,12 +111,23 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 - JSONB columns for flexible/dynamic data
 
 ### API Patterns
+
 - Controllers extend `ControllerBase` — use `Success<T>(data)`, never raw `Ok()`
 - Business errors: throw `CRMException(ErrorCodeEnum, message)`
 - Validation: FluentValidation on request DTOs
 - Response envelope: `SuccessResponse` wrapper (frontend unwraps automatically)
+- **URL 前缀规则**：Controller 路由前缀取决于所属业务域（对应 Controller 文件夹）：
+  - `Controllers/OW/` → 前缀 `ow/`（如 `ow/stages/v1`、`ow/workflows/v1`、`ow/stage-conditions/v1`）
+  - `Controllers/Integration/` → 前缀 `integration/`（如 `integration/v1`、`integration/quick-links/v1`）
+  - `Controllers/AI/` → 前缀 `ai/`（如 `ai/config/v1`）
+  - `Controllers/Action/` → 前缀 `action/`（如 `action/v1`）
+  - `Controllers/Shared/` → 前缀 `shared/`（如 `shared/v1/dictionary`）
+  - `Controllers/MessageCenter/` → 前缀 `ow/`（消息中心归入 OW 域，如 `ow/messages/v1`）
+
+  前端拼接 URL 时必须带正确的域前缀。**遗漏前缀（如少写 `ow/`）会导致 404。** 新增接口时先看 Controller 上的 `[Route("...")]` 注解确认实际路径。
 
 ### Workflow System Components
+
 - **Workflows**: Main definitions with ordered stages
 - **Stages**: Steps with components (Questionnaires, Checklists, Actions)
 - **Stage Progress**: Tracks user progress through stages
@@ -119,6 +136,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 ## Where to Add New Code
 
 ### New Backend Feature (OW domain)
+
 1. Entity: `Domain/Entities/OW/{Entity}.cs` — extend `EntityBaseCreateInfo`
 2. Repository interface: `Domain/Repository/OW/I{Entity}Repository.cs` — extend `IBaseRepository<{Entity}>`
 3. Repository impl: `SqlSugarDB/Repositories/OW/{Entity}Repository.cs` — extend `BaseRepository<{Entity}>`
@@ -127,19 +145,49 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 6. Service impl: `Application/Services/OW/{Entity}Service.cs` — implement `I{Entity}Service, IScopedService`
 7. AutoMapper profile: `Application/Maps/{Entity}MapProfile.cs` — register in `Program.cs`
 8. Controller: `WebApi/Controllers/OW/{Entity}Controller.cs` — extend `ControllerBase`
-9. Migration (if needed): `SqlSugarDB/Migrations/{timestamp}_{description}.sql`
+9. Migration (if needed): see below "Database Migration" section
+
+### Database Migration（改表结构）
+
+本项目使用 **SqlSugar ORM**（非 EF Core），Migration 是手写 SQL，不是 `Add-Migration` 自动生成。
+
+**创建 Migration 的步骤：**
+
+1. 在 `SqlSugarDB/Migrations/` 下新建文件，命名格式：`Migration_{YYYYMMDD}{序号}_{描述}.cs`
+2. 类必须是 `public static class`，包含 `public static void Up(ISqlSugarClient db)` 和 `public static void Down(ISqlSugarClient db)` 方法
+3. **必须在 `MigrationManager.cs` 的 `migrations` 数组末尾注册**，否则不会被执行
+4. 同步修改对应的 Entity（`Domain/Entities/OW/`）加上对应的 `[SugarColumn]` 属性
+
+**注意事项：**
+
+- Entity 上加字段只影响 ORM 映射，不会自动改数据库结构。只有 Migration 里的 SQL 才会改库
+- 不需要也不能执行 `Add-Migration`、`Update-Database` 等 EF Core 命令
+- Migration 执行机制：应用启动时 `MigrationManager.RunMigrations()` 自动检查 `__migration_history` 表，未执行过的会按注册顺序执行
+- 使用 `IF NOT EXISTS` / `IF EXISTS` 保证幂等性
+- PostgreSQL 中 `order` 是保留字，需要用双引号转义：`""order""`
+- 如果要废弃某个列但不删除，在 Entity 中标记 `[SugarColumn(IsIgnore = true)]`
+
+**MigrationManager 注册示例：**
+
+```csharp
+// 在 migrations 数组末尾追加：
+("20260701000001_AddMultiConditionSupport", (Action)(() => Migration_20260701000001_AddMultiConditionSupport.Up(_db)))
+```
 
 ### New Frontend Feature
+
 1. API module: `src/app/apis/{domain}/{feature}.ts`
 2. View: `src/app/views/{feature}/index.vue`
 3. Route: `src/app/router/routers/modules/{feature}.ts`
 4. Store (if needed): `src/app/stores/modules/{feature}.ts` — ID prefix `item-wfe-app-`
 
 ### New Shared UI Component
+
 - Reusable: `src/app/components/global/{ComponentName}/index.vue`
 - Form input: `src/app/components/form/{componentName}/`
 
 <!-- GSD:project-start source:PROJECT.md -->
+
 ## Project
 
 **FlowFlex Question Number Type**
@@ -160,16 +208,19 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 **Languages:** C# 12 (.NET 8), TypeScript 5.3, SQL (PostgreSQL), SCSS, HTML
 
 **Backend Core:**
+
 - ASP.NET Core 8.0, SqlSugar ORM, AutoMapper, FluentValidation, Hangfire, Serilog
 - Internal packages: `Item.Redis`, `Item.Internal.Auth`, `Item.Message.RabbitMq`, `Item.Message.Kafka`, `Item.BlobProvider`, `Item.Internal.Nacos`
 
 **Frontend Core:**
+
 - Vue 3.5, Vite 5.4, Element Plus 2.9, Pinia 2.2, Tailwind CSS 3.4, Axios
 - Dev tools: unplugin-auto-import, unplugin-vue-components, ESLint + Prettier, Husky
 
 **Testing:** xUnit + Moq + FluentAssertions (backend), Jest + @vue/test-utils (frontend)
 
 **Configuration:**
+
 - Backend: `appsettings.json` → sections: `Database`, `Redis`, `Cache`, `Security`, `Global`, `BlobStore`, `AI`, `Email`, `IdmApis`, `OutlookApis`
 - Frontend: `.env.{mode}` → vars: `VITE_GLOB_API_URL`, `VITE_PROXY_URL`, `VITE_GLOB_IDM_URL`, `VITE_GLOB_CODE`
 
@@ -180,6 +231,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 ### Naming Patterns
 
 **Frontend:**
+
 - API modules: `src/app/apis/<domain>/index.ts`, camelCase function names (`getWorkflows`, `addAction`)
 - Components: PascalCase `.vue` files
 - Stores: `defineStore('item-wfe-app-<name>', ...)`
@@ -188,6 +240,7 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 - Path aliases: `@/` → `src/app/`, `#/` → `types/`
 
 **Backend:**
+
 - Files: PascalCase matching class name
 - Async methods: `PascalCaseAsync` suffix
 - Private fields: `_camelCase`
@@ -202,16 +255,19 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 **Backend:** 4-space indent, `#region` blocks, XML doc comments on public API, `nullable enable`, guard clauses with `?? throw new ArgumentNullException(nameof(dep))`
 
 ### Vue Component Conventions
+
 - `<script setup lang="ts">` only — no Options API
 - Props: `withDefaults(defineProps<Props>(), {...})`
 - Emits: `defineEmits<{ eventName: [argType] }>()`
 - Styles: `<style scoped lang="scss">` + Tailwind utilities
 
 ### Error Handling
+
 - Backend: services throw `CRMException(ErrorCodeEnum, message)`, global middleware catches all
 - Frontend: Axios interceptors → `ElMessage.error(...)`, promise rejections propagate
 
 ### Testing Patterns
+
 - Backend: constructor-based mock setup, `// Arrange / Act / Assert` in every test
 - Shared helpers: `MockHelper.cs` (mock factories), `TestDataBuilder.cs` (entity builders)
 - What to mock: all repository interfaces, external services, `ISqlSugarClient`, `ILogger<T>`
@@ -219,16 +275,16 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 
 ## External Integrations
 
-| Integration | Purpose | Config Key |
-|-------------|---------|-----------|
-| Item IDM | User auth, team queries | `IdmApis` |
-| Microsoft Graph | Outlook email sync | `OutlookApis` |
-| AI Providers | Workflow/questionnaire generation | `AI` (per-user apiKey in DB) |
-| Nacos | Service discovery/config | via `Item.Internal.Nacos` |
-| Mailgun SMTP | Email sending | `Email` |
-| Aliyun OSS / AWS S3 | File storage | `BlobStore` + `Global:BlobStoreType` |
-| RabbitMQ / Kafka | Messaging | via `Item.Message.*` |
-| Hangfire | Background jobs | PostgreSQL-backed |
+| Integration         | Purpose                           | Config Key                           |
+| ------------------- | --------------------------------- | ------------------------------------ |
+| Item IDM            | User auth, team queries           | `IdmApis`                            |
+| Microsoft Graph     | Outlook email sync                | `OutlookApis`                        |
+| AI Providers        | Workflow/questionnaire generation | `AI` (per-user apiKey in DB)         |
+| Nacos               | Service discovery/config          | via `Item.Internal.Nacos`            |
+| Mailgun SMTP        | Email sending                     | `Email`                              |
+| Aliyun OSS / AWS S3 | File storage                      | `BlobStore` + `Global:BlobStoreType` |
+| RabbitMQ / Kafka    | Messaging                         | via `Item.Message.*`                 |
+| Hangfire            | Background jobs                   | PostgreSQL-backed                    |
 
 ## Known Pitfalls
 
@@ -240,63 +296,70 @@ dotnet test packages/flowFlex-backend/Tests/FlowFlex.Tests  # Unit tests only
 - **StageService stubs:** 10 methods throw `NotImplementedException` — don't call them
 
 <!-- GSD:skills-start source:skills/ -->
+
 ## Project Skills
 
-| Skill | Description | Path |
-|-------|-------------|------|
-| api-design |  | `.claude/skills/api-design/SKILL.md` |
-| architecture-confirm |  | `.claude/skills/architecture-confirm/SKILL.md` |
-| auto-test-runner | Execute test cases against a codebase and collect structured results. Use when test cases are ready and need to be run, when verifying a fix resolves a failing test, or when generating a test execution report. | `.claude/skills/auto-test-runner/SKILL.md` |
-| capability-evolver | A self-evolution engine for AI agents. Analyzes runtime history to identify improvements and applies protocol-constrained evolution. | `.claude/skills/capability-evolver/SKILL.md` |
-| competitive-analysis | Analyze competitors with feature comparison matrices, positioning analysis, and strategic implications. Use when researching a competitor, comparing product capabilities, assessing competitive positioning, or preparing a competitive brief for product strategy. | `.claude/skills/competitor-analysis/SKILL.md` |
-| component-breakdown |  | `.claude/skills/component-breakdown/SKILL.md` |
-| C# | Write robust C# avoiding null traps, async deadlocks, and LINQ pitfalls. | `.claude/skills/csharp/SKILL.md` |
-| database-design |  | `.claude/skills/database-design/SKILL.md` |
-| design-token-spec | Generate a design token specification (colors, typography, spacing, radius, shadows) based on product type and brand style description. Use when UX needs to define a consistent visual language before Dev implements the UI. Integrates with ui-ux-pro-max for data-driven recommendations. | `.claude/skills/design-token-spec/SKILL.md` |
-| dev-environment-setup |  | `.claude/skills/dev-environment-setup/SKILL.md` |
-| domain-splitter | Analyze large or complex project requirements and split them into bounded domains (DDD-style). Use when a project spans multiple business capabilities, teams, or data ownership boundaries. Produces a domain map with confirmation before proceeding. | `.claude/skills/domain-splitter/SKILL.md` |
-| feature-spec | Write structured product requirements documents (PRDs) with problem statements, user stories, requirements, and success metrics. Use when speccing a new feature, writing a PRD, defining acceptance criteria, prioritizing requirements, or documenting product decisions. | `.claude/skills/feature-spec/SKILL.md` |
-| file-structure-generator |  | `.claude/skills/file-structure-generator/SKILL.md` |
-| find-skills | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill. | `.claude/skills/find-skills/SKILL.md` |
-| flowchart-generator | Convert a text description of a process or user flow into a Mermaid flowchart. Use when BA needs to generate business flow diagrams or UX needs to generate user flow diagrams. | `.claude/skills/flowchart-generator/SKILL.md` |
-| Item API Layer | 'Item EAG API integration patterns. defHttp usage, axios configuration, request/response types, useGlobSetting for dynamic versioning. Actions: API integration, HTTP requests, axios setup, endpoint definition.' | `.claude/skills/item-api-layer-react/SKILL.md` |
-| Item Vue API Layer | 'Item EAG Vue API integration patterns. defHttp usage, axios configuration, request/response types, useGlobSetting for dynamic versioning. Actions: API integration, HTTP requests, axios setup, endpoint definition.' | `.claude/skills/item-api-layer-vue/SKILL.md` |
-| Item Components | 'Item EAG UI component library. Table with resizable columns, Loading/WaveLoading, shadcn/ui component usage patterns. Actions: build component, create UI, implement table, add loading state, use shadcn components.' | `.claude/skills/item-components-react/SKILL.md` |
-| Item Vue Components | 'Item EAG Vue UI component library. Element Plus usage, custom Vue SFC components, composable patterns. Actions: build component, create UI, implement table, add loading state, use Element Plus components.' | `.claude/skills/item-components-vue/SKILL.md` |
-| Item Type Patterns | 'Item EAG TypeScript type patterns. Namespace exports, #/ alias imports, router types, axios request/response types, user store types. Actions: type definition, TypeScript, interface, namespace, type import.' | `.claude/skills/item-type-patterns-react/SKILL.md` |
-| Item Vue Type Patterns | 'Item EAG Vue TypeScript type patterns. Namespace exports, #/ alias imports, router types, axios request/response types, Pinia store types. Actions: type definition, TypeScript, interface, namespace, type import.' | `.claude/skills/item-type-patterns-vue/SKILL.md` |
-| user-research-synthesis | Synthesize qualitative and quantitative user research into structured insights and opportunity areas. Use when analyzing interview notes, survey responses, support tickets, or behavioral data to identify themes, build personas, or prioritize opportunities. | `.claude/skills/market-research/SKILL.md` |
-| pptx | "Use this skill any time a .pptx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an email or summary); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates, layouts, speaker notes, or comments. Trigger whenever the user mentions \"deck,\" \"slides,\" \"presentation,\" or references a .pptx filename, regardless of what they plan to do with the content afterward. If a .pptx file needs to be opened, created, or touched, use this skill." | `.claude/skills/pptx/SKILL.md` |
-| priority-matrix | Classify a list of requirements using the MoSCoW method (Must/Should/Could/Won't). Use when PM needs to determine delivery scope and make trade-off decisions, especially when resources or time are constrained. | `.claude/skills/priority-matrix/SKILL.md` |
-| proactive-agent | "Transform AI agents from task-followers into proactive partners that anticipate needs and continuously improve. Now with WAL Protocol, Working Buffer, Autonomous Crons, and battle-tested patterns. Part of the Hal Stack 🦞" | `.claude/skills/proactive-agent/SKILL.md` |
-| requirements-clarify | Identify and resolve ambiguous requirements in a PM Spec or user description. Use when BA encounters vague quantities, incomplete conditions, undefined terms, missing boundaries, or unclear subjects. Outputs a structured ambiguity list with suggested definitions for user confirmation. | `.claude/skills/requirements-clarify/SKILL.md` |
-| risk-analysis | Identify technical risks and generate mitigation strategies for a project based on its architecture, tech stack, and requirements. Use when Dev needs to surface implementation risks before task breakdown, especially for high-complexity or high-stakes features. | `.claude/skills/risk-analysis/SKILL.md` |
-| task-breakdown | Decompose user stories and technical requirements into structured, independently deliverable development tasks. Use when Dev needs to convert a confirmed Dev Spec into an actionable task list with priority, complexity, and dependency mapping. | `.claude/skills/task-breakdown/SKILL.md` |
-| tavily | AI-optimized web search via Tavily API. Returns concise, relevant results for AI agents. | `.claude/skills/tavily-search/SKILL.md` |
-| tech-stack-advisor | Recommend a technology stack based on project requirements, team constraints, and non-functional requirements. Use when Dev needs to make and justify technology choices for frontend, backend, database, and infrastructure with documented rationale and trade-offs. | `.claude/skills/tech-stack-advisor/SKILL.md` |
-| test-case-generator | Generate structured test cases from BA acceptance criteria and Dev risk register. Use when QA needs to convert every AC into at least one verifiable test case with preconditions, steps, and expected results. Covers happy path, error cases, and edge cases for high-risk items. | `.claude/skills/test-case-generator/SKILL.md` |
-| ui-ux-pro-max |  | `.claude/skills/ui-ux-pro-max/SKILL.md` |
-| user-story-writer | Generate structured user stories with acceptance criteria from a feature description or PM Spec scope item. Use when BA needs to convert functional requirements into standard "As a / I want / So that" format with testable GIVEN/WHEN/THEN acceptance criteria. | `.claude/skills/user-story-writer/SKILL.md` |
-| using-superpowers | Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions | `.claude/skills/using-superpowers/SKILL.md` |
-| wireframe-generator | Generate text-based wireframe descriptions and ASCII layout sketches for key pages based on user stories. Use when UX needs to document page structure, key elements, and layout before visual design begins. | `.claude/skills/wireframe-generator/SKILL.md` |
+| Skill                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Path                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| api-design               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/api-design/SKILL.md`               |
+| architecture-confirm     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/architecture-confirm/SKILL.md`     |
+| auto-test-runner         | Execute test cases against a codebase and collect structured results. Use when test cases are ready and need to be run, when verifying a fix resolves a failing test, or when generating a test execution report.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `.claude/skills/auto-test-runner/SKILL.md`         |
+| capability-evolver       | A self-evolution engine for AI agents. Analyzes runtime history to identify improvements and applies protocol-constrained evolution.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `.claude/skills/capability-evolver/SKILL.md`       |
+| competitive-analysis     | Analyze competitors with feature comparison matrices, positioning analysis, and strategic implications. Use when researching a competitor, comparing product capabilities, assessing competitive positioning, or preparing a competitive brief for product strategy.                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `.claude/skills/competitor-analysis/SKILL.md`      |
+| component-breakdown      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/component-breakdown/SKILL.md`      |
+| C#                       | Write robust C# avoiding null traps, async deadlocks, and LINQ pitfalls.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `.claude/skills/csharp/SKILL.md`                   |
+| database-design          |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/database-design/SKILL.md`          |
+| design-token-spec        | Generate a design token specification (colors, typography, spacing, radius, shadows) based on product type and brand style description. Use when UX needs to define a consistent visual language before Dev implements the UI. Integrates with ui-ux-pro-max for data-driven recommendations.                                                                                                                                                                                                                                                                                                                                                                                                                            | `.claude/skills/design-token-spec/SKILL.md`        |
+| dev-environment-setup    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/dev-environment-setup/SKILL.md`    |
+| domain-splitter          | Analyze large or complex project requirements and split them into bounded domains (DDD-style). Use when a project spans multiple business capabilities, teams, or data ownership boundaries. Produces a domain map with confirmation before proceeding.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `.claude/skills/domain-splitter/SKILL.md`          |
+| feature-spec             | Write structured product requirements documents (PRDs) with problem statements, user stories, requirements, and success metrics. Use when speccing a new feature, writing a PRD, defining acceptance criteria, prioritizing requirements, or documenting product decisions.                                                                                                                                                                                                                                                                                                                                                                                                                                              | `.claude/skills/feature-spec/SKILL.md`             |
+| file-structure-generator |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/file-structure-generator/SKILL.md` |
+| find-skills              | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/find-skills/SKILL.md`              |
+| flowchart-generator      | Convert a text description of a process or user flow into a Mermaid flowchart. Use when BA needs to generate business flow diagrams or UX needs to generate user flow diagrams.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/flowchart-generator/SKILL.md`      |
+| Item API Layer           | 'Item EAG API integration patterns. defHttp usage, axios configuration, request/response types, useGlobSetting for dynamic versioning. Actions: API integration, HTTP requests, axios setup, endpoint definition.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `.claude/skills/item-api-layer-react/SKILL.md`     |
+| Item Vue API Layer       | 'Item EAG Vue API integration patterns. defHttp usage, axios configuration, request/response types, useGlobSetting for dynamic versioning. Actions: API integration, HTTP requests, axios setup, endpoint definition.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `.claude/skills/item-api-layer-vue/SKILL.md`       |
+| Item Components          | 'Item EAG UI component library. Table with resizable columns, Loading/WaveLoading, shadcn/ui component usage patterns. Actions: build component, create UI, implement table, add loading state, use shadcn components.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `.claude/skills/item-components-react/SKILL.md`    |
+| Item Vue Components      | 'Item EAG Vue UI component library. Element Plus usage, custom Vue SFC components, composable patterns. Actions: build component, create UI, implement table, add loading state, use Element Plus components.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `.claude/skills/item-components-vue/SKILL.md`      |
+| Item Type Patterns       | 'Item EAG TypeScript type patterns. Namespace exports, #/ alias imports, router types, axios request/response types, user store types. Actions: type definition, TypeScript, interface, namespace, type import.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `.claude/skills/item-type-patterns-react/SKILL.md` |
+| Item Vue Type Patterns   | 'Item EAG Vue TypeScript type patterns. Namespace exports, #/ alias imports, router types, axios request/response types, Pinia store types. Actions: type definition, TypeScript, interface, namespace, type import.'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `.claude/skills/item-type-patterns-vue/SKILL.md`   |
+| user-research-synthesis  | Synthesize qualitative and quantitative user research into structured insights and opportunity areas. Use when analyzing interview notes, survey responses, support tickets, or behavioral data to identify themes, build personas, or prioritize opportunities.                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `.claude/skills/market-research/SKILL.md`          |
+| pptx                     | "Use this skill any time a .pptx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an email or summary); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates, layouts, speaker notes, or comments. Trigger whenever the user mentions \"deck,\" \"slides,\" \"presentation,\" or references a .pptx filename, regardless of what they plan to do with the content afterward. If a .pptx file needs to be opened, created, or touched, use this skill." | `.claude/skills/pptx/SKILL.md`                     |
+| priority-matrix          | Classify a list of requirements using the MoSCoW method (Must/Should/Could/Won't). Use when PM needs to determine delivery scope and make trade-off decisions, especially when resources or time are constrained.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `.claude/skills/priority-matrix/SKILL.md`          |
+| proactive-agent          | "Transform AI agents from task-followers into proactive partners that anticipate needs and continuously improve. Now with WAL Protocol, Working Buffer, Autonomous Crons, and battle-tested patterns. Part of the Hal Stack 🦞"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/proactive-agent/SKILL.md`          |
+| requirements-clarify     | Identify and resolve ambiguous requirements in a PM Spec or user description. Use when BA encounters vague quantities, incomplete conditions, undefined terms, missing boundaries, or unclear subjects. Outputs a structured ambiguity list with suggested definitions for user confirmation.                                                                                                                                                                                                                                                                                                                                                                                                                            | `.claude/skills/requirements-clarify/SKILL.md`     |
+| risk-analysis            | Identify technical risks and generate mitigation strategies for a project based on its architecture, tech stack, and requirements. Use when Dev needs to surface implementation risks before task breakdown, especially for high-complexity or high-stakes features.                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `.claude/skills/risk-analysis/SKILL.md`            |
+| task-breakdown           | Decompose user stories and technical requirements into structured, independently deliverable development tasks. Use when Dev needs to convert a confirmed Dev Spec into an actionable task list with priority, complexity, and dependency mapping.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `.claude/skills/task-breakdown/SKILL.md`           |
+| tavily                   | AI-optimized web search via Tavily API. Returns concise, relevant results for AI agents.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `.claude/skills/tavily-search/SKILL.md`            |
+| tech-stack-advisor       | Recommend a technology stack based on project requirements, team constraints, and non-functional requirements. Use when Dev needs to make and justify technology choices for frontend, backend, database, and infrastructure with documented rationale and trade-offs.                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `.claude/skills/tech-stack-advisor/SKILL.md`       |
+| test-case-generator      | Generate structured test cases from BA acceptance criteria and Dev risk register. Use when QA needs to convert every AC into at least one verifiable test case with preconditions, steps, and expected results. Covers happy path, error cases, and edge cases for high-risk items.                                                                                                                                                                                                                                                                                                                                                                                                                                      | `.claude/skills/test-case-generator/SKILL.md`      |
+| ui-ux-pro-max            |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/ui-ux-pro-max/SKILL.md`            |
+| user-story-writer        | Generate structured user stories with acceptance criteria from a feature description or PM Spec scope item. Use when BA needs to convert functional requirements into standard "As a / I want / So that" format with testable GIVEN/WHEN/THEN acceptance criteria.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `.claude/skills/user-story-writer/SKILL.md`        |
+| using-superpowers        | Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `.claude/skills/using-superpowers/SKILL.md`        |
+| wireframe-generator      | Generate text-based wireframe descriptions and ASCII layout sketches for key pages based on user stories. Use when UX needs to document page structure, key elements, and layout before visual design begins.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `.claude/skills/wireframe-generator/SKILL.md`      |
+
 <!-- GSD:skills-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
+
 ## GSD Workflow Enforcement
 
 Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
 
 Use these entry points:
+
 - `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
 - `/gsd-debug` for investigation and bug fixing
 - `/gsd-execute-phase` for planned phase work
 
 Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+
 <!-- GSD:workflow-end -->
 
 <!-- GSD:profile-start -->
+
 ## Developer Profile
 
 > Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
 > This section is managed by `generate-claude-profile` -- do not edit manually.
+
 <!-- GSD:profile-end -->
