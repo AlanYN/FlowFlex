@@ -115,7 +115,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20260116000001_IncreaseOperationTitleLengthTo800", (Action)(() => Migration_20260116000001_IncreaseOperationTitleLengthTo800.Up(_db))),
                     ("20260123000001_MergeDisplayNameToFieldName", (Action)(() => Migration_20260123000001_MergeDisplayNameToFieldName.Up(_db))),
                     ("20260130000001_FillSourceStageIdInRulesJson", (Action)(() => Migration_20260130000001_FillSourceStageIdInRulesJson.Up(_db))),
-                    ("20260514000001_CreatePluginPriceListTable", (Action)(() => Migration_20260514000001_CreatePluginPriceListTable.Up(_db)))
+                    ("20260514000001_CreatePluginPriceListTable", (Action)(() => Migration_20260514000001_CreatePluginPriceListTable.Up(_db))),
+                    ("20260701000001_AddMultiConditionSupport", (Action)(() => Migration_20260701000001_AddMultiConditionSupport.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

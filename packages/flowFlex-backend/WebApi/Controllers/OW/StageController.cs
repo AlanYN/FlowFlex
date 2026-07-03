@@ -238,6 +238,26 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Update condition fallback stage for a stage.
+        /// NULL fallbackStageId means "Continue to next stage" (default behavior).
+        /// Requires WORKFLOW:UPDATE permission
+        /// </summary>
+        [HttpPatch("{id}/condition-fallback")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> UpdateConditionFallback(long id, [FromBody] FlowFlex.Application.Contracts.Dtos.OW.StageCondition.UpdateConditionFallbackRequest request)
+        {
+            var stage = await _stageService.GetByIdAsync(id);
+            if (stage == null)
+            {
+                throw new FlowFlex.Domain.Shared.CRMException(FlowFlex.Domain.Shared.ErrorCodeEnum.NotFound, "Stage not found.");
+            }
+
+            await _stageService.UpdateConditionFallbackAsync(id, request.FallbackStageId);
+            return Success(true);
+        }
+
+        /// <summary>
         /// Force sync stage assignments (debug/maintenance endpoint)
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>

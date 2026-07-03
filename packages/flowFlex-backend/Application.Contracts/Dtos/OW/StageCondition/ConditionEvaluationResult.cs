@@ -31,6 +31,17 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public long? NextStageId { get; set; }
 
         /// <summary>
+        /// Matched Condition ID (null if no condition was met, fallback was used)
+        /// </summary>
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long? MatchedConditionId { get; set; }
+
+        /// <summary>
+        /// Matched Condition Name (for display/logging)
+        /// </summary>
+        public string? MatchedConditionName { get; set; }
+
+        /// <summary>
         /// Action execution results
         /// </summary>
         public List<ActionExecutionDetail>? ActionResults { get; set; }

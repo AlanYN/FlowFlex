@@ -44,11 +44,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public string ActionsJson { get; set; } = string.Empty;
 
         /// <summary>
-        /// Fallback Stage ID (when condition is not met)
-        /// </summary>
-        public long? FallbackStageId { get; set; }
-
-        /// <summary>
         /// Is Active
         /// </summary>
         public bool IsActive { get; set; } = true;

@@ -121,12 +121,12 @@ namespace FlowFlex.WebApi.Controllers.OW
         #region Query Operations
 
         /// <summary>
-        /// Get condition by stage ID
+        /// Get conditions by stage ID (returns list ordered by priority)
         /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("by-stage/{stageId}")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
-        [ProducesResponseType<SuccessResponse<StageConditionOutputDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<StageConditionOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStageId(long stageId)
         {
             var data = await _conditionService.GetByStageIdAsync(stageId);
@@ -144,6 +144,19 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var data = await _conditionService.GetByWorkflowIdAsync(workflowId);
             return Success(data);
+        }
+
+        /// <summary>
+        /// Reorder conditions for a stage
+        /// Requires WORKFLOW:UPDATE permission
+        /// </summary>
+        [HttpPatch("by-stage/{stageId}/reorder")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> Reorder(long stageId, [FromBody] ReorderConditionsRequest request)
+        {
+            var result = await _conditionService.ReorderAsync(stageId, request.Items);
+            return Success(result);
         }
 
         #endregion

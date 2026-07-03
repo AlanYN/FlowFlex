@@ -279,10 +279,10 @@ export function getConditionsByWorkflow(workflowId: string | number) {
 }
 
 /**
- * 按阶段查询条件
+ * 按阶段查询条件（返回数组，按 order 排序）
  * GET /stage-conditions/v1/by-stage/{stageId}
  */
-export function getConditionByStage(stageId: string | number) {
+export function getConditionsByStage(stageId: string | number) {
 	return defHttp.get({
 		url: `${Api().stageConditions}/by-stage/${stageId}`,
 	});
@@ -369,6 +369,31 @@ export function validateRules(rulesJson: string) {
 export function validateCondition(id: string | number) {
 	return defHttp.post({
 		url: `${Api().stageConditions}/${id}/validate`,
+	});
+}
+
+/**
+ * Reorder conditions for a stage
+ * PATCH /stage-conditions/v1/by-stage/{stageId}/reorder
+ */
+export function reorderConditions(
+	stageId: string | number,
+	items: { id: string; order: number }[]
+) {
+	return defHttp.patch({
+		url: `${Api().stageConditions}/by-stage/${stageId}/reorder`,
+		params: { items },
+	});
+}
+
+/**
+ * Update stage condition fallback
+ * PATCH /ow/stages/v1/{stageId}/condition-fallback
+ */
+export function updateConditionFallback(stageId: string | number, fallbackStageId: string | null) {
+	return defHttp.patch({
+		url: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${stageId}/condition-fallback`,
+		params: { fallbackStageId },
 	});
 }
 
