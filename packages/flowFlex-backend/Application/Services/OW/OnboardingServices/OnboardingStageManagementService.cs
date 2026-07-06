@@ -39,6 +39,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly EmailOptions _emailOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStageManagementService> _logger;
+        private readonly OnboardingCompleteLockService _completeLockService;
 
         public OnboardingStageManagementService(
             IOnboardingRepository onboardingRepository,
@@ -56,7 +57,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IHttpContextAccessor httpContextAccessor,
             IOptions<EmailOptions> emailOptions,
             UserContext userContext,
-            ILogger<OnboardingStageManagementService> logger)
+            ILogger<OnboardingStageManagementService> logger,
+            OnboardingCompleteLockService completeLockService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
@@ -74,6 +76,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _emailOptions = emailOptions.Value;
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _completeLockService = completeLockService ?? throw new ArgumentNullException(nameof(completeLockService));
         }
 
         #region Helper Methods
@@ -174,90 +177,118 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input)
         {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
+            // === Concurrency control: Acquire in-memory lock per onboarding ===
+            if (!_completeLockService.TryAcquireLock(id, out var isReentrant))
             {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    "This case is currently being completed by another user. Please try again later.");
             }
 
-            if (entity.Status == "Completed")
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
-            }
-
-            // Ensure stages progress is initialized
-            await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
-
-            // Get all stages for this workflow
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            var orderedStages = stages.OrderBy(x => x.Order).ToList();
-
-            // Get target stage ID with backward compatibility
-            long stageIdToComplete;
             try
             {
-                stageIdToComplete = input.GetTargetStageId();
-            }
-            catch (ArgumentException ex)
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
-            }
-
-            // Find the stage to complete
-            var stageToComplete = orderedStages.FirstOrDefault(s => s.Id == stageIdToComplete);
-            if (stageToComplete == null)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage with ID {stageIdToComplete} not found in workflow");
-            }
-
-            // Validate if this stage can be completed
-            var (canComplete, validationError) = await _stageProgressService.ValidateStageCanBeCompletedAsync(entity, stageIdToComplete);
-            if (!canComplete && !input.ForceComplete)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
-            }
-
-            // Update stages progress
-            await _stageProgressService.UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
-
-            // Check if all stages are completed (including skipped stages as "done")
-            var allStagesCompleted = entity.StagesProgress.All(sp => 
-                sp.IsCompleted || 
-                string.Equals(sp.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
-
-            if (allStagesCompleted)
-            {
-                entity.Status = "Completed";
-                entity.CompletionRate = 100;
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-            }
-            else
-            {
-                // Ensure completion rate never decreases
-                var previousRate = entity.CompletionRate;
-                var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
-                entity.CompletionRate = Math.Max(previousRate, newRate);
-                UpdateCurrentStageAfterCompletion(entity, stageToComplete, orderedStages, input.PreventAutoMove);
-
-                if (!string.IsNullOrEmpty(input.CompletionNotes))
+                // Reload entity from DB after acquiring lock to get latest state
+                var entity = await _onboardingRepository.GetByIdAsync(id);
+                if (entity == null || !entity.IsValid)
                 {
-                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
+
+                if (entity.Status == "Completed")
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
+                }
+
+                // Ensure stages progress is initialized
+                await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+
+                // Get all stages for this workflow
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                var orderedStages = stages.OrderBy(x => x.Order).ToList();
+
+                // Get target stage ID with backward compatibility
+                long stageIdToComplete;
+                try
+                {
+                    stageIdToComplete = input.GetTargetStageId();
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
+                }
+
+                // Find the stage to complete
+                var stageToComplete = orderedStages.FirstOrDefault(s => s.Id == stageIdToComplete);
+                if (stageToComplete == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Stage with ID {stageIdToComplete} not found in workflow");
+                }
+
+                // Check if stage is already completed (concurrency guard)
+                var targetProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageIdToComplete);
+                if (targetProgress != null && targetProgress.IsCompleted)
+                {
+                    var completedBy = targetProgress.CompletedBy ?? "another user";
+                    var completedAt = targetProgress.CompletionTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "unknown time";
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"This stage has already been completed by {completedBy} at {completedAt}");
+                }
+
+                // Validate if this stage can be completed
+                var (canComplete, validationError) = await _stageProgressService.ValidateStageCanBeCompletedAsync(entity, stageIdToComplete);
+                if (!canComplete && !input.ForceComplete)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
+                }
+
+                // Update stages progress
+                await _stageProgressService.UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+                // Check if all stages are completed (including skipped stages as "done")
+                var allStagesCompleted = entity.StagesProgress.All(sp =>
+                    sp.IsCompleted ||
+                    string.Equals(sp.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
+
+                if (allStagesCompleted)
+                {
+                    entity.Status = "Completed";
+                    entity.CompletionRate = 100;
+                    entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+                }
+                else
+                {
+                    // Ensure completion rate never decreases
+                    var previousRate = entity.CompletionRate;
+                    var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                    entity.CompletionRate = Math.Max(previousRate, newRate);
+                    UpdateCurrentStageAfterCompletion(entity, stageToComplete, orderedStages, input.PreventAutoMove);
+
+                    if (!string.IsNullOrEmpty(input.CompletionNotes))
+                    {
+                        OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
+                    }
+                }
+
+                // Update stage tracking info
+                UpdateStageTrackingInfo(entity);
+
+                // Save changes
+                var result = await SaveOnboardingChangesAsync(entity);
+
+                // Send email notification if requested
+                if (result && input.SendEmailNotification)
+                {
+                    await SendStageCompletionEmailAsync(entity, stageToComplete);
+                }
+
+                return result;
+            }
+            finally
+            {
+                if (!isReentrant)
+                {
+                    _completeLockService.ReleaseLock(id);
                 }
             }
-
-            // Update stage tracking info
-            UpdateStageTrackingInfo(entity);
-
-            // Save changes
-            var result = await SaveOnboardingChangesAsync(entity);
-
-            // Send email notification if requested
-            if (result && input.SendEmailNotification)
-            {
-                await SendStageCompletionEmailAsync(entity, stageToComplete);
-            }
-
-            return result;
         }
 
         #endregion
@@ -270,139 +301,172 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         {
             await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
+            // === Concurrency control: Acquire in-memory lock per onboarding ===
+            if (!_completeLockService.TryAcquireLock(id, out var isReentrant))
             {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                _logger.LogWarning("[OW-653] CompleteCurrentStageAsync - Lock DENIED for OnboardingId={OnboardingId}", id);
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    "This case is currently being completed by another user. Please try again later.");
             }
 
-            // Ensure stages progress is properly initialized
-            await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
-            await SaveOnboardingChangesAsync(entity);
+            _logger.LogWarning("[OW-653] CompleteCurrentStageAsync - Lock ACQUIRED for OnboardingId={OnboardingId}, isReentrant={IsReentrant}", id, isReentrant);
 
-            // Get target stage ID
-            long targetStageId;
             try
             {
-                targetStageId = input.GetTargetStageId();
-            }
-            catch (ArgumentException ex)
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
-            }
-
-            if (entity.Status == "Completed")
-            {
-                return true;
-            }
-
-            // Get all stages for this workflow
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            var orderedStages = stages.OrderBy(x => x.Order).ToList();
-            var totalStages = orderedStages.Count;
-
-            // Find the stage to complete
-            var stageToComplete = orderedStages.FirstOrDefault(x => x.Id == targetStageId);
-            if (stageToComplete == null)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Specified stage not found in workflow");
-            }
-
-            // Validate if this stage can be completed
-            var (canComplete, validationError) = await _stageProgressService.ValidateStageCanBeCompletedAsync(entity, stageToComplete.Id);
-            if (!canComplete)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
-            }
-
-            // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
-            // This ensures external API errors (CRM/IAM) block the stage completion
-            // Execute for ALL stages including the last one (Case Complete scenario)
-            bool conditionActionExecuted = false;
-            conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
-
-            // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
-
-            // If condition actions were executed (e.g. GoToStage/SkipStage), the action may have
-            // updated current stage and stages progress directly in DB. Refresh those fields before
-            // the normal completion flow serializes progress again.
-            if (conditionActionExecuted)
-            {
-                var refreshed = await _onboardingRepository.GetByIdAsync(id);
-                if (refreshed != null)
+                // Reload entity from DB after acquiring lock to get latest state
+                var entity = await _onboardingRepository.GetByIdAsync(id);
+                if (entity == null || !entity.IsValid)
                 {
-                    entity.CurrentStageId = refreshed.CurrentStageId;
-                    entity.CurrentStageOrder = refreshed.CurrentStageOrder;
-                    entity.CurrentStageStartTime = refreshed.CurrentStageStartTime;
-                    entity.Status = refreshed.Status;
-                    entity.ActualCompletionDate = refreshed.ActualCompletionDate;
-                    entity.CompletionRate = Math.Max(entity.CompletionRate, refreshed.CompletionRate);
-                    entity.Notes = refreshed.Notes;
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                }
 
-                    if (!string.IsNullOrWhiteSpace(refreshed.StagesProgressJson))
+                // Ensure stages progress is properly initialized
+                await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+                await SaveOnboardingChangesAsync(entity);
+
+                // Get target stage ID
+                long targetStageId;
+                try
+                {
+                    targetStageId = input.GetTargetStageId();
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid stage ID parameters: {ex.Message}");
+                }
+
+                if (entity.Status == "Completed")
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        "This case has already been completed. No further changes are allowed.");
+                }
+
+                // Get all stages for this workflow
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                var orderedStages = stages.OrderBy(x => x.Order).ToList();
+                var totalStages = orderedStages.Count;
+
+                // Find the stage to complete
+                var stageToComplete = orderedStages.FirstOrDefault(x => x.Id == targetStageId);
+                if (stageToComplete == null)
+                {
+                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Specified stage not found in workflow");
+                }
+
+                // Check if stage is already completed (concurrency guard)
+                var targetProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == targetStageId);
+                _logger.LogWarning("[OW-653] CompleteCurrentStageAsync - OnboardingId={OnboardingId}, StageId={StageId}, IsCompleted={IsCompleted}, CompletedBy={CompletedBy}, StagesProgressCount={Count}",
+                    id, targetStageId, targetProgress?.IsCompleted, targetProgress?.CompletedBy, entity.StagesProgress?.Count);
+                if (targetProgress != null && targetProgress.IsCompleted)
+                {
+                    var completedBy = targetProgress.CompletedBy ?? "another user";
+                    var completedAt = targetProgress.CompletionTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "unknown time";
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
+                        $"This stage has already been completed by {completedBy} at {completedAt}");
+                }
+
+                // Validate if this stage can be completed
+                var (canComplete, validationError) = await _stageProgressService.ValidateStageCanBeCompletedAsync(entity, stageToComplete.Id);
+                if (!canComplete)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
+                }
+
+                // === Pre-completion: Execute stage condition actions BEFORE marking stage as completed ===
+                // This ensures external API errors (CRM/IAM) block the stage completion
+                // Execute for ALL stages including the last one (Case Complete scenario)
+                bool conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+
+                // === Condition actions succeeded (or no conditions) — now mark stage as completed ===
+
+                // If condition actions were executed (e.g. GoToStage/SkipStage), the action may have
+                // updated current stage and stages progress directly in DB. Refresh those fields before
+                // the normal completion flow serializes progress again.
+                if (conditionActionExecuted)
+                {
+                    var refreshed = await _onboardingRepository.GetByIdAsync(id);
+                    if (refreshed != null)
                     {
-                        entity.StagesProgressJson = refreshed.StagesProgressJson;
-                        _stageProgressService.LoadStagesProgressFromJson(entity);
+                        entity.CurrentStageId = refreshed.CurrentStageId;
+                        entity.CurrentStageOrder = refreshed.CurrentStageOrder;
+                        entity.CurrentStageStartTime = refreshed.CurrentStageStartTime;
+                        entity.Status = refreshed.Status;
+                        entity.ActualCompletionDate = refreshed.ActualCompletionDate;
+                        entity.CompletionRate = Math.Max(entity.CompletionRate, refreshed.CompletionRate);
+                        entity.Notes = refreshed.Notes;
+
+                        if (!string.IsNullOrWhiteSpace(refreshed.StagesProgressJson))
+                        {
+                            entity.StagesProgressJson = refreshed.StagesProgressJson;
+                            _stageProgressService.LoadStagesProgressFromJson(entity);
+                        }
                     }
                 }
+
+                // Update stages progress
+                await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
+
+                // Calculate new completion rate - ensure it never decreases
+                var previousRate = entity.CompletionRate;
+                var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                entity.CompletionRate = Math.Max(previousRate, newRate);
+                var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
+
+                // Check if all stages are completed (including skipped stages as "done")
+                var allStagesCompleted = entity.StagesProgress.All(s =>
+                    s.IsCompleted ||
+                    string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
+                if (allStagesCompleted)
+                {
+                    entity.Status = "Completed";
+                    entity.CompletionRate = 100;
+                    entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+
+                    if (!string.IsNullOrEmpty(input.CompletionNotes))
+                    {
+                        OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}");
+                    }
+                }
+                else
+                {
+                    if (entity.Status == "Started")
+                    {
+                        entity.Status = "InProgress";
+                    }
+
+                    if (!string.IsNullOrEmpty(input.CompletionNotes))
+                    {
+                        OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
+                    }
+                }
+
+                UpdateStageTrackingInfo(entity);
+                var result = await SaveOnboardingChangesAsync(entity);
+
+                if (result)
+                {
+                    // Log stage completion
+                    await LogStageCompletionAsync(entity, stageToComplete, totalStages, completedCount, allStagesCompleted, input.CompletionNotes);
+
+                    // Auto-advance to next stage if no condition action was executed
+                    if (!allStagesCompleted && !conditionActionExecuted)
+                    {
+                        await AutoAdvanceToNextStageAsync(entity, stageToComplete, orderedStages);
+                    }
+
+                    // Send email notification
+                    await SendStageCompletionEmailAsync(entity, stageToComplete);
+                }
+
+                return result;
             }
-
-            // Update stages progress
-            await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
-
-            // Calculate new completion rate - ensure it never decreases
-            var previousRate = entity.CompletionRate;
-            var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
-            entity.CompletionRate = Math.Max(previousRate, newRate);
-            var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
-
-            // Check if all stages are completed (including skipped stages as "done")
-            var allStagesCompleted = entity.StagesProgress.All(s => 
-                s.IsCompleted || 
-                string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
-            if (allStagesCompleted)
+            finally
             {
-                entity.Status = "Completed";
-                entity.CompletionRate = 100;
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-
-                if (!string.IsNullOrEmpty(input.CompletionNotes))
+                if (!isReentrant)
                 {
-                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}");
+                    _completeLockService.ReleaseLock(id);
                 }
             }
-            else
-            {
-                if (entity.Status == "Started")
-                {
-                    entity.Status = "InProgress";
-                }
-
-                if (!string.IsNullOrEmpty(input.CompletionNotes))
-                {
-                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
-                }
-            }
-
-            UpdateStageTrackingInfo(entity);
-            var result = await SaveOnboardingChangesAsync(entity);
-
-            if (result)
-            {
-                // Log stage completion
-                await LogStageCompletionAsync(entity, stageToComplete, totalStages, completedCount, allStagesCompleted, input.CompletionNotes);
-
-                // Auto-advance to next stage if no condition action was executed
-                if (!allStagesCompleted && !conditionActionExecuted)
-                {
-                    await AutoAdvanceToNextStageAsync(entity, stageToComplete, orderedStages);
-                }
-
-                // Send email notification
-                await SendStageCompletionEmailAsync(entity, stageToComplete);
-            }
-
-            return result;
         }
 
         #endregion

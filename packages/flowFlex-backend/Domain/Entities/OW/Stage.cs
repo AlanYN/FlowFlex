@@ -154,6 +154,13 @@ namespace FlowFlex.Domain.Entities.OW
         public bool Required { get; set; } = false;
 
         /// <summary>
+        /// Condition Fallback Stage ID - The stage to jump to when all conditions are not met.
+        /// NULL means "Continue to next stage" (default behavior).
+        /// </summary>
+        [SugarColumn(ColumnName = "condition_fallback_stage_id")]
+        public long? ConditionFallbackStageId { get; set; }
+
+        /// <summary>
         /// Stage Components Configuration (JSONB)
         /// </summary>
         [SugarColumn(ColumnName = "components_json", ColumnDataType = "jsonb", IsJson = true)]

@@ -144,10 +144,12 @@ export interface AssignUserParams {
 // ============ Fallback 配置 ============
 
 /**
- * Fallback 配置
+ * Fallback 配置（Stage 级别）
+ * type: 'continue' = Continue to next stage (fallbackStageId = null)
+ * type: 'jump' = Jump to a chosen stage (fallbackStageId = stageId)
  */
 export interface FallbackConfig {
-	type: 'default' | 'specified';
+	type: 'continue' | 'jump';
 	fallbackStageId?: string;
 }
 
@@ -164,7 +166,6 @@ export interface StageCondition {
 	order: number;
 	rulesJson: RulesJson;
 	actionsJson: ConditionAction[];
-	fallbackStageId?: string;
 	isActive: boolean;
 	createDate?: string;
 	createBy?: string;
@@ -176,13 +177,28 @@ export interface StageCondition {
  * 创建/更新 Condition 的输入
  */
 export interface StageConditionInput {
+	stageId: string;
+	workflowId?: string;
 	name: string;
 	description?: string;
-	order?: number;
-	rulesJson: RulesJson;
-	actionsJson: ConditionAction[];
-	fallbackStageId?: string;
+	rulesJson: string;
+	actionsJson: string;
 	isActive?: boolean;
+}
+
+/**
+ * Reorder 请求项
+ */
+export interface ReorderItem {
+	id: string;
+	order: number;
+}
+
+/**
+ * 更新 Stage 的 Condition Fallback
+ */
+export interface UpdateConditionFallbackInput {
+	fallbackStageId: string | null;
 }
 
 // ============ API 响应类型 ============

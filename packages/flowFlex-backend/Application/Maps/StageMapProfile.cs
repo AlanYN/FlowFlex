@@ -74,6 +74,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
+                .ForMember(dest => dest.ConditionFallbackStageId, opt => opt.MapFrom(src => src.ConditionFallbackStageId))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))

@@ -49,10 +49,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public string ActionsJson { get; set; } = string.Empty;
 
         /// <summary>
-        /// Fallback Stage ID
+        /// Fallback Stage ID (DEPRECATED - now at Stage level)
         /// </summary>
         [JsonConverter(typeof(LongToStringConverter))]
         public long? FallbackStageId { get; set; }
+
+        /// <summary>
+        /// Condition evaluation order (lower = higher priority)
+        /// </summary>
+        public int Order { get; set; }
 
         /// <summary>
         /// Is Active

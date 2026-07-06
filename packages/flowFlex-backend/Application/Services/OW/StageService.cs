@@ -1129,6 +1129,22 @@ namespace FlowFlex.Application.Services.OW
             return result;
         }
 
+        /// <summary>
+        /// Update the condition fallback stage for a stage.
+        /// NULL means "Continue to next stage" (default behavior).
+        /// </summary>
+        public async Task<bool> UpdateConditionFallbackAsync(long id, long? fallbackStageId)
+        {
+            var entity = await _stageRepository.GetByIdAsync(id);
+            if (entity == null)
+            {
+                return false;
+            }
+
+            entity.ConditionFallbackStageId = fallbackStageId;
+            return await _stageRepository.UpdateAsync(entity);
+        }
+
         public async Task<long> DuplicateAsync(long id, DuplicateStageInputDto input)
         {
             var sourceStage = await _stageRepository.GetByIdAsync(id);

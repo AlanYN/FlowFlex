@@ -1074,6 +1074,22 @@ const handleCompleteStage = async () => {
 
 					completing.value = true;
 					try {
+						// Pre-check: Fetch latest onboarding state to verify stage is not already completed
+						const latestData = await getOnboardingByLead(onboardingId.value);
+						if (latestData?.code === '200' && latestData?.data) {
+							const latestStage = latestData.data.stagesProgress?.find(
+								(s: any) => s.stageId === activeStage.value
+							);
+							if (latestStage?.isCompleted) {
+								ElMessage.error(
+									`This stage has already been completed by ${latestStage.completedBy || 'another user'}. Please refresh the page.`
+								);
+								loadOnboardingDetail();
+								done();
+								return;
+							}
+						}
+
 						const res = await saveAllForm();
 						if (!res) {
 							instance.confirmButtonLoading = false;

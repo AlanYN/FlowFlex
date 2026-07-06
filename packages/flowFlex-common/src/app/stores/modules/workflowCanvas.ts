@@ -72,6 +72,18 @@ export const useWorkflowCanvasStore = defineStore({
 				return state.conditions.find((c) => c.stageId === stageId);
 			},
 
+		getConditionsByStageId:
+			(state) =>
+			(stageId: string): StageCondition[] => {
+				return state.conditions.filter((c) => c.stageId === stageId);
+			},
+
+		getConditionCountByStageId:
+			(state) =>
+			(stageId: string): number => {
+				return state.conditions.filter((c) => c.stageId === stageId).length;
+			},
+
 		// 获取选中节点的类型
 		getSelectedNodeType(state): 'stage' | 'condition' | null {
 			const node = state.nodes.find((n) => n.id === state.selectedNodeId);
@@ -173,7 +185,8 @@ export const useWorkflowCanvasStore = defineStore({
 
 			// 生成 Stage 节点
 			this.stages.forEach((stage, index) => {
-				const hasCondition = this.conditions.some((c) => c.stageId === stage.id);
+				const conditionCount = this.conditions.filter((c) => c.stageId === stage.id).length;
+				const hasCondition = conditionCount > 0;
 				const yPos = index * (STAGE_NODE_HEIGHT + VERTICAL_GAP);
 
 				nodes.push({
@@ -184,6 +197,7 @@ export const useWorkflowCanvasStore = defineStore({
 						type: 'stage',
 						stage,
 						hasCondition,
+						conditionCount,
 						index,
 					},
 				});

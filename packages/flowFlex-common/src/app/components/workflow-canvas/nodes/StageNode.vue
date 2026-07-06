@@ -57,7 +57,11 @@
 				</el-tag>
 				<el-tag v-if="data.hasCondition" type="primary" size="small" effect="plain">
 					<el-icon class="mr-1"><Connection /></el-icon>
-					Condition
+					{{
+						(data.conditionCount || 1) > 1
+							? `${data.conditionCount} Conditions`
+							: 'Condition'
+					}}
 				</el-tag>
 			</div>
 		</div>

@@ -133,7 +133,7 @@ const handleNodeClick = (node: Node<CanvasNodeData>) => {
 				stage.id,
 				stage.name,
 				stageIndex,
-				conditionData.condition
+				conditionData.condition?.id
 			);
 		}
 	} else {
@@ -194,7 +194,7 @@ const handleAddCondition = () => {
 	const stageIndex = stageData.index;
 
 	// 打开 StageConditionEditor
-	conditionEditorRef.value?.open(stageData.stage.id, stageData.stage.name, stageIndex, null);
+	conditionEditorRef.value?.open(stageData.stage.id, stageData.stage.name, stageIndex);
 };
 
 // Condition 保存成功（从 StageConditionEditor）
