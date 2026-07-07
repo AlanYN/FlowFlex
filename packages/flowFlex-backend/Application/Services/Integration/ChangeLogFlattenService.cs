@@ -144,6 +144,12 @@ public class ChangeLogFlattenService : IChangeLogFlattenService
                 return ParseStaticFieldChange(log);
             }
 
+            // Handle QuestionnaireAnswerUpdate / QuestionnaireAnswerSubmit - parse responses array
+            if (operationType == "QuestionnaireAnswerUpdate" || operationType == "QuestionnaireAnswerSubmit")
+            {
+                return ParseQuestionnaireAnswerChange(log);
+            }
+
             // Handle object-level snapshot changes (CaseUpdate, StageComplete, etc.)
             if (!string.IsNullOrEmpty(log.BeforeData) || !string.IsNullOrEmpty(log.AfterData))
             {
@@ -191,6 +197,128 @@ public class ChangeLogFlattenService : IChangeLogFlattenService
         });
 
         return changes;
+    }
+
+    /// <summary>
+    /// Parse questionnaire answer changes - extract per-question diffs from responses array
+    /// before_data/after_data contain { "responses": [...] } with each response having question/answer
+    /// </summary>
+    private List<FieldChangeDto> ParseQuestionnaireAnswerChange(OperationChangeLog log)
+    {
+        var changes = new List<FieldChangeDto>();
+
+        try
+        {
+            var beforeResponses = ParseResponses(log.BeforeData);
+            var afterResponses = ParseResponses(log.AfterData);
+
+            if (afterResponses == null || afterResponses.Count == 0)
+                return changes;
+
+            // Build a map of questionId → before answer for comparison
+            var beforeMap = new Dictionary<string, string>();
+            if (beforeResponses != null)
+            {
+                foreach (var resp in beforeResponses)
+                {
+                    var qId = GetResponseString(resp, "questionId") ?? GetResponseString(resp, "question") ?? "";
+                    var answer = GetResponseString(resp, "answer") ?? GetResponseString(resp, "responseText") ?? "";
+                    if (!string.IsNullOrEmpty(qId))
+                    {
+                        beforeMap[qId] = answer;
+                    }
+                }
+            }
+
+            // Compare each after response with before
+            foreach (var resp in afterResponses)
+            {
+                var questionId = GetResponseString(resp, "questionId") ?? GetResponseString(resp, "question") ?? "";
+                var questionLabel = GetResponseString(resp, "question") ?? questionId;
+                var afterAnswer = GetResponseString(resp, "answer") ?? GetResponseString(resp, "responseText") ?? "";
+
+                // Skip empty answers (no change)
+                var beforeAnswer = beforeMap.GetValueOrDefault(questionId, "");
+
+                if (afterAnswer != beforeAnswer)
+                {
+                    // Only include if there's an actual answer (skip empty → empty)
+                    if (!string.IsNullOrEmpty(afterAnswer) || !string.IsNullOrEmpty(beforeAnswer))
+                    {
+                        changes.Add(new FieldChangeDto
+                        {
+                            Field = questionLabel,
+                            OldValue = string.IsNullOrEmpty(beforeAnswer) ? null : beforeAnswer,
+                            NewValue = string.IsNullOrEmpty(afterAnswer) ? null : afterAnswer
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse questionnaire answer changes for log {LogId}", log.Id);
+        }
+
+        return changes;
+    }
+
+    /// <summary>
+    /// Parse responses array from before_data or after_data JSON
+    /// Handles both { "responses": [...] } format and raw [...] array format
+    /// </summary>
+    private List<JsonElement>? ParseResponses(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Format 1: { "responses": [...] }
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("responses", out var responsesArray))
+            {
+                if (responsesArray.ValueKind == JsonValueKind.Array)
+                {
+                    return responsesArray.EnumerateArray().Select(e => e.Clone()).ToList();
+                }
+            }
+
+            // Format 2: Direct array [...]
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                return root.EnumerateArray().Select(e => e.Clone()).ToList();
+            }
+        }
+        catch
+        {
+            // Not valid JSON
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Get a string property from a JsonElement (response item)
+    /// </summary>
+    private string? GetResponseString(JsonElement element, string propertyName)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (element.TryGetProperty(propertyName, out var prop))
+        {
+            if (prop.ValueKind == JsonValueKind.String)
+                return prop.GetString();
+            if (prop.ValueKind == JsonValueKind.Array)
+                return prop.GetRawText(); // For file arrays etc.
+            if (prop.ValueKind != JsonValueKind.Null)
+                return prop.GetRawText();
+        }
+
+        return null;
     }
 
     /// <summary>
