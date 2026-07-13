@@ -581,23 +581,6 @@
 					</el-form-item>
 				</div>
 
-				<el-form-item label="Life Cycle Stage" prop="lifeCycleStageId">
-					<el-select
-						v-model="formData.lifeCycleStageId"
-						placeholder="Select Life Cycle Stage"
-						clearable
-						class="w-full rounded-xl"
-						@change="changeLifeCycleStage"
-					>
-						<el-option
-							v-for="stage in lifeCycleStage"
-							:key="stage.id"
-							:label="stage.name"
-							:value="stage.id"
-						/>
-					</el-select>
-				</el-form-item>
-
 				<el-form-item label="Priority" prop="priority">
 					<el-select
 						v-model="formData.priority"
@@ -792,7 +775,6 @@ const editingCaseId = ref<string | null>(null);
 const formData = reactive({
 	caseCode: '',
 	caseName: '',
-	lifeCycleStageName: '',
 	lifeCycleStageId: '',
 	priority: '',
 	ContactPerson: '',
@@ -850,13 +832,6 @@ const casePermissions = computed({
 	},
 });
 
-const changeLifeCycleStage = (value: string) => {
-	const stage = lifeCycleStage.value.find((stage) => stage.id === value);
-	if (stage) {
-		formData.lifeCycleStageName = stage.name;
-	}
-};
-
 const saving = ref(false);
 
 // 搜索参数
@@ -864,7 +839,6 @@ const searchParams = reactive<SearchParams>({
 	workFlowId: '',
 	caseCode: '',
 	caseName: '',
-	lifeCycleStageName: '',
 	currentStageId: '',
 	updatedBy: '',
 	priority: '',
@@ -1001,7 +975,6 @@ const getTableViewOnboarding = async (event) => {
 				pick(searchParams, [
 					'caseCode',
 					'caseName',
-					'lifeCycleStageName',
 					'currentStageId',
 					'updatedBy',
 					'priority',
@@ -1041,7 +1014,6 @@ const getPipelineViewOnboarding = async () => {
 				pick(searchParams, [
 					'caseCode',
 					'caseName',
-					'lifeCycleStageName',
 					'currentStageId',
 					'updatedBy',
 					'priority',
@@ -1558,7 +1530,6 @@ const handleExport = async () => {
 					pick(searchParams, [
 						'caseCode',
 						'caseName',
-						'lifeCycleStageName',
 						'currentStageId',
 						'updatedBy',
 						'priority',
@@ -1631,7 +1602,6 @@ const handleEditCase = (row: any) => {
 	formData.ContactPerson = row.contactPerson || '';
 	formData.ContactEmail = row.contactEmail || '';
 	formData.lifeCycleStageId = row.lifeCycleStageId || '';
-	formData.lifeCycleStageName = row.lifeCycleStageName || ''; // ✅ 添加 lifeCycleStageName 回显
 	formData.priority = row.priority || '';
 	formData.workFlowId = row.workflowId || '';
 	formData.ownership = row.ownership || '';
@@ -1701,7 +1671,6 @@ const handleCancel = () => {
 const resetForm = () => {
 	formData.caseCode = '';
 	formData.caseName = '';
-	formData.lifeCycleStageName = '';
 	formData.lifeCycleStageId = '';
 	formData.priority = '';
 	formData.ContactPerson = '';

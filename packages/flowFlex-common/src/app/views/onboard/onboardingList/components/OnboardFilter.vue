@@ -28,24 +28,6 @@
 					/>
 				</div>
 
-				<div class="space-y-2">
-					<label class="text-sm font-medium">Life Cycle Stage</label>
-					<el-select
-						v-model="searchParams.lifeCycleStageName"
-						placeholder="Select Stage"
-						clearable
-						class="w-full filter-select"
-						@change="handleAutoSearch"
-					>
-						<el-option
-							v-for="stage in lifeCycleStage"
-							:key="stage.name"
-							:label="stage.name"
-							:value="stage.name"
-						/>
-					</el-select>
-				</div>
-
 				<div class="space-y-2" v-if="filterType === 'table'">
 					<label class="text-sm font-medium">Workflow</label>
 					<el-select
@@ -160,7 +142,6 @@ const searchParams = reactive<SearchParams>({
 	workFlowId: '',
 	caseCode: '',
 	caseName: '',
-	lifeCycleStageName: '',
 	currentStageId: '',
 	updatedBy: '',
 	priority: '',
