@@ -130,11 +130,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? LifeCycleStageId { get; set; }
 
         /// <summary>
-        /// Filter by life cycle stage name
-        /// </summary>
-        public string? LifeCycleStageName { get; set; }
-
-        /// <summary>
         /// Filter by stage updated by (stage_updated_by, supports comma-separated values)
         /// </summary>
         public string? UpdatedBy { get; set; }
