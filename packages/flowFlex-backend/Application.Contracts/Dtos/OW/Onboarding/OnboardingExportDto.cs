@@ -32,12 +32,6 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string ContactName { get; set; }
 
         /// <summary>
-        /// Life Cycle Stage
-        /// </summary>
-        [ExcelColumn(Name = "Life Cycle Stage")]
-        public string LifeCycleStage { get; set; }
-
-        /// <summary>
         /// Workflow
         /// </summary>
         [ExcelColumn(Name = "Workflow")]
