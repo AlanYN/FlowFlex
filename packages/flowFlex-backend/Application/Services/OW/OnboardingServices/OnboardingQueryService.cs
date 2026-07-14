@@ -236,11 +236,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 whereExpressions.Add(x => x.LifeCycleStageId == request.LifeCycleStageId.Value);
             }
 
-            if (!string.IsNullOrEmpty(request.LifeCycleStageName) && request.LifeCycleStageName != "string")
-            {
-                whereExpressions.Add(x => x.LifeCycleStageName.ToLower().Contains(request.LifeCycleStageName.ToLower()));
-            }
-
             if (!string.IsNullOrEmpty(request.Priority) && request.Priority != "string")
             {
                 whereExpressions.Add(x => x.Priority == request.Priority);
@@ -431,7 +426,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 "workflowid" => x => x.WorkflowId,
                 "currentstageid" => x => x.CurrentStageId,
                 "lifecyclestageid" => x => x.LifeCycleStageId,
-                "lifecyclestagename" => x => x.LifeCycleStageName ?? "",
                 "priority" => x => x.Priority ?? "",
                 "status" => x => x.Status ?? "",
                 "isactive" => x => x.IsActive,
@@ -1017,7 +1011,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 Id = item.LeadId,
                 CaseCode = item.CaseCode,
                 ContactName = item.ContactPerson,
-                LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
@@ -1069,7 +1062,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var headers = new[]
             {
-                "Customer Name", "Case Code", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
+                "Customer Name", "Case Code", "Contact Name", "Workflow", "Stage",
                 "Priority", "Ownership", "Status", "Start Date", "End Date", "Updated By", "Update Time"
             };
 
@@ -1085,16 +1078,15 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 worksheet.Cells[row + 2, 1].Value = item.CustomerName;
                 worksheet.Cells[row + 2, 2].Value = item.CaseCode;
                 worksheet.Cells[row + 2, 3].Value = item.ContactName;
-                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 7].Value = item.Priority;
-                worksheet.Cells[row + 2, 8].Value = item.Ownership;
-                worksheet.Cells[row + 2, 9].Value = item.Status;
-                worksheet.Cells[row + 2, 10].Value = item.StartDate;
-                worksheet.Cells[row + 2, 11].Value = item.EndDate;
-                worksheet.Cells[row + 2, 12].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 13].Value = item.UpdateTime;
+                worksheet.Cells[row + 2, 4].Value = item.WorkFlow;
+                worksheet.Cells[row + 2, 5].Value = item.OnboardStage;
+                worksheet.Cells[row + 2, 6].Value = item.Priority;
+                worksheet.Cells[row + 2, 7].Value = item.Ownership;
+                worksheet.Cells[row + 2, 8].Value = item.Status;
+                worksheet.Cells[row + 2, 9].Value = item.StartDate;
+                worksheet.Cells[row + 2, 10].Value = item.EndDate;
+                worksheet.Cells[row + 2, 11].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 12].Value = item.UpdateTime;
             }
 
             worksheet.Cells.AutoFitColumns();

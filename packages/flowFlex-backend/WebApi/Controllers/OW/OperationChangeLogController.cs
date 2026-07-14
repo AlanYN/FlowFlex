@@ -4,8 +4,9 @@ using Item.Common.Lib.EnumUtil;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
+using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
-
+using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Filter;
@@ -24,10 +25,14 @@ namespace FlowFlex.WebApi.Controllers.OW
     public class OperationChangeLogController : Controllers.ControllerBase
     {
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IChangeLogFlattenService _changeLogFlattenService;
 
-        public OperationChangeLogController(IOperationChangeLogService operationChangeLogService)
+        public OperationChangeLogController(
+            IOperationChangeLogService operationChangeLogService,
+            IChangeLogFlattenService changeLogFlattenService)
         {
             _operationChangeLogService = operationChangeLogService;
+            _changeLogFlattenService = changeLogFlattenService;
         }
 
         /// <summary>
@@ -373,6 +378,49 @@ namespace FlowFlex.WebApi.Controllers.OW
                 pageIndex,
                 pageSize
             );
+
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get change logs in flattened format with field-level old/new value diffs.
+        /// 
+        /// Supports two lookup modes:
+        /// - By entityId: for external systems that only know their own entity ID (e.g., Ticket ID "TK-12345")
+        /// - By onboardingId: for internal WFE use when the Case ID is known
+        /// 
+        /// At least one of entityId or onboardingId must be provided.
+        /// Supports incremental pull via the 'since' parameter.
+        /// </summary>
+        /// <param name="entityId">External entity ID (e.g., Ticket ID). Stored in ff_onboarding.entity_id.</param>
+        /// <param name="onboardingId">WFE Case ID (for internal use)</param>
+        /// <param name="since">Only return records after this timestamp (ISO 8601, UTC). Used for incremental pull.</param>
+        /// <param name="changesOnly">If true, only return records that have field-level changes (filters out TaskComplete, StageSave, etc.)</param>
+        /// <param name="pageIndex">Page number (default 1)</param>
+        /// <param name="pageSize">Page size (default 20, max 100)</param>
+        /// <returns>Paged change log list with flattened field changes</returns>
+        [HttpGet("flattened")]
+        [ProducesResponseType<SuccessResponse<FlattenedChangeLogPagedResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetFlattenedChangeLogsAsync(
+            [FromQuery] string? entityId = null,
+            [FromQuery] long? onboardingId = null,
+            [FromQuery] DateTimeOffset? since = null,
+            [FromQuery] bool changesOnly = false,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            if (string.IsNullOrWhiteSpace(entityId) && !onboardingId.HasValue)
+            {
+                return BadRequest("At least one of 'entityId' or 'onboardingId' must be provided.");
+            }
+
+            var result = await _changeLogFlattenService.GetFlattenedChangeLogsAsync(
+                entityId,
+                onboardingId,
+                since,
+                changesOnly,
+                pageIndex,
+                pageSize);
 
             return Success(result);
         }
