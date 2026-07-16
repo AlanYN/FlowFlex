@@ -777,8 +777,9 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 					}
 					if (parsed && Array.isArray(parsed.responses)) {
 						map[item.questionnaireId] = {
-							answer: parsed.responses,
 							...item,
+							answer: parsed.responses,
+							sectionInstances: parsed.sectionInstances || [],
 						};
 					}
 				}
@@ -1369,8 +1370,9 @@ const refreshQuestionnaireAnswers = async (
 				}
 				if (parsed && Array.isArray(parsed.responses)) {
 					map[item.questionnaireId] = {
-						answer: parsed.responses,
 						...item,
+						answer: parsed.responses,
+						sectionInstances: parsed.sectionInstances || [],
 					};
 				}
 			}

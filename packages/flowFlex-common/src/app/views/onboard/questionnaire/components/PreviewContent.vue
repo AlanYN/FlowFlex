@@ -151,26 +151,241 @@
 				<!-- 章节标题 -->
 				<div class="section-header p-4 border-b" v-if="!section.isDefault">
 					<div class="flex items-center justify-between gap-4">
-						<div class="flex-1 min-w-0">
+						<div class="flex-1 min-w-0 flex items-center gap-2">
 							<h3 class="text-lg font-medium section-title truncate">
 								{{ section.name }}
 							</h3>
-							<p
-								v-if="section.description"
-								class="section-description mt-1 whitespace-pre-wrap"
-							>
-								{{ section.description }}
-							</p>
+							<el-tag v-if="section.isRepeatable" type="primary" size="small" round>
+								Repeatable
+							</el-tag>
 						</div>
 						<div class="text-sm text-secondary flex-shrink-0">
 							{{ section.questions?.length || 0 }}
 							{{ section.questions?.length > 1 ? 'items' : 'item' }}
 						</div>
 					</div>
+					<p
+						v-if="section.description"
+						class="section-description mt-1 whitespace-pre-wrap"
+					>
+						{{ section.description }}
+					</p>
 				</div>
 
 				<!-- 章节问题 -->
 				<div class="p-4 space-y-6">
+					<!-- Repeatable Section: Group 循环 -->
+					<template v-if="section.isRepeatable">
+						<div
+							v-for="groupIdx in getGroupCount(sectionIndex)"
+							:key="`group_${groupIdx}`"
+							class="repeatable-group border rounded-lg p-4 mb-4"
+						>
+							<div class="flex items-center justify-between mb-3 pb-2 border-b">
+								<span class="font-medium text-sm text-primary-700 dark:text-primary-200">
+									Group {{ groupIdx }}
+								</span>
+								<el-button
+									v-if="getGroupCount(sectionIndex) > 1"
+									type="danger"
+									link
+									size="small"
+									@click="removePreviewGroup(sectionIndex, groupIdx - 1)"
+								>
+									Delete
+								</el-button>
+							</div>
+							<div class="space-y-4">
+								<div
+									v-for="(item, itemIndex) in section.questions"
+									:key="`${item.id}_g${groupIdx}`"
+									class="question-item space-y-2"
+								>
+									<div v-if="item.type !== 'page_break'">
+										<h4 class="text-sm font-medium question-title">
+											<span class="text-placeholder mr-1">
+												{{ sectionIndex + 1 }}.{{ itemIndex + 1 }}.
+											</span>
+											{{ item.question || item.title }}
+											<span v-if="item.required" class="text-red-500 ml-1">*</span>
+										</h4>
+										<div class="mt-1">
+											<el-input
+												v-if="item.type === 'short_answer' || item.type === 'paragraph'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												:type="item.type === 'paragraph' ? 'textarea' : undefined"
+												:rows="item.type === 'paragraph' ? 3 : undefined"
+												:placeholder="'Your answer'"
+											/>
+											<el-radio-group
+												v-else-if="item.type === 'multiple_choice' && item.options"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												class="w-full"
+											>
+												<div class="space-y-1">
+													<el-radio
+														v-for="option in item.options"
+														:key="option.id"
+														:value="option.value || option.label"
+													>{{ option.label }}</el-radio>
+												</div>
+											</el-radio-group>
+											<el-checkbox-group
+												v-else-if="item.type === 'checkboxes' && item.options"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												class="w-full"
+											>
+												<div class="space-y-1">
+													<el-checkbox
+														v-for="option in item.options"
+														:key="option.id"
+														:value="option.value || option.label"
+													>{{ option.label }}</el-checkbox>
+												</div>
+											</el-checkbox-group>
+											<el-select
+												v-else-if="item.type === 'dropdown'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												placeholder="Please select"
+												class="w-full"
+											>
+												<el-option
+													v-for="option in item.options"
+													:key="option.id"
+													:label="option.label"
+													:value="option.value || option.label"
+												/>
+											</el-select>
+											<el-input-number
+												v-else-if="item.type === 'number'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												:controls="false"
+												placeholder="Enter number"
+												class="!w-full"
+											/>
+											<el-date-picker
+												v-else-if="item.type === 'date'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												type="date"
+												placeholder="Select date"
+												class="!w-full"
+											/>
+											<el-time-picker
+												v-else-if="item.type === 'time'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												placeholder="Select time"
+												class="!w-full"
+											/>
+											<!-- 短答网格 -->
+											<div v-else-if="item.type === 'short_answer_grid'" class="w-full">
+												<el-table
+													v-if="item.columns && item.rows"
+													:data="item.rows"
+													border
+													class="grid-table"
+												>
+													<el-table-column prop="label" label="" fixed="left" width="200">
+														<template #default="{ row }">
+															<span class="truncate">{{ row.label }}</span>
+														</template>
+													</el-table-column>
+													<el-table-column
+														v-for="(column, colIndex) in item.columns"
+														:key="colIndex"
+														:label="column.label"
+														min-width="150"
+														align="center"
+													>
+														<template #default="{ row }">
+															<el-input
+																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${column.id}_${row.id}`]"
+																placeholder="Enter"
+															/>
+														</template>
+													</el-table-column>
+												</el-table>
+											</div>
+											<!-- 多选网格 -->
+											<div v-else-if="item.type === 'multiple_choice_grid'" class="w-full">
+												<el-table
+													v-if="item.columns && item.rows"
+													:data="item.rows"
+													border
+													class="grid-table"
+												>
+													<el-table-column prop="label" label="" fixed="left" width="200">
+														<template #default="{ row }">
+															<span class="truncate">{{ row.label }}</span>
+														</template>
+													</el-table-column>
+													<el-table-column
+														v-for="(column, colIndex) in item.columns"
+														:key="colIndex"
+														:label="column.label"
+														min-width="120"
+														align="center"
+													>
+														<template #default="{ row }">
+															<el-checkbox
+																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${row.id}_${column.id}`]"
+															/>
+														</template>
+													</el-table-column>
+												</el-table>
+											</div>
+											<!-- 单选网格 -->
+											<div v-else-if="item.type === 'checkbox_grid'" class="w-full">
+												<el-table
+													v-if="item.rows && item.columns"
+													:data="item.rows"
+													border
+													class="grid-table"
+												>
+													<el-table-column prop="label" label="" fixed="left" width="200">
+														<template #default="{ row }">
+															<span class="truncate">{{ row.label }}</span>
+														</template>
+													</el-table-column>
+													<el-table-column
+														v-for="(column, colIndex) in item.columns"
+														:key="colIndex"
+														:label="column.label"
+														min-width="120"
+														align="center"
+													>
+														<template #default="{ row, $index: rowIndex }">
+															<el-radio
+																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${row.id}`]"
+																:value="column.value || column.label || `${rowIndex}_${colIndex}`"
+															/>
+														</template>
+													</el-table-column>
+												</el-table>
+											</div>
+											<el-input
+												v-else-if="item.type !== 'page_break' && item.type !== 'image' && item.type !== 'video'"
+												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												placeholder="Your answer"
+											/>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="flex justify-center">
+							<el-button
+								v-if="getGroupCount(sectionIndex) < MAX_PREVIEW_GROUPS"
+								type="primary"
+								plain
+								@click="addPreviewGroup(sectionIndex)"
+							>
+								+ Add Another Group
+							</el-button>
+						</div>
+					</template>
+
+					<!-- 非 Repeatable Section: 原有渲染 -->
+					<template v-else>
 					<div
 						v-for="(item, itemIndex) in section.questions"
 						:key="item.id || itemIndex"
@@ -775,6 +990,7 @@
 							</div>
 						</div>
 					</div>
+					</template><!-- end v-else non-Repeatable -->
 				</div>
 			</div>
 		</div>
@@ -1015,6 +1231,42 @@ const printQuestionnaire = () => {
 // 预览数据存储 - 独立于原始问卷数据
 const previewData = ref<Record<string, any>>({});
 
+// Repeatable Section 的 group 数量管理
+const previewGroups = ref<Record<number, number>>({});
+const MAX_PREVIEW_GROUPS = 50;
+
+const getGroupCount = (sectionIndex: number) => {
+	return previewGroups.value[sectionIndex] || 1;
+};
+
+const addPreviewGroup = (sectionIndex: number) => {
+	const current = getGroupCount(sectionIndex);
+	if (current >= MAX_PREVIEW_GROUPS) return;
+	previewGroups.value[sectionIndex] = current + 1;
+};
+
+const removePreviewGroup = (sectionIndex: number, groupIndex: number) => {
+	const current = getGroupCount(sectionIndex);
+	if (current <= 1) return;
+	// 清理被删 group 的数据并重排后续 group 的 key
+	const section = questionnaire.value?.sections?.[sectionIndex];
+	if (section?.questions) {
+		for (let g = groupIndex; g < current - 1; g++) {
+			section.questions.forEach((_: any, itemIndex: number) => {
+				const fromKey = getItemKey(sectionIndex, itemIndex, false, g + 1);
+				const toKey = getItemKey(sectionIndex, itemIndex, false, g);
+				previewData.value[toKey] = previewData.value[fromKey] ?? '';
+			});
+		}
+		// 删除最后一组的 key
+		section.questions.forEach((_: any, itemIndex: number) => {
+			const lastKey = getItemKey(sectionIndex, itemIndex, false, current - 1);
+			delete previewData.value[lastKey];
+		});
+	}
+	previewGroups.value[sectionIndex] = current - 1;
+};
+
 // 校验错误状态存储
 const validationErrors = ref<Record<string, string>>({});
 
@@ -1030,18 +1282,22 @@ const clearSkippedQuestions = () => {
 const getItemKey = (
 	sectionIndex: string | number,
 	itemIndex: string | number,
-	isOther?: boolean
+	isOther?: boolean,
+	groupIndex?: number
 ) => {
-	return `section_${sectionIndex}_item_${itemIndex}${isOther ? '_other' : ''}`;
+	const groupSuffix = groupIndex !== undefined ? `_g${groupIndex}` : '';
+	return `section_${sectionIndex}_item_${itemIndex}${groupSuffix}${isOther ? '_other' : ''}`;
 };
 
 // 生成网格问题的唯一键
 const getGridKey = (
 	sectionIndex: string | number,
 	itemIndex: string | number,
-	rowIndex: string | number
+	rowIndex: string | number,
+	groupIndex?: number
 ) => {
-	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}`;
+	const groupSuffix = groupIndex !== undefined ? `_g${groupIndex}` : '';
+	return `section_${sectionIndex}_item_${itemIndex}${groupSuffix}_row_${rowIndex}`;
 };
 
 // 生成Other文本输入框的唯一键

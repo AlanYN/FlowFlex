@@ -55,6 +55,7 @@
 								@set-current-section="setCurrentSection"
 								@drag-end="handleSectionDragEnd"
 								@question-drop="handleQuestionDropToSection"
+								@update-section="handleUpdateSection"
 							/>
 
 							<!-- 添加分区按钮（仅在简单模式下显示） -->
@@ -108,6 +109,16 @@
 											<div class="text-2xl font-bold">
 												{{ currentSection.name || 'Untitled Section' }}
 											</div>
+											<el-tag
+												v-if="currentSection.isRepeatable"
+												type="primary"
+												size="small"
+												class="ml-2"
+												round
+											>
+												<Icon icon="mdi:repeat" class="mr-1 inline-block align-middle" />
+												<span class="align-middle">Repeatable</span>
+											</el-tag>
 											<el-button
 												type="primary"
 												link
@@ -789,6 +800,10 @@ const handleSectionDragEnd = (
 
 	// 取消当前的问题编辑状态（如果有的话）
 	cancelEditQuestion();
+};
+
+const handleUpdateSection = (index: number, updates: Partial<Section>) => {
+	Object.assign(questionnaire.sections[index], updates);
 };
 
 const updateCurrentSection = () => {
