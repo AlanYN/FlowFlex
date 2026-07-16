@@ -930,7 +930,7 @@ const processQuestionnaireData = (
 		const structure = JSON.parse(questionnaire.structureJson);
 		const responses: ProcessedQuestion[] = [];
 
-		let parsedAnswers: { responses: ParsedResponse[] } = { responses: [] };
+		let parsedAnswers: { responses: ParsedResponse[]; sectionInstances?: any[] } = { responses: [] };
 		if (answer?.answerJson) {
 			try {
 				const parsedJson = JSON.parse(answer.answerJson);
@@ -974,6 +974,41 @@ const processQuestionnaireData = (
 
 		// Process each section and question
 		structure.sections?.forEach((section: any) => {
+			// Repeatable Section: 按 Group 展开，每组每题一行
+			if (section.isRepeatable && parsedAnswers.sectionInstances) {
+				const sectionInstances = parsedAnswers.sectionInstances.filter(
+					(inst: any) => inst.sectionId === section.id
+				);
+				sectionInstances
+					.sort((a: any, b: any) => a.groupIndex - b.groupIndex)
+					.forEach((inst: any) => {
+						const groupLabel = `Group ${inst.groupIndex + 1}`;
+						inst.responses?.forEach((resp: any) => {
+							const question = section.questions?.find((q: any) => q.id === resp.questionId);
+							const questionIndex = section.questions?.findIndex((q: any) => q.id === resp.questionId) ?? 0;
+							responses.push({
+								id: resp.questionId,
+								question: question?.title || resp.question || '',
+								description: question?.description || '',
+								answer: resp.answer || '',
+								answeredBy: resp.lastModifiedBy || answer?.createBy || '',
+								answeredDate: answer?.createDate || '',
+								firstAnsweredDate: answer?.createDate || '',
+								lastUpdated: resp.lastModifiedAt || answer?.modifyDate || '',
+								updatedBy: resp.lastModifiedBy || answer?.modifyBy || '',
+								questionType: resp.type || question?.type || '',
+								section: section.name || section.title || '',
+								group: groupLabel,
+								required: question?.required || false,
+								questionConfig: question || {},
+								questionNumber: questionIndex + 1,
+								responseText: resp.responseText || '',
+							});
+						});
+					});
+				return;
+			}
+
 			section.questions?.forEach((question: any, questionIndex: number) => {
 				// 检查是否是网格类型的问题
 				const isGridType =
@@ -1654,6 +1689,7 @@ const allQuestionsForExport = computed(() => {
 			responses.push({
 				questionnaire: questionnaire.name,
 				section: response.section,
+				group: response.group || '',
 				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
@@ -1749,6 +1785,7 @@ const filteredQuestionsForExport = computed(() => {
 			responses.push({
 				questionnaire: questionnaire.name,
 				section: response.section,
+				group: response.group || '',
 				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
@@ -1986,6 +2023,7 @@ const handleExportExcel = () => {
 		const headers = [
 			'Questionnaire',
 			'Section',
+			'Group',
 			'No.',
 			'Question',
 			'Answer',
@@ -2005,7 +2043,7 @@ const handleExportExcel = () => {
 		});
 
 		// Apply bold formatting to header row only
-		const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1'];
+		const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1', 'J1'];
 		headerCells.forEach((cellAddress) => {
 			if (worksheet[cellAddress]) {
 				worksheet[cellAddress].s = {
@@ -2020,6 +2058,7 @@ const handleExportExcel = () => {
 		worksheet['!cols'] = [
 			{ wch: 20 }, // Questionnaire
 			{ wch: 15 }, // Section
+			{ wch: 10 }, // Group
 			{ wch: 5 }, // No.
 			{ wch: 50 }, // Question
 			{ wch: 30 }, // Answer

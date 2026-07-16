@@ -331,8 +331,25 @@ namespace FlowFlex.Application.Services.OW
             if (string.IsNullOrWhiteSpace(answerJson)) return;
 
             using var doc = System.Text.Json.JsonDocument.Parse(answerJson);
-            if (!doc.RootElement.TryGetProperty("responses", out var responses)) return;
+            if (doc.RootElement.TryGetProperty("responses", out var responses))
+            {
+                ValidateNumberResponsesArray(responses);
+            }
 
+            if (doc.RootElement.TryGetProperty("sectionInstances", out var sectionInstances))
+            {
+                foreach (var instance in sectionInstances.EnumerateArray())
+                {
+                    if (instance.TryGetProperty("responses", out var instanceResponses))
+                    {
+                        ValidateNumberResponsesArray(instanceResponses);
+                    }
+                }
+            }
+        }
+
+        private static void ValidateNumberResponsesArray(System.Text.Json.JsonElement responses)
+        {
             foreach (var response in responses.EnumerateArray())
             {
                 if (response.TryGetProperty("type", out var typeEl) &&
