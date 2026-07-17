@@ -8,6 +8,7 @@ export interface Section {
 	questions: QuestionnaireSection[]; // 问题数组
 	order?: number;
 	isDefault?: boolean; // 标识是否为默认分区
+	isRepeatable?: boolean;
 }
 
 export interface JumpRule {

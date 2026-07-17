@@ -748,10 +748,10 @@ const loadQuestionnaireQuestions = async (
 			if (res.data.structureJson) {
 				try {
 					const structure = JSON.parse(res.data.structureJson);
-					// 遍历 sections 获取所有问题
+					// 遍历 sections 获取所有问题（排除 Repeatable Section）
 					if (structure.sections) {
 						structure.sections.forEach((section: any) => {
-							if (section.questions) {
+							if (section.questions && !section.isRepeatable) {
 								questions = questions.concat(section.questions);
 							}
 						});

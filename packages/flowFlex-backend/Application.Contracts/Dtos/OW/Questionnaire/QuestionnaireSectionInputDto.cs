@@ -64,6 +64,11 @@ public class QuestionnaireSectionInputDto
     public bool IsExpanded { get; set; } = true;
 
     /// <summary>
+    /// Is repeatable section (allows multiple groups of answers)
+    /// </summary>
+    public bool IsRepeatable { get; set; }
+
+    /// <summary>
     /// Questions in this section
     /// </summary>
     public List<QuestionInputDto> Questions { get; set; } = new List<QuestionInputDto>();

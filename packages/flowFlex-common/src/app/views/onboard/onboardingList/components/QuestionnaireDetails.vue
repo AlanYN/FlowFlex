@@ -570,11 +570,27 @@ const completionStats = computed(() => {
 	// 过滤掉默认section
 	const validSections = questionnaireData.sections;
 
-	// 获取所有问题（网格类型问题算作一个问题）
-	const allQuestions = validSections.flatMap((section) => {
-		if (!section.questions) return [];
+	// 获取 sectionGroups 用于计算 Repeatable Section 的实际组数
+	const currentSectionGroups = dynamicFormRef.value?.sectionGroups || {};
 
-		return section.questions.filter((q: any) => q.type !== 'page_break');
+	// 获取所有问题（Repeatable Section 按实际组数展开）
+	const allQuestions: any[] = [];
+	validSections.forEach((section: any) => {
+		if (!section.questions) return;
+		const questions = section.questions.filter((q: any) => q.type !== 'page_break');
+
+		if (section.isRepeatable) {
+			const groupCount = currentSectionGroups[section.id]?.length || 1;
+			for (let g = 0; g < groupCount; g++) {
+				questions.forEach((q: any) => {
+					allQuestions.push({ ...q, _sectionId: section.id, _groupIndex: g });
+				});
+			}
+		} else {
+			questions.forEach((q: any) => {
+				allQuestions.push(q);
+			});
+		}
 	});
 
 	if (allQuestions.length === 0) {
@@ -600,7 +616,44 @@ const completionStats = computed(() => {
 	allQuestions.forEach((question: any) => {
 		const questionId = getQuestionId(question);
 		const isSkipped = skippedQuestions.has(questionId);
-		const isAnswered = isQuestionAnswered(question, answers);
+		let isAnswered = false;
+
+		// Repeatable Section 的问题从 sectionGroups 判断是否已填
+		if (question._sectionId && question._groupIndex !== undefined) {
+			const group = currentSectionGroups[question._sectionId]?.[question._groupIndex];
+			if (group) {
+				if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
+					// 网格：检查每行是否有值
+					if (question.rows && question.rows.length > 0) {
+						isAnswered = question.rows.every((row: any) => {
+							const gridKey = `${questionId}_${row.id}`;
+							const v = group[gridKey];
+							if (question.type === 'multiple_choice_grid') {
+								return Array.isArray(v) && v.length > 0;
+							}
+							return v !== null && v !== undefined && v !== '';
+						});
+					}
+				} else if (question.type === 'short_answer_grid') {
+					// 短答网格：检查至少有一个单元格有内容
+					if (question.rows && question.columns) {
+						isAnswered = question.rows.some((row: any) =>
+							question.columns.some((column: any) => {
+								const gridKey = `${questionId}_${column.id}_${row.id}`;
+								return group[gridKey] && group[gridKey].trim() !== '';
+							})
+						);
+					}
+				} else {
+					const value = group[questionId];
+					isAnswered = value !== null && value !== undefined && value !== '' &&
+						!(Array.isArray(value) && value.length === 0);
+				}
+			}
+		} else {
+			isAnswered = isQuestionAnswered(question, answers);
+		}
+
 		const isRequired = question.required;
 
 		// 统计必填问题
