@@ -205,6 +205,13 @@
 									</div>
 								</template>
 							</el-table-column>
+							<el-table-column v-if="showGroupColumn" label="Group" width="100">
+								<template #default="{ row }">
+									<div v-if="row.group">
+										<el-tag size="small" type="info">{{ row.group }}</el-tag>
+									</div>
+								</template>
+							</el-table-column>
 							<el-table-column label="Question" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
 									<p
@@ -1561,6 +1568,18 @@ const filteredData = computed(() => {
 
 // Removed pagination - showing all data
 const paginatedData = computed(() => filteredData.value);
+
+// 是否显示 Group 列（有 2 个以上不同 Group 时才显示）
+const showGroupColumn = computed(() => {
+	const groups = new Set<string>();
+	for (const q of filteredData.value) {
+		for (const r of q.responses) {
+			if (r.group) groups.add(r.group);
+			if (groups.size >= 2) return true;
+		}
+	}
+	return false;
+});
 
 // Optimized response calculations
 const totalResponsesCount = computed(() => {
