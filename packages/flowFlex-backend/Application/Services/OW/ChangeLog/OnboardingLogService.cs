@@ -11,6 +11,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Repository.OW;
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
@@ -28,8 +29,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IMapper mapper,
             ILogCacheService logCacheService,
             IUserService userService,
-            IOperatorContextService operatorContextService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService)
+            IOperatorContextService operatorContextService,
+            IMediator mediator)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService, mediator)
         {
         }
 

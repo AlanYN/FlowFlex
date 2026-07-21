@@ -1,6 +1,7 @@
 using Application.Contracts.Options;
 using Application.Services.AI;
 using FlowFlex.Application.Contracts;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Services.AI;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Application.Contracts.IServices;
@@ -13,6 +14,8 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.SqlSugarDB.Implements.OW;
 using Item.BlobProvider.Extensions;
+using Item.Message.Kafka;
+using Item.Message.Kafka.Extensions;
 using Item.ThirdParty;
 using SqlSugar;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
@@ -383,6 +386,7 @@ namespace FlowFlex.WebApi.Extensions
             services.AddScoped<IDistributedCacheService, FlowFlex.Infrastructure.Services.RedisCacheService>();
 
             services.AddMemoryCache();
+            services.AddKafkaService(configuration);
             services.AddIdentityHubService(configuration);
 
             // Auto-register services based on lifetime marker interfaces
@@ -601,6 +605,16 @@ namespace FlowFlex.WebApi.Extensions
                         break;
                 }
             }
+        }
+
+        public static IServiceCollection AddKafkaService(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.Configure<KafkaOptions>(configuration.GetSection(KafkaOptions.SectionName));
+            services.Configure<KafkaBasicConfig>(configuration.GetSection("Kafka"));
+            services.Configure<KafkaProducerConfig>(configuration.GetSection("Kafka:Producer"));
+            services.AddKafkaProducer<string, string>();
+            services.AddKafkaFactory();
+            return services;
         }
     }
 }

@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.Dtos.Integration;
+using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 
 namespace FlowFlex.Application.Contracts.IServices.Integration;
@@ -26,4 +27,10 @@ public interface IChangeLogFlattenService : IScopedService
         bool changesOnly = false,
         int pageIndex = 1,
         int pageSize = 20);
+
+    /// <summary>
+    /// Extract field-level changes from a single OperationChangeLog record.
+    /// Used by Kafka producer to build the changes array in the message payload.
+    /// </summary>
+    List<FieldChangeDto> ExtractChanges(OperationChangeLog log);
 }
