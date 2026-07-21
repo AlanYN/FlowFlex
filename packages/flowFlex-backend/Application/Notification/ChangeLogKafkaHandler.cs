@@ -4,6 +4,7 @@ using Confluent.Kafka;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Services.OW;
 using Item.Message.Kafka;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public class ChangeLogKafkaHandler : INotificationHandler<ChangeLogCreatedEvent>
     private readonly IOnboardingEntityResolver _entityResolver;
     private readonly IChangeLogFlattenService _flattenService;
     private readonly IKafkaProducer<string, string> _producer;
+    private readonly IdmUserDataClient _idmUserDataClient;
     private readonly IOptionsSnapshot<KafkaOptions> _kafkaOptions;
     private readonly ILogger<ChangeLogKafkaHandler> _logger;
 
@@ -32,12 +34,14 @@ public class ChangeLogKafkaHandler : INotificationHandler<ChangeLogCreatedEvent>
         IOnboardingEntityResolver entityResolver,
         IChangeLogFlattenService flattenService,
         IKafkaProducer<string, string> producer,
+        IdmUserDataClient idmUserDataClient,
         IOptionsSnapshot<KafkaOptions> kafkaOptions,
         ILogger<ChangeLogKafkaHandler> logger)
     {
         _entityResolver = entityResolver;
         _flattenService = flattenService;
         _producer = producer;
+        _idmUserDataClient = idmUserDataClient;
         _kafkaOptions = kafkaOptions;
         _logger = logger;
     }
@@ -52,7 +56,7 @@ public class ChangeLogKafkaHandler : INotificationHandler<ChangeLogCreatedEvent>
 
             var changes = _flattenService.ExtractChanges(log);
             var origin = entityInfo != null ? "external" : "internal";
-            var tenantId = entityInfo?.TenantId ?? log.TenantId;
+            var tenantCode = await _idmUserDataClient.GetTenantCodeAsync(log.TenantId) ?? log.TenantId;
 
             var message = new
             {
@@ -60,7 +64,7 @@ public class ChangeLogKafkaHandler : INotificationHandler<ChangeLogCreatedEvent>
                 {
                     logId = Activity.Current?.Id ?? Guid.NewGuid().ToString(),
                     busId = log.OnboardingId.ToString(),
-                    tenantId = tenantId,
+                    tenantId = tenantCode,
                     tag = MessageTag,
                     timeStamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                     source = MessageSource,
