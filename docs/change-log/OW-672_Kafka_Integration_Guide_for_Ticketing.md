@@ -119,7 +119,7 @@ operationType in [
 | ----------- | ------ | ------------------------------------- |
 | `logId`     | string | 消息唯一标识（UUID）                  |
 | `busId`     | string | WFE Case ID（与 `onboardingId` 相同） |
-| `tenantId`  | string | 租户标识                              |
+| `tenantId`  | string | 租户 Code（如 `"SBFH"，"LT"`）。字段名为公司 Kafka 规范要求，且实际赋值为租户 Code。 |
 | `tag`       | string | 固定值 `"ChangeLog"`                  |
 | `timeStamp` | long   | 消息发送时间，Unix 时间戳（秒，UTC）  |
 | `source`    | string | 固定值 `"WFE"`                        |
