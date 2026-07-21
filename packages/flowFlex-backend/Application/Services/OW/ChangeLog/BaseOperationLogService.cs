@@ -14,6 +14,8 @@ using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.Application.Notification;
+using MediatR;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
 {
@@ -30,6 +32,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected readonly ILogCacheService _logCacheService;
         protected readonly IUserService _userService;
         protected readonly IOperatorContextService _operatorContextService;
+        protected readonly IMediator _mediator;
 
         protected BaseOperationLogService(
             IOperationChangeLogRepository operationChangeLogRepository,
@@ -39,7 +42,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IMapper mapper,
             ILogCacheService logCacheService,
             IUserService userService,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IMediator mediator)
         {
             _operationChangeLogRepository = operationChangeLogRepository;
             _logger = logger;
@@ -49,6 +53,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             _logCacheService = logCacheService;
             _userService = userService;
             _operatorContextService = operatorContextService;
+            _mediator = mediator;
         }
 
         /// <summary>
@@ -165,6 +170,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // Cache disabled - no need to invalidate
                     // await InvalidateRelevantCachesAsync(businessModule.ToString(), businessId, onboardingId, stageId);
                     _logger.LogDebug("Operation log inserted successfully without cache invalidation");
+
+                    if (onboardingId.HasValue)
+                    {
+                        await _mediator.Publish(new ChangeLogCreatedEvent(operationLog));
+                    }
                 }
 
                 return result;
@@ -670,6 +680,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Insert operation log and publish MediatR event for Kafka notification.
+        /// Subclasses that bypass LogOperationWithUserContextAsync should use this method.
+        /// </summary>
+        protected async Task<bool> InsertAndNotifyAsync(OperationChangeLog operationLog)
+        {
+            bool result = await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            if (result && operationLog.OnboardingId.HasValue)
+            {
+                await _mediator.Publish(new ChangeLogCreatedEvent(operationLog));
+            }
+            return result;
         }
 
         /// <summary>
@@ -3404,7 +3428,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     extendedData
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
