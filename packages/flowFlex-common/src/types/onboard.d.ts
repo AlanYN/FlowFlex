@@ -477,10 +477,17 @@ export interface QuestionnaireAnswer {
 	}[];
 }
 
+export interface SectionInstance {
+	sectionId: string;
+	groupIndex: number;
+	responses: QuestionnaireAnswer[];
+}
+
 export interface QuestionnaireData {
 	questionnaireId: string;
 	stageId: string;
 	answerJson: QuestionnaireAnswer[];
+	sectionInstances?: SectionInstance[];
 }
 
 export interface Assignment {
@@ -505,6 +512,7 @@ export interface Workflow {
 
 export interface SectionAnswer {
 	answer: QuestionnaireAnswer[];
+	sectionInstances?: SectionInstance[];
 	completionRate: number;
 	createBy: string;
 	createDate: string;

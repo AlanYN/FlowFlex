@@ -47,6 +47,15 @@
 								{{ section.questions.length }}
 								{{ section.questions.length > 1 ? 'items' : 'item' }}
 							</div>
+							<div class="section-repeatable" @click.stop>
+								<Icon icon="mdi:repeat" class="repeatable-icon" />
+								<span class="repeatable-label">Repeatable</span>
+								<el-switch
+									v-model="section.isRepeatable"
+									size="small"
+									@change="(val: boolean) => emits('update-section', index, { isRepeatable: val })"
+								/>
+							</div>
 						</div>
 						<el-button
 							type="primary"
@@ -68,6 +77,7 @@
 import { computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
+import { Icon } from '@iconify/vue';
 import { Section } from '#/section';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
@@ -85,6 +95,7 @@ const emits = defineEmits<{
 	'set-current-section': [index: number];
 	'drag-end': [sections: Section[], dragInfo: { oldIndex: number; newIndex: number }];
 	'question-drop': [targetSectionIndex: number];
+	'update-section': [index: number, updates: Partial<Section>];
 }>();
 
 // 本地sections数据，用于拖拽
@@ -231,23 +242,20 @@ const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
 }
 
 .section-item.active {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--el-color-primary);
+	border-color: var(--el-color-primary);
+	border-width: 2px;
+	background-color: var(--el-bg-color-light);
 
 	.section-name {
-		color: var(--el-color-white);
+		color: var(--el-color-primary);
+		font-weight: 600;
 	}
 
-	.section-count {
-		color: var(--el-color-white);
-	}
-
-	.dark .sections-list-container {
+	.dark & {
 		background-color: transparent;
-	}
-
-	.delete-btn {
-		color: var(--el-color-white);
+		.section-name {
+			color: var(--el-color-primary-light-3);
+		}
 	}
 }
 
@@ -271,6 +279,23 @@ const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
 
 .section-count {
 	font-size: 0.75rem;
+	color: var(--primary-500);
+}
+
+.section-repeatable {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	margin-top: 0.25rem;
+}
+
+.repeatable-icon {
+	font-size: 0.75rem;
+	color: var(--el-color-primary);
+}
+
+.repeatable-label {
+	font-size: 0.7rem;
 	color: var(--primary-500);
 }
 

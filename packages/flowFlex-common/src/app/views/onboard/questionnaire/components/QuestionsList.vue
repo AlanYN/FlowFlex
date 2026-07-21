@@ -93,9 +93,10 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														item.type === 'multiple_choice' ||
-														(item.type === 'checkboxes' &&
-															setGoToSection)
+														!sections[currentSectionIndex]?.isRepeatable &&
+														(item.type === 'multiple_choice' ||
+															(item.type === 'checkboxes' &&
+																setGoToSection))
 													"
 													@click="openJumpRuleEditor(index)"
 													divided

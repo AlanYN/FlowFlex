@@ -129,6 +129,12 @@ public class ChangeLogFlattenService : IChangeLogFlattenService
         };
     }
 
+    /// <inheritdoc />
+    public List<FieldChangeDto> ExtractChanges(OperationChangeLog log)
+    {
+        return ParseChanges(log);
+    }
+
     /// <summary>
     /// Parse before_data/after_data into flattened field changes
     /// </summary>

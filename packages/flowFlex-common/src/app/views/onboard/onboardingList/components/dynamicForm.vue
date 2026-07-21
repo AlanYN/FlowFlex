@@ -14,9 +14,17 @@
 			<!-- 当前 Section 内容 -->
 			<div v-if="currentSection" class="space-y-4">
 				<div class="flex flex-col space-y-1" v-if="!currentSection.isDefault">
-					<h4 class="section-title" v-if="currentSection.title">
-						{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
-					</h4>
+					<div class="flex items-center gap-2">
+						<h4 class="section-title" v-if="currentSection.title">
+							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
+						</h4>
+						<el-tag
+							v-if="currentSection.isRepeatable"
+							type="primary"
+							size="small"
+							round
+						>Repeatable</el-tag>
+					</div>
 					<p
 						v-if="currentSection.description"
 						class="section-description whitespace-pre-wrap"
@@ -25,6 +33,271 @@
 					</p>
 				</div>
 
+				<!-- Repeatable Section: 按 Group 循环渲染 -->
+				<template v-if="currentSection.isRepeatable">
+					<div
+						v-for="(group, groupIndex) in sectionGroups[currentSection.id]"
+						:key="groupIndex"
+						class="repeatable-group"
+					>
+						<div class="group-header">
+							<div class="group-title">
+								<Icon icon="mdi:repeat" class="group-icon" />
+								<span>Group {{ groupIndex + 1 }}</span>
+							</div>
+							<el-button
+								v-if="sectionGroups[currentSection.id].length > 1"
+								type="danger"
+								link
+								size="small"
+								@click="removeGroup(groupIndex)"
+								:disabled="questionIsDisabled('')"
+							>
+								<Icon icon="mdi:delete-outline" class="mr-1" />
+								Delete
+							</el-button>
+						</div>
+						<div
+							v-for="(question, questionIndex) in currentSection.questions"
+							:key="`${question.id}_g${groupIndex}`"
+							:id="`${question.id}_g${groupIndex}`"
+							class="question-item"
+							:class="{ '!bg-white !border-none': question.type == 'page_break' }"
+						>
+							<div class="mb-2" v-if="question.type !== 'page_break'">
+								<div class="flex items-center gap-2">
+									<span class="text-sm font-medium form-question-number">
+										{{ currentSectionIndex + 1 }}.{{ questionIndex + 1 }}.
+										{{ question.title }}
+										<span v-if="question.required" class="text-red-500">*</span>
+									</span>
+								</div>
+								<p v-if="question.description" class="text-xs form-question-desc mt-1 whitespace-pre-wrap">
+									{{ question.description }}
+								</p>
+							</div>
+							<!-- 短答题 -->
+							<el-input
+								v-if="question.type === 'short_answer' || question.type === 'text'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:maxlength="questionMaxlength"
+								:placeholder="'Enter ' + question.question"
+								:disabled="questionIsDisabled(question.id)"
+							/>
+							<!-- 长答题 -->
+							<el-input
+								v-else-if="question.type === 'long_answer' || question.type === 'paragraph' || question.type === 'textarea'"
+								v-model="getTarget(groupIndex)[question.id]"
+								type="textarea"
+								:rows="3"
+								:maxlength="notesPageTextraMaxLength"
+								show-word-limit
+								:placeholder="'Enter ' + question.question"
+								:disabled="questionIsDisabled(question.id)"
+							/>
+							<!-- 单选 -->
+							<div v-else-if="question.type === 'multiple_choice'" class="w-full">
+								<div v-for="option in question.options" :key="option.id" class="mb-2">
+									<el-radio
+										v-model="getTarget(groupIndex)[question.id]"
+										:value="option.value || option.label"
+										:disabled="questionIsDisabled(question.id)"
+									>
+										{{ option.label }}
+									</el-radio>
+								</div>
+							</div>
+							<!-- 多选 -->
+							<el-checkbox-group
+								v-else-if="question.type === 'checkboxes'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:disabled="questionIsDisabled(question.id)"
+							>
+								<div v-for="option in question.options" :key="option.id" class="mb-2">
+									<el-checkbox :value="option.value || option.label">
+										{{ option.label }}
+									</el-checkbox>
+								</div>
+							</el-checkbox-group>
+							<!-- 下拉 -->
+							<el-select
+								v-else-if="question.type === 'dropdown'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:placeholder="'Select ' + question.question"
+								:disabled="questionIsDisabled(question.id)"
+								class="w-full"
+							>
+								<el-option
+									v-for="option in question.options"
+									:key="option.id"
+									:label="option.label"
+									:value="option.value || option.label"
+								/>
+							</el-select>
+							<!-- 日期 -->
+							<el-date-picker
+								v-else-if="question.type === 'date'"
+								v-model="getTarget(groupIndex)[question.id]"
+								type="date"
+								:placeholder="'Select date'"
+								:disabled="questionIsDisabled(question.id)"
+								:format="projectDate"
+								value-format="YYYY-MM-DD"
+								class="!w-full"
+							/>
+							<!-- 时间 -->
+							<el-time-picker
+								v-else-if="question.type === 'time'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:placeholder="'Select time'"
+								:disabled="questionIsDisabled(question.id)"
+								class="!w-full"
+							/>
+							<!-- 数字 -->
+							<el-input-number
+								v-else-if="question.type === 'number'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:controls="false"
+								:placeholder="'Enter number'"
+								:disabled="questionIsDisabled(question.id)"
+								class="!w-full"
+							/>
+							<!-- 文件上传 -->
+							<div v-else-if="question.type === 'file' || question.type === 'file_upload'" class="w-full">
+								<el-upload
+									drag
+									:auto-upload="false"
+									:show-file-list="true"
+									v-model:file-list="getTarget(groupIndex)[question.id]"
+									:accept="question.accept"
+									class="w-full"
+									:disabled="questionIsDisabled(question.id)"
+								>
+									<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
+									<div>
+										<span class="text-primary dark:text-white">Drop file here</span>
+										<span> or </span>
+										<em class="text-primary">click to select</em>
+									</div>
+								</el-upload>
+							</div>
+							<!-- 多选网格 (multiple_choice_grid) -->
+							<div v-else-if="question.type === 'multiple_choice_grid'" class="preview-grid w-full">
+								<el-table
+									v-if="question.columns && question.rows"
+									:data="question.rows"
+									border
+									class="grid-table"
+								>
+									<el-table-column prop="label" label="" fixed="left" width="300">
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">{{ row.label }}</span>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #default="{ row }">
+											<el-checkbox-group
+												v-model="getTarget(groupIndex)[`${question.id}_${row.id}`]"
+												:disabled="questionIsDisabled(question.id)"
+											>
+												<el-checkbox :value="column.id" class="grid-checkbox" />
+											</el-checkbox-group>
+										</template>
+									</el-table-column>
+								</el-table>
+							</div>
+							<!-- 单选网格 (checkbox_grid) -->
+							<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid w-full">
+								<el-table
+									v-if="question.rows && question.rows.length > 0 && question.columns && question.columns.length > 0"
+									:data="question.rows"
+									border
+									class="grid-table"
+								>
+									<el-table-column prop="label" label="" fixed="left" width="300">
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">{{ row.label }}</span>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #default="{ row, $index: rowIndex }">
+											<el-radio
+												v-model="getTarget(groupIndex)[`${question.id}_${row.id}`]"
+												:name="`grid_${question.id}_g${groupIndex}_${rowIndex}`"
+												:value="column.value || column.label || `${rowIndex}_${colIndex}`"
+												:disabled="questionIsDisabled(question.id)"
+												class="grid-radio"
+											/>
+										</template>
+									</el-table-column>
+								</el-table>
+							</div>
+							<!-- 短答网格 (short_answer_grid) -->
+							<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid w-full">
+								<el-table
+									v-if="question.columns && question.rows"
+									:data="question.rows"
+									border
+									class="grid-table"
+								>
+									<el-table-column prop="label" label="" fixed="left" width="300">
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">{{ row.label }}</span>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in question.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="150"
+										align="center"
+									>
+										<template #default="{ row }">
+											<el-input
+												v-model="getTarget(groupIndex)[`${question.id}_${column.id}_${row.id}`]"
+												:disabled="questionIsDisabled(question.id)"
+											/>
+										</template>
+									</el-table-column>
+								</el-table>
+							</div>
+							<!-- 其他类型回退到文本输入 -->
+							<el-input
+								v-else-if="question.type !== 'page_break' && question.type !== 'image' && question.type !== 'video'"
+								v-model="getTarget(groupIndex)[question.id]"
+								:placeholder="'Enter ' + question.question"
+								:disabled="questionIsDisabled(question.id)"
+							/>
+						</div>
+					</div>
+					<!-- Add Another Group 按钮 -->
+					<div class="add-group-container" v-if="!questionIsDisabled('')">
+						<el-button
+							v-if="(sectionGroups[currentSection.id]?.length || 0) < MAX_GROUPS"
+							type="primary"
+							plain
+							@click="addGroup"
+						>
+							<Icon icon="mdi:plus" class="mr-1" />
+							Add Another Group
+						</el-button>
+					</div>
+				</template>
+
+				<!-- 非 Repeatable Section: 原有渲染逻辑 -->
+				<template v-else>
 				<div
 					v-for="(question, questionIndex) in currentSection.questions"
 					:key="question.id"
@@ -615,6 +888,7 @@
 						</template>
 					</el-empty>
 				</div>
+				</template><!-- end of v-else (non-Repeatable) -->
 
 				<!-- 统一的底部导航控件 -->
 				<div class="bottom-navigation">
@@ -695,11 +969,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
+import { Icon } from '@iconify/vue';
+import { ElMessageBox } from 'element-plus';
 import {
 	QuestionnaireAnswer,
 	QuestionnaireData,
 	CompStageComponentDataonentData,
 	SectionAnswer,
+	SectionInstance,
 } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 // import { ElNotification } from 'element-plus';
@@ -739,6 +1016,7 @@ const props = defineProps<Props>();
 const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
+const sectionGroups = ref<Record<string, Record<string, any>[]>>({});
 const dynamicFormRootRef = ref<HTMLElement>();
 const currentSectionIndex = ref(0);
 
@@ -845,8 +1123,10 @@ const formattedQuestionnaires = computed(() => {
 });
 
 // 根据答案数组填充表单
-const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
-	if (!Array.isArray(answers) || answers.length === 0) return;
+const applyAnswers = (answers?: QuestionnaireAnswer[], instances?: SectionInstance[]) => {
+	if (!Array.isArray(answers) || answers.length === 0) {
+		// 即使 responses 为空也要尝试恢复 sectionInstances
+	} else {
 	answers.forEach((ans) => {
 		if (!ans || !ans.questionId) return;
 
@@ -938,11 +1218,175 @@ const applyAnswers = (answers?: QuestionnaireAnswer[]) => {
 			formData.value[ans.questionId] = ans.answer;
 		}
 	});
+	} // end of else block for responses
+
+	// 回填 sectionInstances（Repeatable Section 的答案）
+	if (Array.isArray(instances) && instances.length > 0 && formattedQuestionnaires.value.length > 0) {
+		const questionnaire = formattedQuestionnaires.value[0];
+		// 按 sectionId 分组
+		const instancesBySectionId: Record<string, SectionInstance[]> = {};
+		instances.forEach((inst) => {
+			if (!instancesBySectionId[inst.sectionId]) {
+				instancesBySectionId[inst.sectionId] = [];
+			}
+			instancesBySectionId[inst.sectionId].push(inst);
+		});
+
+		for (const sectionId of Object.keys(instancesBySectionId)) {
+			const section = questionnaire.sections?.find((s: any) => s.id === sectionId);
+			if (!section || !section.isRepeatable) continue;
+
+			const sortedInstances = instancesBySectionId[sectionId].sort(
+				(a, b) => a.groupIndex - b.groupIndex
+			);
+
+			// 创建对应数量的 group 并回填
+			const groups: Record<string, any>[] = [];
+			for (const inst of sortedInstances) {
+				const group = initEmptyGroup(section);
+				// 回填该组的 responses
+				inst.responses.forEach((ans) => {
+					if (!ans || !ans.questionId) return;
+					if (ans.type === 'checkboxes' || ans.type === 'checkbox') {
+						if (Array.isArray(ans.answer)) {
+							group[ans.questionId] = ans.answer;
+						} else if (ans.answer) {
+							const answerStr = String(ans.answer);
+							group[ans.questionId] = answerStr.includes(',')
+								? answerStr.split(',').map((item) => item.trim()).filter(Boolean)
+								: [answerStr];
+						}
+					} else if (ans.type === 'file' || ans.type === 'file_upload') {
+						group[ans.questionId] = Array.isArray(ans.answer) ? ans.answer : ans.answer;
+					} else if (ans.type === 'linear_scale' || ans.type === 'rating' || ans.type === 'number') {
+						const numValue = Number(ans.answer);
+						group[ans.questionId] = isNaN(numValue) ? (ans.type === 'number' ? null : 0) : numValue;
+					} else if (ans.type === 'multiple_choice_grid' || ans.type === 'checkbox_grid') {
+						group[ans.questionId] = ans.answer;
+						if (ans.responseText) {
+							const responseText = JSON.parse(ans.responseText);
+							Object.keys(responseText).forEach((key) => {
+								group[key] = responseText[key];
+							});
+						}
+					} else if (ans.type === 'short_answer_grid') {
+						group[ans.questionId] = ans.answer;
+						if (ans.responseText) {
+							const responseText = JSON.parse(ans.responseText);
+							Object.keys(responseText).forEach((key) => {
+								group[key] = responseText[key];
+							});
+						}
+					} else {
+						group[ans.questionId] = ans.answer;
+					}
+				});
+				groups.push(group);
+			}
+			sectionGroups.value[sectionId] = groups;
+		}
+	}
+
 	nextTick(() => {
 		if (props.questionnaireAnswers?.currentSectionIndex) {
 			currentSectionIndex.value = props.questionnaireAnswers?.currentSectionIndex || 0;
 		}
 	});
+};
+
+// === Repeatable Section 相关 ===
+
+const MAX_GROUPS = 50;
+
+// 为 Repeatable Section 创建一组空白数据
+const initEmptyGroup = (section: any): Record<string, any> => {
+	const group: Record<string, any> = {};
+	for (const question of section.questions) {
+		if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
+			if (question.rows && question.rows.length > 0) {
+				question.rows.forEach((row: any) => {
+					const key = `${question.id}_${row.id}`;
+					group[key] = question.type === 'multiple_choice_grid' ? [] : '';
+					question.columns?.forEach((column: any) => {
+						if (column.isOther) {
+							group[`${question.id}_${row.id}_${column.id}`] = '';
+						}
+					});
+				});
+			}
+		} else if (question.type === 'short_answer_grid') {
+			if (question.rows && question.rows.length > 0) {
+				question.rows.forEach((row: any) => {
+					question.columns?.forEach((column: any) => {
+						group[`${question.id}_${column.id}_${row.id}`] = '';
+					});
+				});
+			}
+		} else if (question.type === 'checkboxes' || question.type === 'checkbox') {
+			group[question.id] = [];
+		} else if (question.type === 'file' || question.type === 'file_upload') {
+			group[question.id] = [];
+		} else if (question.type === 'linear_scale') {
+			group[question.id] = question.min;
+		} else if (question.type === 'rating') {
+			group[question.id] = 0;
+		} else if (question.type === 'number') {
+			group[question.id] = null;
+		} else {
+			group[question.id] = '';
+		}
+	}
+	return group;
+};
+
+// 获取当前绑定数据源
+const getTarget = (groupIndex?: number): Record<string, any> => {
+	if (
+		currentSection.value?.isRepeatable &&
+		groupIndex !== undefined &&
+		sectionGroups.value[currentSection.value.id]
+	) {
+		return sectionGroups.value[currentSection.value.id][groupIndex];
+	}
+	return formData.value;
+};
+
+// 新增一组
+const addGroup = () => {
+	if (!currentSection.value?.isRepeatable) return;
+	const sectionId = currentSection.value.id;
+	if (!sectionGroups.value[sectionId]) {
+		sectionGroups.value[sectionId] = [];
+	}
+	if (sectionGroups.value[sectionId].length >= MAX_GROUPS) return;
+	sectionGroups.value[sectionId].push(initEmptyGroup(currentSection.value));
+};
+
+// 删除一组
+const removeGroup = async (groupIndex: number) => {
+	if (!currentSection.value?.isRepeatable) return;
+	const sectionId = currentSection.value.id;
+	const groups = sectionGroups.value[sectionId];
+	if (!groups || groups.length <= 1) return;
+
+	const group = groups[groupIndex];
+	const hasData = Object.values(group).some(
+		(v) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)
+	);
+
+	if (hasData) {
+		try {
+			await ElMessageBox.confirm(
+				`Are you sure you want to delete Group ${groupIndex + 1}? The data in this group will be lost.`,
+				'Confirm Delete',
+				{ confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
+			);
+		} catch {
+			return;
+		}
+	}
+
+	groups.splice(groupIndex, 1);
 };
 
 // 监听答案数据变化，确保答案能正确应用
@@ -952,7 +1396,7 @@ watch(
 		if (newAnswers && formattedQuestionnaires.value.length > 0) {
 			// 确保表单数据已初始化后再应用答案
 			nextTick(() => {
-				applyAnswers(newAnswers.answer);
+				applyAnswers(newAnswers.answer, newAnswers.sectionInstances);
 			});
 		}
 	},
@@ -1215,7 +1659,65 @@ const validateForm = (presentQuestionIndex?: number) => {
 		// 标记当前section为已验证
 		validatedSectionIds.add(section.id);
 
-		// 验证当前section的所有问题
+		// Repeatable Section: 逐组校验
+		if (section.isRepeatable) {
+			const groups = sectionGroups.value[section.id] || [];
+			groups.forEach((group, groupIndex) => {
+				section.questions
+					?.filter((item) => item.type != 'page_break')
+					?.forEach((question: any, qIdx: number) => {
+						if (isQuestionSkipped(question)) return;
+						if (question.required) {
+							const value = group[question.id];
+							const isEmpty =
+								value === null ||
+								value === undefined ||
+								value === '' ||
+								(typeof value === 'string' && value.trim() === '') ||
+								(Array.isArray(value) && value.length === 0);
+
+							if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
+								if (question.rows && question.rows.length > 0) {
+									let allRowsCompleted = true;
+									question.rows.forEach((row: any, rowIndex: number) => {
+										const gridKey = `${question.id}_${row.id || rowIndex}`;
+										const gridValue = group[gridKey];
+										if (question.type === 'multiple_choice_grid') {
+											if (!Array.isArray(gridValue) || gridValue.length === 0) allRowsCompleted = false;
+										} else {
+											if (!gridValue || gridValue === '') allRowsCompleted = false;
+										}
+									});
+									if (!allRowsCompleted) {
+										isValid = false;
+										errors.push(`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`);
+									}
+								}
+							} else if (question.type === 'short_answer_grid') {
+								if (question.rows && question.columns) {
+									let anyCellFilled = false;
+									question.rows.forEach((row: any) => {
+										question.columns.forEach((column: any) => {
+											const gridKey = `${question.id}_${column.id}_${row.id}`;
+											if (group[gridKey] && group[gridKey].trim() !== '') anyCellFilled = true;
+										});
+									});
+									if (!anyCellFilled) {
+										isValid = false;
+										errors.push(`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`);
+									}
+								}
+							} else if (isEmpty) {
+								isValid = false;
+								errors.push(`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`);
+							}
+						}
+					});
+			});
+			continue;
+		}
+
+		// 验证当前section的所有问题（非 Repeatable）
 		section.questions
 			?.filter((item) => {
 				return item.type != 'page_break';
@@ -1385,101 +1887,32 @@ const transformFormDataForAPI = () => {
 			questionnaireId: questionnaire?.id || '',
 			stageId: props.stageId,
 			answerJson: [],
+			sectionInstances: [],
 		};
 
 		for (const section of questionnaire.sections) {
-			for (const question of section.questions) {
-				if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
-					// 网格类型：为每一行创建单独的答案记录
-					if (question.rows && question.rows.length > 0) {
-						question.rows.forEach((row: any) => {
-							const gridKey = `${question.id}_${row.id}`;
-							const gridValue = formData.value[gridKey];
-
-							// 处理Other选项的文本
-							let responseText = {};
-
-							question.columns.forEach((column: any) => {
-								const otherTextKey = `${question.id}_${row.id}_${column.id}`;
-								if (column.isOther && formData.value[otherTextKey]) {
-									responseText[otherTextKey] = formData.value[otherTextKey];
-								}
-							});
-							const answer: QuestionnaireAnswer = {
-								questionId: gridKey,
-								question: `${question.question} - ${row.label}`,
-								answer: gridValue,
-								type: question.type,
-								responseText: JSON.stringify(responseText),
-							};
-							questionnaireData.answerJson.push(answer);
-						});
+			// Repeatable Section: 从 sectionGroups 收集数据
+			if (section.isRepeatable) {
+				const groups = sectionGroups.value[section.id] || [];
+				groups.forEach((group, groupIndex) => {
+					const groupResponses: QuestionnaireAnswer[] = [];
+					for (const question of section.questions) {
+						const answers = collectQuestionAnswer(question, group);
+						groupResponses.push(...answers);
 					}
-				} else if (question.type === 'short_answer_grid') {
-					if (question.rows && question.rows.length > 0) {
-						question.rows.forEach((row: any) => {
-							let responseText = {};
-
-							question.columns.forEach((column: any) => {
-								const gridKey = `${question.id}_${column.id}_${row.id}`;
-								if (formData.value[gridKey]) {
-									responseText[gridKey] = formData.value[gridKey];
-								}
-							});
-							const answer: QuestionnaireAnswer = {
-								questionId: question.id,
-								question: `${question.question} - ${row.label}`,
-								answer: '',
-								type: question.type,
-								responseText: JSON.stringify(responseText),
-							};
-							questionnaireData.answerJson.push(answer);
-						});
-					}
-				} else if (question.type === 'checkboxes' || question.type === 'multiple_choice') {
-					// 单选题
-					let responseText = {};
-					question.options.forEach((option: any) => {
-						const otherTextKey = `${question.id}_${option.id}`;
-						if (option.isOther && formData.value[otherTextKey]) {
-							const otherText = formData.value[otherTextKey];
-							if (otherText && otherText.trim()) {
-								responseText = {
-									[otherTextKey]: otherText,
-								};
-							}
-						}
+					questionnaireData.sectionInstances!.push({
+						sectionId: section.id,
+						groupIndex,
+						responses: groupResponses,
 					});
-					const answer: QuestionnaireAnswer = {
-						questionId: question.id,
-						question: question.question,
-						answer: formData.value[question.id],
-						type: question.type,
-						responseText: JSON.stringify(responseText),
-					};
-					questionnaireData.answerJson.push(answer);
-				} else if (question.type === 'number') {
-					const answer: QuestionnaireAnswer = {
-						questionId: question.id,
-						question: question.question,
-						answer: formData.value[question.id] ?? null,
-						type: question.type,
-						responseText: '',
-					};
-					questionnaireData.answerJson.push(answer);
-				} else {
-					// 普通类型的问题
-					const answer: QuestionnaireAnswer = {
-						questionId: question.id,
-						question: question.question,
-						answer: formData.value[question.id],
-						type: question.type,
-						responseText: Array.isArray(formData.value[question.id])
-							? formData.value[question.id].join(', ')
-							: formData.value[question.id] || '',
-					};
-					questionnaireData.answerJson.push(answer);
-				}
+				});
+				continue;
+			}
+
+			// 非 Repeatable Section: 保持现有逻辑
+			for (const question of section.questions) {
+				const answers = collectQuestionAnswer(question, formData.value);
+				questionnaireData.answerJson.push(...answers);
 			}
 		}
 		apiData.push(questionnaireData);
@@ -1490,10 +1923,98 @@ const transformFormDataForAPI = () => {
 			...item,
 			answerJson: JSON.stringify({
 				responses: item.answerJson,
+				...(item.sectionInstances && item.sectionInstances.length > 0
+					? { sectionInstances: item.sectionInstances }
+					: {}),
 			}),
 			currentSectionIndex: currentSectionIndex.value,
 		};
 	});
+};
+
+// 从数据源收集单个 question 的答案
+const collectQuestionAnswer = (question: any, dataSource: Record<string, any>): QuestionnaireAnswer[] => {
+	const results: QuestionnaireAnswer[] = [];
+
+	if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
+		if (question.rows && question.rows.length > 0) {
+			question.rows.forEach((row: any) => {
+				const gridKey = `${question.id}_${row.id}`;
+				const gridValue = dataSource[gridKey];
+				let responseText = {};
+				question.columns.forEach((column: any) => {
+					const otherTextKey = `${question.id}_${row.id}_${column.id}`;
+					if (column.isOther && dataSource[otherTextKey]) {
+						responseText[otherTextKey] = dataSource[otherTextKey];
+					}
+				});
+				results.push({
+					questionId: gridKey,
+					question: `${question.question} - ${row.label}`,
+					answer: gridValue,
+					type: question.type,
+					responseText: JSON.stringify(responseText),
+				});
+			});
+		}
+	} else if (question.type === 'short_answer_grid') {
+		if (question.rows && question.rows.length > 0) {
+			question.rows.forEach((row: any) => {
+				let responseText = {};
+				question.columns.forEach((column: any) => {
+					const gridKey = `${question.id}_${column.id}_${row.id}`;
+					if (dataSource[gridKey]) {
+						responseText[gridKey] = dataSource[gridKey];
+					}
+				});
+				results.push({
+					questionId: question.id,
+					question: `${question.question} - ${row.label}`,
+					answer: '',
+					type: question.type,
+					responseText: JSON.stringify(responseText),
+				});
+			});
+		}
+	} else if (question.type === 'checkboxes' || question.type === 'multiple_choice') {
+		let responseText = {};
+		question.options?.forEach((option: any) => {
+			const otherTextKey = `${question.id}_${option.id}`;
+			if (option.isOther && dataSource[otherTextKey]) {
+				const otherText = dataSource[otherTextKey];
+				if (otherText && otherText.trim()) {
+					responseText = { [otherTextKey]: otherText };
+				}
+			}
+		});
+		results.push({
+			questionId: question.id,
+			question: question.question,
+			answer: dataSource[question.id],
+			type: question.type,
+			responseText: JSON.stringify(responseText),
+		});
+	} else if (question.type === 'number') {
+		results.push({
+			questionId: question.id,
+			question: question.question,
+			answer: dataSource[question.id] ?? null,
+			type: question.type,
+			responseText: '',
+		});
+	} else {
+		results.push({
+			questionId: question.id,
+			question: question.question,
+			answer: dataSource[question.id],
+			type: question.type,
+			responseText: Array.isArray(dataSource[question.id])
+				? dataSource[question.id].join(', ')
+				: dataSource[question.id] || '',
+		});
+	}
+
+	return results;
 };
 
 // 转换表单数据为新的字段格式
@@ -1701,6 +2222,14 @@ onMounted(async () => {
 					);
 				})
 				.forEach((section: any) => {
+					// Repeatable Section: 初始化 sectionGroups（默认 1 组）
+					if (section.isRepeatable) {
+						if (!sectionGroups.value[section.id]) {
+							sectionGroups.value[section.id] = [initEmptyGroup(section)];
+						}
+						return;
+					}
+
 					section.questions.forEach((question: any) => {
 						// 根据问题类型初始化表单数据
 						if (
@@ -1788,7 +2317,7 @@ onMounted(async () => {
 				});
 		});
 		// 初始化完毕后再应用答案，防止被覆盖
-		applyAnswers(props.questionnaireAnswers?.answer);
+		applyAnswers(props.questionnaireAnswers?.answer, props.questionnaireAnswers?.sectionInstances);
 	}
 });
 
@@ -1879,10 +2408,57 @@ defineExpose({
 	get formData() {
 		return formData.value;
 	},
+	get sectionGroups() {
+		return sectionGroups.value;
+	},
 });
 </script>
 
 <style scoped lang="scss">
+/* Repeatable Section 样式 */
+.repeatable-group {
+	border: 1px solid var(--el-border-color-light);
+	border-radius: 8px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+}
+
+.group-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.group-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-weight: 600;
+	font-size: 0.875rem;
+	color: var(--primary-700);
+}
+
+.group-icon {
+	color: var(--el-color-primary);
+}
+
+.add-group-container {
+	display: flex;
+	justify-content: center;
+	margin: 1rem 0;
+}
+
+.dark .group-title {
+	color: var(--primary-200);
+}
+
+.dark .repeatable-group {
+	border-color: var(--el-border-color);
+}
+
 /* 问卷区域样式 */
 .error-indicator {
 	font-size: var(--button-1-size); /* 14px - Item Button 1 */

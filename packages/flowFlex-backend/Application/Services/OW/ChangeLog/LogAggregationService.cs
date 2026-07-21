@@ -12,6 +12,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
+using MediatR;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
 {
@@ -33,8 +34,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IActionExecutionService actionExecutionService,
             IServiceProvider serviceProvider,
             IUserService userService,
-            IOperatorContextService operatorContextService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService)
+            IOperatorContextService operatorContextService,
+            IMediator mediator)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService, mediator)
         {
             _actionExecutionService = actionExecutionService;
             _serviceProvider = serviceProvider;
