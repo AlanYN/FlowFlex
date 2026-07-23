@@ -1089,5 +1089,47 @@ namespace FlowFlex.Application.Services.OW
                 throw;
             }
         }
+
+        /// <summary>
+        /// Get tenant code by tenant ID from IDM API (with caching)
+        /// </summary>
+        public async Task<string?> GetTenantCodeAsync(string tenantId)
+        {
+            if (string.IsNullOrEmpty(tenantId) || tenantId == "default")
+                return null;
+
+            var cacheKey = $"idm:tenant_code:{tenantId}";
+            if (_cache.TryGetValue(cacheKey, out string? cachedCode))
+                return cachedCode;
+
+            try
+            {
+                var tokenInfo = await GetTokenAsync();
+                var requestUri = $"{_options.BaseUrl}/api/v1/public/tenant/{tenantId}";
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenInfo.AccessToken);
+
+                using var response = await _client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get tenant code from IDM for TenantId={TenantId}: {StatusCode}", tenantId, response.StatusCode);
+                    _cache.Set(cacheKey, (string?)null, TimeSpan.FromMinutes(5));
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var json = System.Text.Json.JsonDocument.Parse(content);
+                var tenantCode = json.RootElement.GetProperty("data").GetProperty("tenantCode").GetString();
+
+                _cache.Set(cacheKey, tenantCode, TimeSpan.FromMinutes(30));
+                return tenantCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error getting tenant code for TenantId={TenantId}", tenantId);
+                return null;
+            }
+        }
     }
 }

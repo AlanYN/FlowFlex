@@ -8,6 +8,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Repository.OW;
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
@@ -30,8 +31,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IUserService userService,
             QuestionnaireAnswerParser answerParser,
             IQuestionnaireRepository questionnaireRepository,
-            IOperatorContextService operatorContextService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService)
+            IOperatorContextService operatorContextService,
+            IMediator mediator)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService, mediator)
         {
             _answerParser = answerParser;
             _questionnaireRepository = questionnaireRepository;
@@ -91,7 +93,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     JsonSerializer.Serialize(extendedData)
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
@@ -151,7 +153,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     JsonSerializer.Serialize(extendedData)
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
@@ -189,7 +191,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     extendedData: JsonSerializer.Serialize(extendedData)
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
@@ -236,7 +238,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 operationLog.CreateUserId = operatorId;
                 operationLog.ModifyUserId = operatorId;
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
@@ -271,7 +273,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     extendedData: JsonSerializer.Serialize(extendedData)
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
@@ -316,7 +318,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     JsonSerializer.Serialize(extendedData)
                 );
 
-                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+                return await InsertAndNotifyAsync(operationLog);
             }
             catch (Exception ex)
             {
