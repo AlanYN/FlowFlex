@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
@@ -13,6 +14,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 
@@ -32,6 +34,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
     private readonly ILogger<InternalNoteService> _logger;
+    private readonly IMediator _mediator;
 
     public InternalNoteService(
         IInternalNoteRepository noteRepository,
@@ -42,7 +45,8 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
         IOperatorContextService operatorContextService,
-        ILogger<InternalNoteService> logger)
+        ILogger<InternalNoteService> logger,
+        IMediator mediator)
     {
         _noteRepository = noteRepository;
         _onboardingRepository = onboardingRepository;
@@ -53,6 +57,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         _userContext = userContext;
         _operatorContextService = operatorContextService;
         _logger = logger;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -67,7 +72,8 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
         }
 
-        // Validate stage exists if provided
+        // Validate stage exists if provided and capture stage name
+        string stageName = string.Empty;
         if (input.StageId.HasValue)
         {
             var stage = await _stageRepository.GetByIdAsync(input.StageId.Value);
@@ -75,6 +81,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             {
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
             }
+            stageName = stage.Name ?? string.Empty;
         }
 
         var entity = _mapper.Map<InternalNote>(input);
@@ -84,10 +91,40 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
         entity.NoteType = string.IsNullOrEmpty(entity.NoteType) ? "General" : entity.NoteType;
 
+        // Populate MentionedUserIds before insert
+        var mentions = MentionParser.ParseMentions(entity.Content);
+        var mentionedIds = mentions
+            .Select(m => m.IsExternal ? $"ext:{m.Email}" : m.Email)
+            .ToList();
+        entity.MentionedUserIds = JsonSerializer.Serialize(mentionedIds);
+
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
 
         await _noteRepository.InsertAsync(entity);
+
+        // Publish mention notification event
+        try
+        {
+            var senderName = _operatorContextService.GetOperatorDisplayName();
+
+            await _mediator.Publish(new InternalNoteMentionEvent
+            {
+                NoteId = entity.Id,
+                Content = entity.Content,
+                PreviousContent = null,
+                OnboardingId = entity.OnboardingId,
+                SenderName = senderName,
+                CaseName = onboarding.CaseName,
+                CaseCode = onboarding.CaseCode,
+                StageName = stageName,
+                TenantId = _userContext.TenantId
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to publish mention notification event for note {NoteId}", entity.Id);
+        }
 
         // Create a message for this internal note
         await CreateMessageForNoteAsync(entity, onboarding);
@@ -207,6 +244,9 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "Note not found");
         }
 
+        // Capture previous content before any modification (for mention diff)
+        var previousContent = existingNote.Content;
+
         // Only validate and update OnboardingId if it's provided and different from existing
         if (input.OnboardingId != 0 && input.OnboardingId != existingNote.OnboardingId)
         {
@@ -253,13 +293,49 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             existingNote.Priority = input.Priority;
         }
 
+        // Update MentionedUserIds based on current content
+        var mentions = MentionParser.ParseMentions(existingNote.Content);
+        var mentionedIds = mentions
+            .Select(m => m.IsExternal ? $"ext:{m.Email}" : m.Email)
+            .ToList();
+        existingNote.MentionedUserIds = JsonSerializer.Serialize(mentionedIds);
+
         existingNote.InitUpdateInfo(_userContext);
 
         var result = await _noteRepository.UpdateAsync(existingNote);
 
-        // Update the associated message
         if (result)
         {
+            // Publish mention notification event
+            try
+            {
+                var senderName = _operatorContextService.GetOperatorDisplayName();
+                var onboarding = await _onboardingRepository.GetByIdAsync(existingNote.OnboardingId);
+                var stageName = string.Empty;
+                if (existingNote.StageId.HasValue)
+                {
+                    var stage = await _stageRepository.GetByIdAsync(existingNote.StageId.Value);
+                    stageName = stage?.Name ?? string.Empty;
+                }
+
+                await _mediator.Publish(new InternalNoteMentionEvent
+                {
+                    NoteId = existingNote.Id,
+                    Content = existingNote.Content,
+                    PreviousContent = previousContent,
+                    OnboardingId = existingNote.OnboardingId,
+                    SenderName = senderName,
+                    CaseName = onboarding?.CaseName ?? string.Empty,
+                    CaseCode = onboarding?.CaseCode ?? string.Empty,
+                    StageName = stageName,
+                    TenantId = _userContext.TenantId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish mention notification event for note {NoteId}", existingNote.Id);
+            }
+
             await UpdateMessageForNoteAsync(existingNote);
         }
 
@@ -276,6 +352,9 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         {
             throw new CRMException(ErrorCodeEnum.DataNotFound, "Note not found");
         }
+
+        // Capture previous content before any modification (for mention diff)
+        var previousContent = existingNote.Content;
 
         // Only validate and update OnboardingId if it's provided and different from existing
         if (input.OnboardingId.HasValue && input.OnboardingId.Value != existingNote.OnboardingId)
@@ -314,6 +393,13 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             existingNote.Priority = input.Priority;
         }
 
+        // Update MentionedUserIds based on current content
+        var mentions = MentionParser.ParseMentions(existingNote.Content);
+        var mentionedIds = mentions
+            .Select(m => m.IsExternal ? $"ext:{m.Email}" : m.Email)
+            .ToList();
+        existingNote.MentionedUserIds = JsonSerializer.Serialize(mentionedIds);
+
         existingNote.InitUpdateInfo(_userContext);
 
         // Explicitly specify columns to update, excluding StageId to prevent accidental modification
@@ -324,14 +410,44 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             x.Content,
             x.NoteType,
             x.Priority,
+            x.MentionedUserIds,
             x.ModifyDate,
             x.ModifyBy,
             x.ModifyUserId
         });
 
-        // Update the associated message
         if (result)
         {
+            // Publish mention notification event
+            try
+            {
+                var senderName = _operatorContextService.GetOperatorDisplayName();
+                var onboarding = await _onboardingRepository.GetByIdAsync(existingNote.OnboardingId);
+                var stageName = string.Empty;
+                if (existingNote.StageId.HasValue)
+                {
+                    var stage = await _stageRepository.GetByIdAsync(existingNote.StageId.Value);
+                    stageName = stage?.Name ?? string.Empty;
+                }
+
+                await _mediator.Publish(new InternalNoteMentionEvent
+                {
+                    NoteId = existingNote.Id,
+                    Content = existingNote.Content,
+                    PreviousContent = previousContent,
+                    OnboardingId = existingNote.OnboardingId,
+                    SenderName = senderName,
+                    CaseName = onboarding?.CaseName ?? string.Empty,
+                    CaseCode = onboarding?.CaseCode ?? string.Empty,
+                    StageName = stageName,
+                    TenantId = _userContext.TenantId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish mention notification event for note {NoteId}", existingNote.Id);
+            }
+
             await UpdateMessageForNoteAsync(existingNote);
         }
 

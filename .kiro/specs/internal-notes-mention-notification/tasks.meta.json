@@ -1,0 +1,326 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 实现 MentionParser 核心解析逻辑": [
+      {
+        "executionId": "de9d4485-4990-4443-9f3d-583167d1c044",
+        "chatSessionId": "sess_f1220f72-8eeb-44f1-a897-47cc84b19f08",
+        "timestamp": 1784863734069
+      },
+      {
+        "executionId": "de9d4485-4990-4443-9f3d-583167d1c044",
+        "chatSessionId": "sess_f1220f72-8eeb-44f1-a897-47cc84b19f08",
+        "timestamp": 1784863957274
+      }
+    ],
+    "1. 创建 MentionParser 静态工具类": [
+      {
+        "executionId": "de9d4485-4990-4443-9f3d-583167d1c044",
+        "chatSessionId": "sess_f1220f72-8eeb-44f1-a897-47cc84b19f08",
+        "timestamp": 1784863957359
+      }
+    ],
+    "2.1 定义 InternalNoteMentionEvent 事件类": [
+      {
+        "executionId": "6cb61119-9876-4851-a1fd-a3f52559c8b8",
+        "chatSessionId": "sess_b9d784dd-50d1-4972-8751-2a98c7834fb4",
+        "timestamp": 1784864037501
+      },
+      {
+        "executionId": "6cb61119-9876-4851-a1fd-a3f52559c8b8",
+        "chatSessionId": "sess_b9d784dd-50d1-4972-8751-2a98c7834fb4",
+        "timestamp": 1784864366443
+      }
+    ],
+    "2. 创建 InternalNoteMentionEvent 领域事件": [
+      {
+        "executionId": "6cb61119-9876-4851-a1fd-a3f52559c8b8",
+        "chatSessionId": "sess_b9d784dd-50d1-4972-8751-2a98c7834fb4",
+        "timestamp": 1784864366560
+      }
+    ],
+    "3.1 在 IEmailService 接口新增 SendMentionNotificationAsync 方法签名": [
+      {
+        "executionId": "f42fdf62-736b-440a-9002-f18e7de68852",
+        "chatSessionId": "sess_4002ffc5-ac2c-49da-a4aa-c1e7f973e69c",
+        "timestamp": 1784864425974
+      },
+      {
+        "executionId": "f42fdf62-736b-440a-9002-f18e7de68852",
+        "chatSessionId": "sess_4002ffc5-ac2c-49da-a4aa-c1e7f973e69c",
+        "timestamp": 1784864688350
+      }
+    ],
+    "3.2 在 EmailService 中实现 SendMentionNotificationAsync": [
+      {
+        "executionId": "f42fdf62-736b-440a-9002-f18e7de68852",
+        "chatSessionId": "sess_4002ffc5-ac2c-49da-a4aa-c1e7f973e69c",
+        "timestamp": 1784864426774
+      },
+      {
+        "executionId": "f42fdf62-736b-440a-9002-f18e7de68852",
+        "chatSessionId": "sess_4002ffc5-ac2c-49da-a4aa-c1e7f973e69c",
+        "timestamp": 1784864689181
+      }
+    ],
+    "3. 扩展 IEmailService 接口并实现 SendMentionNotificationAsync": [
+      {
+        "executionId": "f42fdf62-736b-440a-9002-f18e7de68852",
+        "chatSessionId": "sess_4002ffc5-ac2c-49da-a4aa-c1e7f973e69c",
+        "timestamp": 1784864689275
+      }
+    ],
+    "4. Checkpoint - 确保基础组件可用": [
+      {
+        "executionId": "0119b7ab-c23b-4d6e-8f95-2f991e844ef0",
+        "chatSessionId": "sess_5733539b-4aa0-4688-a15c-02394caddf1d",
+        "timestamp": 1784864848535
+      },
+      {
+        "executionId": "0119b7ab-c23b-4d6e-8f95-2f991e844ef0",
+        "chatSessionId": "sess_5733539b-4aa0-4688-a15c-02394caddf1d",
+        "timestamp": 1784864931383
+      }
+    ],
+    "5.1 实现 InternalNoteMentionHandler": [
+      {
+        "executionId": "0d6ea2ba-e706-4f02-a1c5-776e9f95f8f8",
+        "chatSessionId": "sess_c4f57ed8-1d64-42c2-8063-085959060c5b",
+        "timestamp": 1784865083620
+      },
+      {
+        "executionId": "0d6ea2ba-e706-4f02-a1c5-776e9f95f8f8",
+        "chatSessionId": "sess_c4f57ed8-1d64-42c2-8063-085959060c5b",
+        "timestamp": 1784865357832
+      }
+    ],
+    "5. 创建 InternalNoteMentionHandler 事件处理器": [
+      {
+        "executionId": "0d6ea2ba-e706-4f02-a1c5-776e9f95f8f8",
+        "chatSessionId": "sess_c4f57ed8-1d64-42c2-8063-085959060c5b",
+        "timestamp": 1784865357929
+      }
+    ],
+    "6.1 修改 InternalNoteService 注入 IMediator 并在 CreateAsync 中发布事件": [
+      {
+        "executionId": "7eab54fc-f075-4ebe-a20e-37245a36d586",
+        "chatSessionId": "sess_fafc3526-0c8c-4340-bc77-0e59a109369c",
+        "timestamp": 1784865432960
+      },
+      {
+        "executionId": "7eab54fc-f075-4ebe-a20e-37245a36d586",
+        "chatSessionId": "sess_fafc3526-0c8c-4340-bc77-0e59a109369c",
+        "timestamp": 1784866394507
+      }
+    ],
+    "6.2 修改 InternalNoteService UpdateAsync 中发布事件": [
+      {
+        "executionId": "7eab54fc-f075-4ebe-a20e-37245a36d586",
+        "chatSessionId": "sess_fafc3526-0c8c-4340-bc77-0e59a109369c",
+        "timestamp": 1784866402403
+      },
+      {
+        "executionId": "7eab54fc-f075-4ebe-a20e-37245a36d586",
+        "chatSessionId": "sess_fafc3526-0c8c-4340-bc77-0e59a109369c",
+        "timestamp": 1784866588398
+      }
+    ],
+    "6. 改造 InternalNoteService（注入 IMediator，发布事件）": [
+      {
+        "executionId": "7eab54fc-f075-4ebe-a20e-37245a36d586",
+        "chatSessionId": "sess_fafc3526-0c8c-4340-bc77-0e59a109369c",
+        "timestamp": 1784866588523
+      }
+    ],
+    "7. Checkpoint - 确保后端全链路可用": [
+      {
+        "executionId": "a6df444a-9004-431e-8a11-6e3beba63436",
+        "chatSessionId": "sess_5428f686-2cc6-4227-9dce-261f56bd3ea1",
+        "timestamp": 1784866644431
+      },
+      {
+        "executionId": "a6df444a-9004-431e-8a11-6e3beba63436",
+        "chatSessionId": "sess_5428f686-2cc6-4227-9dce-261f56bd3ea1",
+        "timestamp": 1784866738158
+      }
+    ],
+    "8.1 修改 useInternalNoteUsers hook 的 remoteMethod 逻辑": [
+      {
+        "executionId": "3d9b1352-3e6f-415b-ba4a-7064f2985f5b",
+        "chatSessionId": "sess_2cccf3d6-7a9f-492b-8c96-7097e5570d37",
+        "timestamp": 1784866840699
+      },
+      {
+        "executionId": "3d9b1352-3e6f-415b-ba4a-7064f2985f5b",
+        "chatSessionId": "sess_2cccf3d6-7a9f-492b-8c96-7097e5570d37",
+        "timestamp": 1784867269051
+      }
+    ],
+    "8. 改造前端 useInternalNoteUsers hook 支持外部邮箱": [
+      {
+        "executionId": "3d9b1352-3e6f-415b-ba4a-7064f2985f5b",
+        "chatSessionId": "sess_2cccf3d6-7a9f-492b-8c96-7097e5570d37",
+        "timestamp": 1784867269165
+      }
+    ],
+    "9.1 修改 mention.vue 候选列表和插入逻辑": [
+      {
+        "executionId": "0e69dfdb-efd2-4ec4-b60f-6fe34c54540e",
+        "chatSessionId": "sess_4cf698f8-c7fc-48f4-bb5d-dcd150d4796b",
+        "timestamp": 1784867329556
+      },
+      {
+        "executionId": "0e69dfdb-efd2-4ec4-b60f-6fe34c54540e",
+        "chatSessionId": "sess_4cf698f8-c7fc-48f4-bb5d-dcd150d4796b",
+        "timestamp": 1784867925388
+      }
+    ],
+    "9. 改造 mention.vue 组件支持外部邮箱视觉区分": [
+      {
+        "executionId": "0e69dfdb-efd2-4ec4-b60f-6fe34c54540e",
+        "chatSessionId": "sess_4cf698f8-c7fc-48f4-bb5d-dcd150d4796b",
+        "timestamp": 1784867925496
+      }
+    ],
+    "10.1 修改 InternalNotes.vue 的 renderNoteContent 方法": [
+      {
+        "executionId": "93782a2d-b03a-4742-bd37-3c004d9717bd",
+        "chatSessionId": "sess_ded6f885-cd52-476d-867a-4a65ce58885d",
+        "timestamp": 1784868507075
+      },
+      {
+        "executionId": "93782a2d-b03a-4742-bd37-3c004d9717bd",
+        "chatSessionId": "sess_ded6f885-cd52-476d-867a-4a65ce58885d",
+        "timestamp": 1784868512809
+      },
+      {
+        "executionId": "93782a2d-b03a-4742-bd37-3c004d9717bd",
+        "chatSessionId": "sess_ded6f885-cd52-476d-867a-4a65ce58885d",
+        "timestamp": 1784869385509
+      }
+    ],
+    "11. Final Checkpoint - 确保全部功能集成正确": [
+      {
+        "executionId": "93782a2d-b03a-4742-bd37-3c004d9717bd",
+        "chatSessionId": "sess_ded6f885-cd52-476d-867a-4a65ce58885d",
+        "timestamp": 1784868507170
+      }
+    ],
+    "10. 改造 InternalNotes.vue 渲染 mention 样式": [
+      {
+        "executionId": "93782a2d-b03a-4742-bd37-3c004d9717bd",
+        "chatSessionId": "sess_ded6f885-cd52-476d-867a-4a65ce58885d",
+        "timestamp": 1784869385633
+      }
+    ],
+    "12.1 重构 MentionParser.cs 支持新格式": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872900508
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872957027
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873434954
+      }
+    ],
+    "12.2 重构 InternalNoteMentionHandler.cs 适配新格式": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872900615
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873445624
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873689881
+      }
+    ],
+    "12.3 更新 InternalNoteService.cs 的 MentionedUserIds 填充逻辑": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872900727
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873446839
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873690853
+      }
+    ],
+    "12.4 重构 useInternalNoteUsers.ts 的 options 结构和 mentionUserMap": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872900835
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872958157
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873435984
+      }
+    ],
+    "12.5 重构 mention.vue 的 get/set 逻辑适配新存储格式": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872900927
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873447750
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873691822
+      }
+    ],
+    "12.6 重构 InternalNotes.vue 的 parseNoteContent 适配新格式": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784872901015
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873448909
+      },
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873692470
+      }
+    ],
+    "12. 重构 mention 存储格式（{{mention:type:...}} 结构化标记）": [
+      {
+        "executionId": "c7d215b0-23e0-49e2-8676-5605bad9a94f",
+        "chatSessionId": "sess_fcdf3bc2-c0c4-4d64-8a02-f659c1fc2e94",
+        "timestamp": 1784873692556
+      }
+    ]
+  }
+}
