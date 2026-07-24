@@ -117,24 +117,19 @@ const handleSearch = (pattern: string) => {
 
 // 使用计算属性处理双向绑定
 const formattedValue = computed({
-	// 从存储格式 {{mention:user:email:username:displayName}} / {{mention:email:address}} 转为显示格式 @displayName / @address
+	// 从存储格式转为显示格式
+	// 当前格式：{{mention:user||email||username||displayName}} / {{mention:email||address}}
 	get() {
 		if (!props.modelValue) return '';
 		return props.modelValue.replace(
-			/\{\{mention:(user|email):([^}]+?)\}\}/g,
+			/\{\{mention:(user|email)\|\|([^}]+?)\}\}/g,
 			(_, type, payload) => {
 				if (type === 'user') {
-					// payload = "email:username:displayName"
-					const parts = payload.split(':');
+					const parts = payload.split('||');
 					const displayName =
-						parts.length > 2
-							? parts.slice(2).join(':')
-							: parts.length > 1
-							? parts[1]
-							: payload;
+						parts.length > 2 ? parts[2] : parts.length > 0 ? parts[0] : payload;
 					return `@${displayName}`;
 				} else {
-					// email type: payload is the email address
 					return `@${payload}`;
 				}
 			}
@@ -157,20 +152,52 @@ const formattedValue = computed({
 
 		// Replace known mentions (displayName or username found in map)
 		for (const [name, info] of entries) {
+			if (!name) continue; // Skip empty keys to prevent matching bare "@"
 			const mentionPattern = `@${name}`;
 			if (storageValue.includes(mentionPattern)) {
-				const storageFormat = `{{mention:user:${info.email}:${info.username}:${info.displayName}}}`;
+				// Current format: {{mention:user||email||username||displayName}}
+				const displayName = info.displayName || info.email;
+				const storageFormat = `{{mention:user||${info.email}||${
+					info.username || ''
+				}||${displayName}}}`;
 				storageValue = storageValue.split(mentionPattern).join(storageFormat);
 			}
 		}
 
 		// Handle remaining @patterns that look like emails
-		storageValue = storageValue.replace(/@([^\s@]+@[^\s@]+\.[^\s@]+)/g, (match, email) => {
-			if (emailRegex.test(email)) {
-				return `{{mention:email:${email}}}`;
+		// But skip any @ that's inside an existing {{mention:...}} tag
+		// Strategy: split by mention tags, only process the non-tag parts
+		const mentionTagRegex = /\{\{mention:[^}]+?\}\}/g;
+		const parts: string[] = [];
+		let lastIdx = 0;
+		let tagMatch: RegExpExecArray | null;
+
+		while ((tagMatch = mentionTagRegex.exec(storageValue)) !== null) {
+			// Add the text before this tag (needs email processing)
+			if (tagMatch.index > lastIdx) {
+				parts.push(
+					storageValue
+						.slice(lastIdx, tagMatch.index)
+						.replace(/@([^\s@]+@[^\s@]+\.[^\s@]+)/g, (m, email) =>
+							emailRegex.test(email) ? `{{mention:email||${email}}}` : m
+						)
+				);
 			}
-			return match;
-		});
+			// Add the tag itself as-is (no processing)
+			parts.push(tagMatch[0]);
+			lastIdx = tagMatch.index + tagMatch[0].length;
+		}
+		// Process remaining text after the last tag
+		if (lastIdx < storageValue.length) {
+			parts.push(
+				storageValue
+					.slice(lastIdx)
+					.replace(/@([^\s@]+@[^\s@]+\.[^\s@]+)/g, (m, email) =>
+						emailRegex.test(email) ? `{{mention:email||${email}}}` : m
+					)
+			);
+		}
+		storageValue = parts.join('');
 
 		emit('update:modelValue', storageValue);
 	},
@@ -224,7 +251,7 @@ const handleConfirmExternalEmail = () => {
 		}
 	}
 
-	const mentionTag = `{{mention:email:${email}}}`;
+	const mentionTag = `{{mention:email||${email}}}`;
 	// Trim trailing whitespace before inserting, then add the tag with a space after
 	currentStorage = currentStorage.trimEnd();
 	const newValue = currentStorage ? `${currentStorage} ${mentionTag} ` : `${mentionTag} `;
