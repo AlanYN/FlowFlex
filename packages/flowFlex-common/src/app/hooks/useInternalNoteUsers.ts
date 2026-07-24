@@ -1,45 +1,76 @@
 import { ref, onMounted } from 'vue';
-import { Options } from '#/setting';
 import { useUserStore } from '@/stores/modules/user';
 import { findUserList } from '@/apis/global';
 import { UserType } from '@/enums/permissionEnum';
 
-interface UrlExtension {
-	headUrl?: string;
+export interface MentionOption {
 	value: string;
+	label: string;
+	userId?: string;
 	email?: string;
+	username?: string;
+	isExternal?: boolean;
+	/** @deprecated 使用 userId 替代，保留用于向后兼容 */
+	key?: string;
 }
-
-type PeopleOptions = Options & UrlExtension;
 
 const userStore = useUserStore();
 
 export function useInternalNoteUsers(id: string) {
-	const initAssign = {
-		key: userStore.getUserInfo.userId as string,
-		value: `${
-			userStore.getUserInfo.userName || userStore.getUserInfo.realName || ''
-		}` as string,
-		email: `${userStore.getUserInfo.email ? ` ${userStore.getUserInfo.email}` : ''}`,
-		headUrl: userStore.getUserInfo?.avatarUrl || '',
+	const userInfo = userStore.getUserInfo;
+	const initAssign: MentionOption = {
+		value: userInfo.realName || userInfo.userName || '',
+		label: userInfo.realName || userInfo.userName || '',
+		userId: userInfo.userId as string,
+		username: userInfo.userName || '',
+		key: userInfo.userId as string,
 	};
-	const assignOptions = ref<PeopleOptions[]>([initAssign]);
-	const allAssignOptions = ref<PeopleOptions[]>([initAssign]);
+	const assignOptions = ref<MentionOption[]>([initAssign]);
+	const allAssignOptions = ref<MentionOption[]>([initAssign]);
 	const optionsLoading = ref(false);
+	const mentionUserMap = ref<
+		Map<string, { email: string; username: string; displayName: string }>
+	>(new Map());
 
 	const fetchOptions = async (text?: string) => {
 		optionsLoading.value = true;
 		try {
 			const findUser = await findUserList(id);
 			if (findUser.code === '200') {
-				const data = findUser.data
+				const data: MentionOption[] = findUser.data
 					.filter((item) => item.userType != UserType.SystemAdmin)
 					.map((item) => ({
-						key: item.id,
 						value: item.name,
+						label: item.name,
+						userId: item.id,
 						email: item.email,
+						username: item.username,
+						key: item.id,
 					}));
 				allAssignOptions.value = data;
+				assignOptions.value = data;
+
+				// 填充 mentionUserMap（displayName / username → { email, username, displayName }）
+				const map = new Map<
+					string,
+					{ email: string; username: string; displayName: string }
+				>();
+				findUser.data
+					.filter((item) => item.userType != UserType.SystemAdmin)
+					.forEach((item) => {
+						const info = {
+							email: item.email,
+							username: item.username,
+							displayName: item.name,
+						};
+						// Map by displayName (primary - for set() when el-mention inserts @displayName)
+						map.set(item.name, info);
+						// Also map by username (fallback - for editing old data that might have @username)
+						if (item.username !== item.name) {
+							map.set(item.username, info);
+						}
+					});
+				mentionUserMap.value = map;
 			}
 		} catch (error) {
 			console.error('Error fetching options:', error);
@@ -57,7 +88,15 @@ export function useInternalNoteUsers(id: string) {
 			assignOptions.value = allAssignOptions.value;
 			return;
 		}
-		assignOptions.value = allAssignOptions.value.filter((item) => item.value.includes(text));
+
+		// 过滤匹配的内部用户（按 value/displayName 和 username 匹配）
+		const filtered = allAssignOptions.value.filter(
+			(item) =>
+				item.value.toLowerCase().includes(text.toLowerCase()) ||
+				(item.username && item.username.toLowerCase().includes(text.toLowerCase()))
+		);
+
+		assignOptions.value = filtered;
 	};
 
 	onMounted(() => {
@@ -70,5 +109,6 @@ export function useInternalNoteUsers(id: string) {
 		optionsLoading,
 		remoteMethod,
 		initAssignId,
+		mentionUserMap,
 	};
 }

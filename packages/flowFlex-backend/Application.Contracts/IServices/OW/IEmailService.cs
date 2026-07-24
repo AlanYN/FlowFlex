@@ -92,5 +92,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="caseLink">URL to view case details</param>
         /// <returns>Whether the email was sent successfully</returns>
         Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink);
+
+        /// <summary>
+        /// Send @mention notification email
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="senderName">Person who made the mention</param>
+        /// <param name="caseName">Onboarding case name</param>
+        /// <param name="caseCode">Onboarding case code</param>
+        /// <param name="stageName">Stage name where the note is</param>
+        /// <param name="noteContent">Full note content</param>
+        /// <param name="onboardingUrl">URL to the onboarding detail page</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        Task<bool> SendMentionNotificationAsync(string to, string senderName, string caseName, string caseCode, string stageName, string noteContent, string onboardingUrl);
     }
 }

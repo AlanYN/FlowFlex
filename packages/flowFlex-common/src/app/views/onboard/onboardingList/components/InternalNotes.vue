@@ -372,14 +372,16 @@ interface ContentSegment {
 	content: string;
 }
 
-// 解析内容为片段
+// 解析内容为片段（支持新旧两种 mention 格式）
 const parseNoteContent = (content: string): ContentSegment[] => {
 	const segments: ContentSegment[] = [];
-	const mentionRegex = /(\[~(\S+?)\]|@(\w+(?:\.\w+)*))/g;
+
+	// Combined regex: match new format {{mention:type:payload}} OR legacy format [~value]
+	const combinedRegex = /\{\{mention:(user|email):([^}]+?)\}\}|\[~([^\]]+)\]/g;
 	let lastIndex = 0;
 	let match;
 
-	while ((match = mentionRegex.exec(content)) !== null) {
+	while ((match = combinedRegex.exec(content)) !== null) {
 		// 添加提及前的普通文本
 		if (match.index > lastIndex) {
 			segments.push({
@@ -388,10 +390,29 @@ const parseNoteContent = (content: string): ContentSegment[] => {
 			});
 		}
 
-		// 添加提及内容
+		let displayText: string;
+
+		if (match[1]) {
+			// New format: {{mention:(user|email):payload}}
+			const mentionType = match[1];
+			const payload = match[2];
+
+			if (mentionType === 'user') {
+				// payload = "email:username:displayName"
+				const parts = payload.split(':');
+				displayText = parts.length > 2 ? parts.slice(2).join(':') : payload;
+			} else {
+				// email type
+				displayText = payload;
+			}
+		} else {
+			// Legacy format: [~value]
+			displayText = match[3];
+		}
+
 		segments.push({
 			type: 'mention',
-			content: match[2] || match[3], // [~用户名] 或 @用户名
+			content: displayText,
 		});
 
 		lastIndex = match.index + match[0].length;

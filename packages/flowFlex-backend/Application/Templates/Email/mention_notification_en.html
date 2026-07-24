@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITEM WFE - Mention Notification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; color: #333; line-height: 1.6;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+        <div style="background-color: #7e22ce; color: white; padding: 30px; text-align: center;">
+            <h1 style="font-size: 28px; margin-bottom: 10px; font-weight: 600; color: white;">ITEM WFE</h1>
+            <p style="font-size: 16px; opacity: 0.9; color: white;">Mention Notification</p>
+        </div>
+
+        <div style="padding: 40px 30px;">
+            <p style="font-size: 14px; color: #dc3545; font-style: italic; margin-bottom: 20px;">
+                This is an automated notification. Please do not reply directly to this email.
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                Hi,
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 30px; line-height: 1.8;">
+                <strong>{{senderName}}</strong> mentioned you in an internal note.
+            </p>
+
+            <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 25px; margin-bottom: 30px;">
+                <h3 style="color: #495057; margin-bottom: 20px; font-size: 16px; border-bottom: 2px solid #7e22ce; padding-bottom: 10px;">
+                    Case Details
+                </h3>
+                <div style="padding: 10px 0; border-bottom: 1px solid #e9ecef;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Case Name:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{caseName}}</span>
+                </div>
+                <div style="padding: 10px 0; border-bottom: 1px solid #e9ecef;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Case Code:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{caseCode}}</span>
+                </div>
+                <div style="padding: 10px 0;">
+                    <span style="font-weight: 600; color: #495057; font-size: 14px;">Stage:</span>
+                    <span style="color: #7e22ce; font-weight: 500; font-size: 14px; margin-left: 10px;">{{stageName}}</span>
+                </div>
+            </div>
+
+            <div style="background-color: #fefefe; border: 1px solid #e9ecef; border-left: 4px solid #7e22ce; border-radius: 4px; padding: 20px; margin-bottom: 30px;">
+                <h4 style="color: #495057; margin-bottom: 12px; font-size: 14px;">Note Content:</h4>
+                <div style="color: #2c3e50; font-size: 14px; line-height: 1.8; word-wrap: break-word;">{{{noteContent}}}</div>
+            </div>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-bottom: 10px; line-height: 1.8;">
+                Click the button below to view the case:
+            </p>
+
+            <div style="text-align: center; margin-bottom: 30px;">
+                <a href="{{onboardingUrl}}" style="display: inline-block; background-color: #7e22ce; color: white; padding: 15px 35px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                    View Case
+                </a>
+            </div>
+
+            <p style="font-size: 14px; color: #6c757d; margin-bottom: 10px;">
+                If you have any questions, please contact the person who mentioned you.
+            </p>
+
+            <p style="font-size: 16px; color: #2c3e50; margin-top: 30px;">
+                Best regards,<br>
+                ITEM Workflow System
+            </p>
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-top: 1px solid #e9ecef;">
+            <p style="color: #6c757d; font-size: 12px; margin-bottom: 5px;">Thank you for using ITEM WFE</p>
+            <p style="color: #6c757d; font-size: 12px; margin-bottom: 5px;">For any questions, please contact: <span style="color: #7e22ce; font-weight: 500;">WFESupport@item.com</span></p>
+            <p style="color: #6c757d; font-size: 12px;">&copy; {{year}} ITEM WFE. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
