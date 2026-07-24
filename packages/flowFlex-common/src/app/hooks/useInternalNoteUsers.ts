@@ -38,7 +38,10 @@ export function useInternalNoteUsers(id: string) {
 			const findUser = await findUserList(id);
 			if (findUser.code === '200') {
 				const data: MentionOption[] = findUser.data
-					.filter((item) => item.userType != UserType.SystemAdmin)
+					.filter(
+						(item) =>
+							item.userType != UserType.SystemAdmin && (item.name || item.username)
+					)
 					.map((item) => ({
 						value: item.name,
 						label: item.name,
@@ -56,7 +59,10 @@ export function useInternalNoteUsers(id: string) {
 					{ email: string; username: string; displayName: string }
 				>();
 				findUser.data
-					.filter((item) => item.userType != UserType.SystemAdmin)
+					.filter(
+						(item) =>
+							item.userType != UserType.SystemAdmin && (item.name || item.username)
+					)
 					.forEach((item) => {
 						const info = {
 							email: item.email,
@@ -64,9 +70,11 @@ export function useInternalNoteUsers(id: string) {
 							displayName: item.name,
 						};
 						// Map by displayName (primary - for set() when el-mention inserts @displayName)
-						map.set(item.name, info);
+						if (item.name) {
+							map.set(item.name, info);
+						}
 						// Also map by username (fallback - for editing old data that might have @username)
-						if (item.username !== item.name) {
+						if (item.username && item.username !== item.name) {
 							map.set(item.username, info);
 						}
 					});

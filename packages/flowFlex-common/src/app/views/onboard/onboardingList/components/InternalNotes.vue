@@ -372,12 +372,12 @@ interface ContentSegment {
 	content: string;
 }
 
-// 解析内容为片段（支持新旧两种 mention 格式）
+// 解析内容为片段（支持当前格式和旧 [~] 格式）
 const parseNoteContent = (content: string): ContentSegment[] => {
 	const segments: ContentSegment[] = [];
 
-	// Combined regex: match new format {{mention:type:payload}} OR legacy format [~value]
-	const combinedRegex = /\{\{mention:(user|email):([^}]+?)\}\}|\[~([^\]]+)\]/g;
+	// Combined regex: match current format {{mention:type||payload}} OR legacy format [~value]
+	const combinedRegex = /\{\{mention:(user|email)\|\|([^}]+?)\}\}|\[~([^\]]+)\]/g;
 	let lastIndex = 0;
 	let match;
 
@@ -393,16 +393,14 @@ const parseNoteContent = (content: string): ContentSegment[] => {
 		let displayText: string;
 
 		if (match[1]) {
-			// New format: {{mention:(user|email):payload}}
+			// Current format: {{mention:(user|email)||payload}}
 			const mentionType = match[1];
 			const payload = match[2];
 
 			if (mentionType === 'user') {
-				// payload = "email:username:displayName"
-				const parts = payload.split(':');
-				displayText = parts.length > 2 ? parts.slice(2).join(':') : payload;
+				const parts = payload.split('||');
+				displayText = parts.length > 2 ? parts[2] : parts[0] || payload;
 			} else {
-				// email type
 				displayText = payload;
 			}
 		} else {
