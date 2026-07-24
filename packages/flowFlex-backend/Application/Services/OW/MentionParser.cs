@@ -7,11 +7,13 @@ namespace FlowFlex.Application.Services.OW;
 /// <summary>
 /// 静态工具类，从 Internal Note content 中解析 @mention 标记
 /// 支持格式：{{mention:user:email:username:displayName}} 和 {{mention:email:address}}
+/// 向后兼容旧格式：[~username] 或 [~email@domain.com]
 /// </summary>
 public static partial class MentionParser
 {
     /// <summary>
     /// 从 content 中提取所有 mention 标记，自动去重
+    /// 同时支持新旧两种格式
     /// </summary>
     /// <param name="content">备注内容</param>
     /// <returns>去重后的 MentionInfo 列表</returns>
@@ -22,39 +24,58 @@ public static partial class MentionParser
             return [];
         }
 
-        var matches = MentionRegex().Matches(content);
+        var results = new List<MentionInfo>();
 
-        return matches
-            .Select(m =>
+        // 1. Parse new format: {{mention:user:...}} and {{mention:email:...}}
+        var newMatches = MentionRegex().Matches(content);
+        foreach (Match m in newMatches)
+        {
+            var mentionType = m.Groups[1].Value;
+            var payload = m.Groups[2].Value;
+
+            if (mentionType == "user")
             {
-                var mentionType = m.Groups[1].Value; // "user" or "email"
-                var payload = m.Groups[2].Value;     // rest of the content
+                var parts = payload.Split(':', 3);
+                results.Add(new MentionInfo
+                {
+                    MentionType = "user",
+                    Email = parts.Length > 0 ? parts[0] : string.Empty,
+                    Username = parts.Length > 1 ? parts[1] : string.Empty,
+                    Value = parts.Length > 2 ? parts[2] : string.Empty
+                });
+            }
+            else
+            {
+                results.Add(new MentionInfo
+                {
+                    MentionType = "email",
+                    Email = payload,
+                    Username = string.Empty,
+                    Value = payload
+                });
+            }
+        }
 
-                if (mentionType == "user")
+        // 2. Parse legacy format: [~value] (only if no new format matches found, to avoid double-parsing)
+        if (results.Count == 0)
+        {
+            var legacyMatches = LegacyMentionRegex().Matches(content);
+            foreach (Match m in legacyMatches)
+            {
+                var value = m.Groups[1].Value;
+                var isEmail = EmailCheckRegex().IsMatch(value);
+
+                results.Add(new MentionInfo
                 {
-                    // payload format: email:username:displayName
-                    // Split on first two colons to get email, username, displayName
-                    var parts = payload.Split(':', 3);
-                    return new MentionInfo
-                    {
-                        MentionType = "user",
-                        Email = parts.Length > 0 ? parts[0] : string.Empty,
-                        Username = parts.Length > 1 ? parts[1] : string.Empty,
-                        Value = parts.Length > 2 ? parts[2] : string.Empty
-                    };
-                }
-                else
-                {
-                    // email type: payload is the email address
-                    return new MentionInfo
-                    {
-                        MentionType = "email",
-                        Email = payload,
-                        Username = string.Empty,
-                        Value = payload
-                    };
-                }
-            })
+                    MentionType = isEmail ? "email" : "user",
+                    Email = isEmail ? value : string.Empty,
+                    Username = isEmail ? string.Empty : value,
+                    Value = value
+                });
+            }
+        }
+
+        return results
             .GroupBy(m => m.Key)
             .Select(g => g.First())
             .ToList();
@@ -63,9 +84,6 @@ public static partial class MentionParser
     /// <summary>
     /// 计算新增的 mentions（current - previous），用于编辑场景的增量通知
     /// </summary>
-    /// <param name="currentMentions">当前内容解析出的 mentions</param>
-    /// <param name="previousMentions">之前内容解析出的 mentions</param>
-    /// <returns>新增的 MentionInfo 列表</returns>
     public static List<MentionInfo> GetNewMentions(
         List<MentionInfo> currentMentions,
         List<MentionInfo> previousMentions)
@@ -89,11 +107,10 @@ public static partial class MentionParser
 
     /// <summary>
     /// 将 content 中的 mention 标记转为可读显示文本
-    /// {{mention:user:email:username:displayName}} → @displayName
-    /// {{mention:email:address}} → @address
+    /// 新格式：{{mention:user:email:username:displayName}} → @displayName
+    /// 新格式：{{mention:email:address}} → @address
+    /// 旧格式：[~value] → @value
     /// </summary>
-    /// <param name="content">包含 mention 标记的原始内容</param>
-    /// <returns>mention 标记被替换为可读文本的内容</returns>
     public static string RenderForDisplay(string? content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -101,28 +118,41 @@ public static partial class MentionParser
             return string.Empty;
         }
 
-        return MentionRegex().Replace(content, m =>
+        // Replace new format
+        var result = MentionRegex().Replace(content, m =>
         {
             var mentionType = m.Groups[1].Value;
             var payload = m.Groups[2].Value;
 
             if (mentionType == "user")
             {
-                // payload = "email:username:displayName"
                 var parts = payload.Split(':', 3);
                 var displayName = parts.Length > 2 ? parts[2] : (parts.Length > 1 ? parts[1] : payload);
                 return $"@{displayName}";
             }
             else
             {
-                // email type: payload is the email address
                 return $"@{payload}";
             }
         });
+
+        // Replace legacy format
+        result = LegacyMentionRegex().Replace(result, m => $"@{m.Groups[1].Value}");
+
+        return result;
     }
 
+    /// <summary>New format regex: {{mention:(user|email):payload}}</summary>
     [GeneratedRegex(@"\{\{mention:(user|email):([^}]+?)\}\}")]
     private static partial Regex MentionRegex();
+
+    /// <summary>Legacy format regex: [~value]</summary>
+    [GeneratedRegex(@"\[~([^\]]+)\]")]
+    private static partial Regex LegacyMentionRegex();
+
+    /// <summary>Email check regex</summary>
+    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    private static partial Regex EmailCheckRegex();
 }
 
 /// <summary>
@@ -146,5 +176,7 @@ public class MentionInfo
     public bool IsExternal => MentionType == "email";
 
     /// <summary>唯一标识（用于去重比较）：统一用邮箱小写</summary>
-    public string Key => Email.ToLowerInvariant();
+    public string Key => !string.IsNullOrEmpty(Email)
+        ? Email.ToLowerInvariant()
+        : Value.ToLowerInvariant();
 }

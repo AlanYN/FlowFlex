@@ -106,11 +106,21 @@ namespace FlowFlex.Domain.Repository.OW
         Task<Dictionary<string, object>> GetNoteStatisticsAsync(long? onboardingId = null, int days = 30);
 
         /// <summary>
-        /// Get notes that mention specified user
+        /// Get notes that mention specified user (deprecated: MentionedUserIds now stores emails, not user IDs)
+        /// Use GetMentionedNotesAsync(string email, int days) instead.
         /// </summary>
         /// <param name="userId">User ID</param>
         /// <param name="days">Recent days</param>
         /// <returns>Note list</returns>
+        [Obsolete("MentionedUserIds now stores emails. Use the email-based overload instead.")]
         Task<List<InternalNote>> GetMentionedNotesAsync(long userId, int days = 30);
+
+        /// <summary>
+        /// Get notes that mention specified user by email
+        /// </summary>
+        /// <param name="email">User email address</param>
+        /// <param name="days">Recent days</param>
+        /// <returns>Note list</returns>
+        Task<List<InternalNote>> GetMentionedNotesAsync(string email, int days = 30);
     }
 }

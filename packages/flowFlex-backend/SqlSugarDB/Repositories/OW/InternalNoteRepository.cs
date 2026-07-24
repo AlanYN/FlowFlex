@@ -357,14 +357,33 @@ public class InternalNoteRepository : BaseRepository<InternalNote>, IInternalNot
     }
 
     /// <summary>
-    /// Get mentioned notes
+    /// Get mentioned notes (deprecated: MentionedUserIds now stores emails, not user IDs)
+    /// Use GetMentionedNotesAsync(string email, int days) instead.
     /// </summary>
+    [Obsolete("MentionedUserIds now stores emails. Use the email-based overload instead.")]
     public async Task<List<InternalNote>> GetMentionedNotesAsync(long userId, int days = 30)
     {
         var startDate = DateTimeOffset.UtcNow.AddDays(-days);
         return await db.Queryable<InternalNote>()
             .Where(x => x.CreateDate >= startDate && x.IsValid &&
                        x.MentionedUserIds.Contains(userId.ToString()))
+            .OrderByDescending(x => x.CreateDate)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get mentioned notes by email
+    /// </summary>
+    public async Task<List<InternalNote>> GetMentionedNotesAsync(string email, int days = 30)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return [];
+
+        var startDate = DateTimeOffset.UtcNow.AddDays(-days);
+        var searchEmail = email.ToLowerInvariant();
+
+        return await db.Queryable<InternalNote>()
+            .Where(x => x.CreateDate >= startDate && x.IsValid &&
+                       x.MentionedUserIds.Contains(searchEmail))
             .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
