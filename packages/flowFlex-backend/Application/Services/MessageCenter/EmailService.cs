@@ -321,6 +321,38 @@ namespace FlowFlex.Application.Services.MessageCenter
         }
 
         /// <summary>
+        /// Send @mention notification email
+        /// </summary>
+        public async Task<bool> SendMentionNotificationAsync(string to, string senderName, string caseName, string caseCode, string stageName, string noteContent, string onboardingUrl)
+        {
+            try
+            {
+                var subject = $"[FlowFlex] {senderName} mentioned you in {caseName}";
+                var fullUrl = $"{GetRequestOrigin()}{onboardingUrl}";
+                var safeNoteContent = WebUtility.HtmlEncode(noteContent ?? string.Empty)
+                    .Replace("\n", "<br>");
+
+                var body = _templateService.Render("mention_notification_en", new Dictionary<string, object>
+                {
+                    ["senderName"] = senderName ?? string.Empty,
+                    ["caseCode"] = caseCode ?? string.Empty,
+                    ["caseName"] = caseName ?? string.Empty,
+                    ["stageName"] = stageName ?? string.Empty,
+                    ["noteContent"] = safeNoteContent,
+                    ["onboardingUrl"] = fullUrl,
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
+
+                return await SendEmailAsync(to, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send mention notification email: {Message}", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Send email
         /// </summary>
         /// <param name="to">Recipient email address</param>
