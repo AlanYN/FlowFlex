@@ -375,7 +375,7 @@ interface ContentSegment {
 // 解析内容为片段
 const parseNoteContent = (content: string): ContentSegment[] => {
 	const segments: ContentSegment[] = [];
-	const mentionRegex = /(\[~(\S+?)\]|@(\w+(?:\.\w+)*))/g;
+	const mentionRegex = /\{\{mention:(user|email):([^}]+?)\}\}/g;
 	let lastIndex = 0;
 	let match;
 
@@ -388,10 +388,22 @@ const parseNoteContent = (content: string): ContentSegment[] => {
 			});
 		}
 
-		// 添加提及内容
+		const mentionType = match[1]; // "user" or "email"
+		const payload = match[2];
+
+		let displayText: string;
+		if (mentionType === 'user') {
+			// payload = "email:username:displayName"
+			const parts = payload.split(':');
+			displayText = parts.length > 2 ? parts.slice(2).join(':') : payload;
+		} else {
+			// email type: payload is email address
+			displayText = payload;
+		}
+
 		segments.push({
 			type: 'mention',
-			content: match[2] || match[3], // [~用户名] 或 @用户名
+			content: displayText,
 		});
 
 		lastIndex = match.index + match[0].length;
