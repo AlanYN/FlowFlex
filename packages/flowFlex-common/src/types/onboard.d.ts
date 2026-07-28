@@ -217,6 +217,9 @@ export type StageComponentData = {
 	questionnaireNames?: string[];
 	files?: string[];
 	customerPortalAccess?: number;
+	title?: string;
+	description?: string;
+	isRequired?: boolean;
 };
 
 export interface ComponentsData {
@@ -241,6 +244,8 @@ export interface SelectedItem {
 	order: number;
 	key: string;
 	customerPortalAccess?: number;
+	title?: string;
+	isRequired?: boolean;
 }
 
 export interface FieldTag {

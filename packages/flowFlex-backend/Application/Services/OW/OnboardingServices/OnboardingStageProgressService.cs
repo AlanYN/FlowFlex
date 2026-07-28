@@ -113,7 +113,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
                         Required = stage.Required,
                         ComponentsJson = stage.ComponentsJson,
-                        Components = stage.Components
+                        Components = ParseStageComponents(stage.ComponentsJson)
                     };
 
                     entity.StagesProgress.Add(stageProgress);
@@ -442,7 +442,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         stageProgress.Required = stage.Required;
                         stageProgress.Color = stage.Color;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
-                        stageProgress.Components = stage.Components;
+                        stageProgress.Components = ParseStageComponents(stage.ComponentsJson);
                     }
                 }
 
@@ -1389,6 +1389,31 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         // - OnboardingSharedUtilities.NormalizeToStartOfDay(dateTime)
         // - OnboardingSharedUtilities.NormalizeEstimatedDays(days)
         // - OnboardingSharedUtilities.GetNormalizedUtcNowOffset()
+
+        /// <summary>
+        /// Parse ComponentsJson string into a list of StageComponent objects
+        /// </summary>
+        private static List<StageComponent> ParseStageComponents(string? componentsJson)
+        {
+            if (string.IsNullOrWhiteSpace(componentsJson))
+            {
+                return new List<StageComponent>();
+            }
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                return JsonSerializer.Deserialize<List<StageComponent>>(componentsJson, options)
+                       ?? new List<StageComponent>();
+            }
+            catch
+            {
+                return new List<StageComponent>();
+            }
+        }
 
         /// <summary>
         /// Get current user name from OperatorContextService

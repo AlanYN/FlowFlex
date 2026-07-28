@@ -72,5 +72,20 @@ namespace FlowFlex.Domain.Shared.Models
         /// Defines how this component is visible and accessible in the customer portal
         /// </summary>
         public PortalPermissionEnum CustomerPortalAccess { get; set; } = PortalPermissionEnum.Viewable;
+
+        /// <summary>
+        /// Custom display title for the component (nullable, defaults handled by frontend)
+        /// </summary>
+        public string? Title { get; set; }
+
+        /// <summary>
+        /// Custom description text for the component (nullable)
+        /// </summary>
+        public string? Description { get; set; }
+
+        /// <summary>
+        /// Whether this component is required (defaults to false if not set)
+        /// </summary>
+        public bool IsRequired { get; set; }
     }
 }

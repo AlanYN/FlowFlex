@@ -427,6 +427,16 @@
 												{{ getItemTypeLabel(element.type) }}
 											</el-tag>
 											<el-button
+												v-if="element.type === 'files'"
+												size="small"
+												type="primary"
+												link
+												@click="toggleFileConfig(element.id)"
+												title="Edit file settings"
+											>
+												<el-icon class="text-sm"><EditPen /></el-icon>
+											</el-button>
+											<el-button
 												size="small"
 												type="danger"
 												link
@@ -470,6 +480,37 @@
 											</template>
 										</el-dropdown>
 									</div>
+									<div
+										v-if="element.type === 'files' && expandedFileConfigs.has(element.id)"
+										class="border-t p-3 space-y-3"
+									>
+										<div class="space-y-1">
+											<label class="text-xs font-medium">Title</label>
+											<el-input
+												v-model="element.title"
+												placeholder="File Attachments"
+												size="small"
+												@change="handleFileComponentConfigChange(element)"
+											/>
+										</div>
+										<div class="space-y-1">
+											<label class="text-xs font-medium">Description</label>
+											<el-input
+												v-model="element.description"
+												placeholder="Upload and manage files in this stage"
+												size="small"
+												@change="handleFileComponentConfigChange(element)"
+											/>
+										</div>
+										<div class="flex items-center justify-between">
+											<label class="text-xs font-medium">Required</label>
+											<el-switch
+												v-model="element.isRequired"
+												size="small"
+												@change="handleFileComponentConfigChange(element)"
+											/>
+										</div>
+									</div>
 								</div>
 							</template>
 						</draggable>
@@ -498,6 +539,7 @@ import {
 	FolderOpened,
 	ArrowDown,
 	Link,
+	EditPen,
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
@@ -541,6 +583,17 @@ const searchQuery = ref('');
 const checklistSearchQuery = ref('');
 const questionnaireSearchQuery = ref('');
 const selectedItems = ref<SelectedItem[]>([]);
+
+// Track which file component items have their config expanded
+const expandedFileConfigs = ref<Set<string>>(new Set());
+
+const toggleFileConfig = (elementId: string) => {
+	if (expandedFileConfigs.value.has(elementId)) {
+		expandedFileConfigs.value.delete(elementId);
+	} else {
+		expandedFileConfigs.value.add(elementId);
+	}
+};
 
 // 选中的字段列表（用于拖动排序）- 使用 computed
 interface SelectedFieldItem {
@@ -944,6 +997,17 @@ const updateAttachmentManagementNeeded = (needed: boolean) => {
 	emit('update:modelValue', newModelValue);
 };
 
+// 处理文件组件配置变更（title, description, isRequired）
+const handleFileComponentConfigChange = (element: SelectedItem) => {
+	const fileComponent = getFileComponent();
+	updateComponent('files', {
+		...fileComponent,
+		title: element.title,
+		description: element.description,
+		isRequired: element.isRequired,
+	});
+};
+
 // 获取元素的 Portal Access 标签
 const getElementPortalAccessLabel = (element: SelectedItem): string => {
 	const availableOptions = getAvailablePortalOptions.value;
@@ -1131,11 +1195,13 @@ const updateItemsDisplay = () => {
 					newSelectedItems.push({
 						...component,
 						id: component.key,
-						name: 'File Attachments',
-						description: 'Upload and manage files in this stage',
+						name: component.title || 'File Attachments',
+						description: component.description || 'Upload and manage files in this stage',
 						type: 'files',
 						order: component.order,
 						key: component.key,
+						title: component.title,
+						isRequired: component.isRequired,
 						customerPortalAccess: getValidPortalAccess(component?.customerPortalAccess),
 					});
 					break;
@@ -1245,6 +1311,9 @@ const updateItemOrder = () => {
 			newComponents.push({
 				...existingFileComponent,
 				order,
+				title: item.title,
+				description: item.description,
+				isRequired: item.isRequired,
 				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'quickLink') {
