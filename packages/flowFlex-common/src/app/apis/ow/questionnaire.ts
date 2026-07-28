@@ -19,6 +19,7 @@ const Api = (id?: string | number) => {
 		questionnaireArchive: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/${id}/archive`,
 
 		questionFileUpload: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/questions/upload-file`,
+		questionFilePreview: `${globSetting.apiProName}/ow/questionnaires/${globSetting.apiVersion}/questions/files`,
 	};
 };
 
@@ -357,4 +358,13 @@ export function uploadQuestionFile(
 		},
 		params
 	);
+}
+
+export function previewQuestionFile(fileUrl: string) {
+	return defHttp.get({
+		url: `${Api().questionFilePreview}/preview`,
+		responseType: 'blob',
+		timeout: 60 * 1000,
+		params: { fileUrl },
+	});
 }

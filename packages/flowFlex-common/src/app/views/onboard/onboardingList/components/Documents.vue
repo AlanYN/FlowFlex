@@ -16,10 +16,11 @@
 							<ArrowRight />
 						</el-icon>
 						<h3 class="case-component-title">
-							Documents
-							<span v-if="documentIsRequired" class="text-red-300 ml-1">*</span>
+							{{ component.title || 'Documents' }}
+							<span v-if="component.isRequired || documentIsRequired" class="text-red-300 ml-1">*</span>
 						</h3>
 					</div>
+					<p v-if="component.description" class="text-xs text-gray-400 mt-1">{{ component.description }}</p>
 					<div class="case-component-subtitle">
 						{{ documents.length }}
 						{{ documents.length === 1 ? 'file' : 'files' }} uploaded
@@ -644,7 +645,7 @@ const handleDeleteDocument = async (documentId: string) => {
 
 const vailComponent = () => {
 	try {
-		if (props?.documentIsRequired && documents?.value?.length <= 0) {
+		if ((props?.documentIsRequired || props.component?.isRequired) && documents?.value?.length <= 0) {
 			ElMessage.warning('Please upload at least one document');
 			return false;
 		}

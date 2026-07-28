@@ -650,6 +650,23 @@
 										)
 									}}
 								</span>
+								<!-- Preview/Download buttons -->
+								<div v-if="file.accessUrl || file.fullAccessUrl" class="flex items-center ml-2 gap-1">
+									<el-button
+										:icon="View"
+										link
+										size="small"
+										@click="handlePreviewFile(file)"
+										title="Preview"
+									/>
+									<el-button
+										:icon="Download"
+										link
+										size="small"
+										@click="handleDownloadFile(file)"
+										title="Download"
+									/>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -963,14 +980,24 @@
 				</el-empty>
 			</div>
 		</div>
+
+		<!-- 文件预览组件 -->
+		<vuePreviewFile
+			:fileUrl="previewFileUrl"
+			:type="previewFileType"
+			:isShow="previewFileShow"
+			:offloading="offloading"
+			@close-office="closePreview"
+			@rendered-office="offloading = false"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
-import { Upload, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
+import { Upload, Warning, ArrowLeft, ArrowRight, Document, View, Download } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
-import { ElMessageBox } from 'element-plus';
+import { ElMessageBox, ElMessage } from 'element-plus';
 import {
 	QuestionnaireAnswer,
 	QuestionnaireData,
@@ -987,8 +1014,10 @@ import {
 	projectTenMinutesSsecondsDate,
 } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
-import { uploadQuestionFile } from '@/apis/ow/questionnaire';
+import { uploadQuestionFile, previewQuestionFile } from '@/apis/ow/questionnaire';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
+import vuePreviewFile from '@/components/previewFile/previewFile.vue';
+import { getMimeType } from '@/utils/format';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -1019,6 +1048,12 @@ const formData = ref<Record<string, any>>({});
 const sectionGroups = ref<Record<string, Record<string, any>[]>>({});
 const dynamicFormRootRef = ref<HTMLElement>();
 const currentSectionIndex = ref(0);
+
+// 文件预览/下载相关状态
+const previewFileUrl = ref('');
+const previewFileType = ref('');
+const previewFileShow = ref(false);
+const offloading = ref(false);
 
 // 内部维护被跳过的问题集合（用于响应式更新）
 const internalSkippedQuestions = ref<Set<string>>(new Set());
@@ -2383,6 +2418,58 @@ const isQuestionSkipped = (question: any): boolean => {
 
 const questionIsDisabled = (questionId: string): boolean => {
 	return props.disabled || !!internalSkippedQuestions.value.has(questionId);
+};
+
+// 预览文件
+const handlePreviewFile = async (file: any) => {
+	const url = file.fullAccessUrl || file.accessUrl;
+	if (!url) return;
+	try {
+		const fileExt = file.name?.split('.').pop()?.toLowerCase() || '';
+		previewFileType.value = fileExt;
+		offloading.value = true;
+
+		// doc、msg、eml文件不支持预览，直接下载
+		if (fileExt === 'doc' || fileExt === 'msg' || fileExt === 'eml') {
+			handleDownloadFile(file);
+			previewFileShow.value = false;
+			return;
+		}
+
+		// Use backend proxy to avoid CORS issues with OSS direct access
+		const res = await previewQuestionFile(url);
+		const mimeType = getMimeType(fileExt);
+		const blob = new Blob([res], { type: mimeType });
+		previewFileUrl.value = URL.createObjectURL(blob);
+		previewFileShow.value = true;
+	} catch (error) {
+		ElMessage.error('Failed to preview file');
+	} finally {
+		offloading.value = false;
+	}
+};
+
+// 下载文件
+const handleDownloadFile = (file: any) => {
+	const url = file.fullAccessUrl || file.accessUrl;
+	if (!url) return;
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = file.name || 'download';
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+};
+
+// 关闭文件预览
+const closePreview = () => {
+	previewFileShow.value = false;
+	offloading.value = false;
+	if (previewFileUrl.value) {
+		URL.revokeObjectURL(previewFileUrl.value);
+	}
+	previewFileUrl.value = '';
+	previewFileType.value = '';
 };
 
 const Submit = () => {

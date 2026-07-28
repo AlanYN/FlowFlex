@@ -596,6 +596,7 @@ import {
 	getWorkflowList,
 	updateWorkflow as updateWorkflowApi,
 	activateWorkflow as activateWorkflowApi,
+	deactivateWorkflow as deactivateWorkflowApi,
 	duplicateWorkflow as duplicateWorkflowApi,
 	createStage,
 	getStagesByWorkflow,
@@ -1422,13 +1423,7 @@ const deactivateWorkflow = async (targetWorkflow?: any) => {
 
 					try {
 						// 调用停用工作流API
-						const params = {
-							...workflowToDeactivate,
-							status: 'inactive',
-							isDefault: false,
-							stages: null,
-						};
-						const res = await updateWorkflowApi(workflowToDeactivate.id, params);
+						const res = await deactivateWorkflowApi(workflowToDeactivate.id);
 
 						if (res.code === '200') {
 							ElMessage.success(t('sys.api.operationSuccess'));

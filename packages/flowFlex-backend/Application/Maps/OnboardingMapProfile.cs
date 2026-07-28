@@ -57,7 +57,10 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => 
+                    src.Components != null && src.Components.Any() 
+                        ? src.Components 
+                        : ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime))
                 // EstimatedDays priority: CustomEstimatedDays > EstimatedDays (from Stage)
                 .ForMember(dest => dest.EstimatedDays, opt => opt.MapFrom(src => src.CustomEstimatedDays ?? src.EstimatedDays))
@@ -135,6 +138,9 @@ namespace FlowFlex.Application.Maps
                         Order = element.TryGetProperty("Order", out var orderProp) ? orderProp.GetInt32() : 0,
                         IsEnabled = element.TryGetProperty("IsEnabled", out var enabledProp) ? enabledProp.GetBoolean() : true,
                         Configuration = element.TryGetProperty("Configuration", out var configProp) && configProp.ValueKind != JsonValueKind.Null ? configProp.GetString() : null,
+                        Title = element.TryGetProperty("Title", out var titleProp) && titleProp.ValueKind != JsonValueKind.Null ? titleProp.GetString() : null,
+                        Description = element.TryGetProperty("Description", out var descProp) && descProp.ValueKind != JsonValueKind.Null ? descProp.GetString() : null,
+                        IsRequired = element.TryGetProperty("IsRequired", out var isRequiredProp) && isRequiredProp.ValueKind == JsonValueKind.True,
                         ChecklistIds = new List<long>(),
                         QuestionnaireIds = new List<long>(),
                         ChecklistNames = new List<string>(),
