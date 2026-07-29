@@ -1,0 +1,197 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 修改前端 TypeScript 类型定义": [
+      {
+        "executionId": "5bd2a80c-71b9-4231-941b-1923e52cff88",
+        "chatSessionId": "sess_4ffbc3b7-610f-47a6-9f93-3786ff6ce3d7",
+        "timestamp": 1785226749650
+      },
+      {
+        "executionId": "5bd2a80c-71b9-4231-941b-1923e52cff88",
+        "chatSessionId": "sess_4ffbc3b7-610f-47a6-9f93-3786ff6ce3d7",
+        "timestamp": 1785227231258
+      }
+    ],
+    "1.2 修改后端 StageComponent.cs Model": [
+      {
+        "executionId": "5bd2a80c-71b9-4231-941b-1923e52cff88",
+        "chatSessionId": "sess_4ffbc3b7-610f-47a6-9f93-3786ff6ce3d7",
+        "timestamp": 1785226750581
+      },
+      {
+        "executionId": "5bd2a80c-71b9-4231-941b-1923e52cff88",
+        "chatSessionId": "sess_4ffbc3b7-610f-47a6-9f93-3786ff6ce3d7",
+        "timestamp": 1785227231835
+      }
+    ],
+    "1. 扩展类型定义和后端 Model": [
+      {
+        "executionId": "5bd2a80c-71b9-4231-941b-1923e52cff88",
+        "chatSessionId": "sess_4ffbc3b7-610f-47a6-9f93-3786ff6ce3d7",
+        "timestamp": 1785227231863
+      }
+    ],
+    "2.1 导入预览组件和图标依赖": [
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785227431008
+      },
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785228750552
+      }
+    ],
+    "2.2 添加预览/下载所需的响应式状态和方法": [
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785228778850
+      },
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785230042646
+      }
+    ],
+    "2.3 在文件列表中添加预览/下载按钮模板": [
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785230061051
+      },
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785230710730
+      }
+    ],
+    "2. dynamicForm.vue 文件预览/下载按钮": [
+      {
+        "executionId": "58d2c869-5466-4864-bbe4-2eb3c297eace",
+        "chatSessionId": "sess_1266bb45-32e4-4882-b12f-c9a8eabadc9d",
+        "timestamp": 1785230710797
+      }
+    ],
+    "3. Checkpoint - 确认预览/下载功能": [
+      {
+        "executionId": "3f9aad11-59b1-46b2-b26e-a2fc63960089",
+        "chatSessionId": "sess_35eca1c9-0264-46e8-85ca-5cc51e8485dd",
+        "timestamp": 1785231023098
+      },
+      {
+        "executionId": "3f9aad11-59b1-46b2-b26e-a2fc63960089",
+        "chatSessionId": "sess_35eca1c9-0264-46e8-85ca-5cc51e8485dd",
+        "timestamp": 1785231087600
+      }
+    ],
+    "4.1 修改 Selected Items 面板中 files 组件的显示名称": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231353990
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231371587
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231466454
+      }
+    ],
+    "4.2 添加 files 类型的 Title/Description/Required 编辑区域": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231354073
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231475039
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785232569764
+      }
+    ],
+    "4.3 实现配置变更处理方法": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231354119
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785232577574
+      },
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785232775909
+      }
+    ],
+    "5.1 修改 Documents 组件标题和描述展示": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231354167
+      },
+      {
+        "executionId": "fce118a8-3084-4b38-977f-c0b7abbd98ab",
+        "chatSessionId": "sess_b3039bd3-91a5-44dd-97ec-e6a48c7cb81a",
+        "timestamp": 1785232898713
+      },
+      {
+        "executionId": "fce118a8-3084-4b38-977f-c0b7abbd98ab",
+        "chatSessionId": "sess_b3039bd3-91a5-44dd-97ec-e6a48c7cb81a",
+        "timestamp": 1785233109076
+      }
+    ],
+    "5.2 修改验证方法支持配置化 Required": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231354219
+      },
+      {
+        "executionId": "fce118a8-3084-4b38-977f-c0b7abbd98ab",
+        "chatSessionId": "sess_b3039bd3-91a5-44dd-97ec-e6a48c7cb81a",
+        "timestamp": 1785233117226
+      },
+      {
+        "executionId": "fce118a8-3084-4b38-977f-c0b7abbd98ab",
+        "chatSessionId": "sess_b3039bd3-91a5-44dd-97ec-e6a48c7cb81a",
+        "timestamp": 1785233202476
+      }
+    ],
+    "6. Checkpoint - 端到端验证和边界情况": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785231354267
+      }
+    ],
+    "4. StageComponentsSelector.vue 配置 UI": [
+      {
+        "executionId": "68668c58-c504-40f7-90f9-8d970a7db56b",
+        "chatSessionId": "sess_120fe0ae-7a70-418f-8894-50ae06dfdd12",
+        "timestamp": 1785232775992
+      }
+    ],
+    "5. Documents.vue 动态展示配置": [
+      {
+        "executionId": "fce118a8-3084-4b38-977f-c0b7abbd98ab",
+        "chatSessionId": "sess_b3039bd3-91a5-44dd-97ec-e6a48c7cb81a",
+        "timestamp": 1785233202526
+      }
+    ]
+  }
+}
