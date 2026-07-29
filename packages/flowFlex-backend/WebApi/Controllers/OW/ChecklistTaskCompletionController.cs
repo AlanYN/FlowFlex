@@ -15,13 +15,14 @@ using WebApi.Authorization;
 namespace FlowFlex.WebApi.Controllers.OW;
 
 /// <summary>
-/// Checklist Task Completion Controller
+/// Checklist Task Completion Controller - Manages the completion status of checklist tasks within onboarding cases.
+/// Tracks which tasks are completed per onboarding, supports file attachments for evidence, and provides completion statistics.
 /// </summary>
 [ApiController]
 [PortalAccess] // Allow Portal token access - Portal users can complete checklist tasks
 [Route("ow/checklist-task-completions/v{version:apiVersion}")]
 [Display(Name = "checklist-task-completion")]
-[Authorize] // 添加授权特性，要求所有checklist task completion API都需要认证
+[Authorize] // Require authentication for all checklist task completion APIs
 public class ChecklistTaskCompletionController : Controllers.ControllerBase
 {
     private readonly IChecklistTaskCompletionService _completionService;
@@ -63,8 +64,10 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Save task completion
+    /// Save or update a single task completion record (upsert by onboardingId + taskId)
     /// </summary>
+    /// <param name="input">Task completion data including onboardingId, taskId, isCompleted, completionNotes</param>
+    /// <returns>Whether save was successful</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SaveTaskCompletion([FromBody] ChecklistTaskCompletionInputDto input)
@@ -74,8 +77,10 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Batch save task completions
+    /// Batch save multiple task completion records at once
     /// </summary>
+    /// <param name="inputs">List of task completion records to save</param>
+    /// <returns>Whether all saves were successful</returns>
     [HttpPost("batch")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> BatchSaveTaskCompletions([FromBody] List<ChecklistTaskCompletionInputDto> inputs)
@@ -85,8 +90,11 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get task completions by lead and checklist
+    /// Get task completion records filtered by lead ID and checklist ID
     /// </summary>
+    /// <param name="leadId">Lead identifier (external system reference)</param>
+    /// <param name="checklistId">Checklist ID</param>
+    /// <returns>List of task completion records</returns>
     [HttpGet("lead/{leadId}/checklist/{checklistId}")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskCompletionOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetByLeadAndChecklist(string leadId, long checklistId)
@@ -96,8 +104,11 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get task completions by onboarding and checklist
+    /// Get task completion records by onboarding ID and checklist ID
     /// </summary>
+    /// <param name="onboardingId">Onboarding case ID</param>
+    /// <param name="checklistId">Checklist ID</param>
+    /// <returns>List of task completion records for the specified checklist within the onboarding</returns>
     [HttpGet("onboarding/{onboardingId}/checklist/{checklistId}")]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskCompletionOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetByOnboardingAndChecklist(long onboardingId, long checklistId)
@@ -107,8 +118,11 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get completion statistics
+    /// Get completion statistics for a checklist within an onboarding (total tasks, completed tasks, completion rate)
     /// </summary>
+    /// <param name="onboardingId">Onboarding case ID</param>
+    /// <param name="checklistId">Checklist ID</param>
+    /// <returns>Object with totalTasks, completedTasks, and completionRate (0-100%)</returns>
     [HttpGet("onboarding/{onboardingId}/checklist/{checklistId}/stats")]
     [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetCompletionStats(long onboardingId, long checklistId)
@@ -126,8 +140,12 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Toggle task completion
+    /// Toggle a task's completion status (complete/uncomplete) with optional notes and file attachments
     /// </summary>
+    /// <param name="onboardingId">Onboarding case ID</param>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <param name="request">Toggle request with isCompleted flag, optional completionNotes and filesJson</param>
+    /// <returns>Updated task completion record</returns>
     [HttpPost("onboarding/{onboardingId}/task/{taskId}/toggle")]
     [ProducesResponseType<SuccessResponse<ChecklistTaskCompletionOutputDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ToggleTaskCompletion(long onboardingId, long taskId, [FromBody] ToggleTaskCompletionRequest request)
@@ -286,8 +304,11 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get task notes summary for completion context
+    /// Get task notes summary for a specific task within an onboarding (used in completion context)
     /// </summary>
+    /// <param name="onboardingId">Onboarding case ID</param>
+    /// <param name="taskId">Checklist task ID</param>
+    /// <returns>Notes summary including total count, pinned count, and latest note preview</returns>
     [HttpGet("onboarding/{onboardingId}/task/{taskId}/notes-summary")]
     [ProducesResponseType<SuccessResponse<ChecklistTaskNotesSummaryDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetTaskNotesSummary(long onboardingId, long taskId)

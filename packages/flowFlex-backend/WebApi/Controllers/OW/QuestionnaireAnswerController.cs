@@ -52,11 +52,11 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// 获取指定入职流程和阶段的问卷答案
+        /// Get questionnaire answers for a specific onboarding and stage
         /// </summary>
-        /// <param name="onboardingId">入职流程ID</param>
-        /// <param name="stageId">阶段ID</param>
-        /// <returns>问卷答案列表</returns>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>List of questionnaire answers for the specified stage</returns>
         [HttpGet("{onboardingId}/stage/{stageId}/answer")]
         public async Task<IActionResult> GetAnswer(long onboardingId, long stageId)
         {

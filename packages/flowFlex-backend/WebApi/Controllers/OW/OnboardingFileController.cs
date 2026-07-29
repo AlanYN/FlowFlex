@@ -23,7 +23,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [PortalAccess] // Allow Portal token access - Portal users can upload and view files
     [Route("ow/onboardings/{onboardingId}/files/v{version:apiVersion}")]
     [Display(Name = "onboarding-files")]
-    [Authorize] // 添加授权特性，要求所有onboarding file API都需要认证
+    [Authorize] // Require authentication for all onboarding file APIs
     public class OnboardingFileController : Controllers.ControllerBase
     {
         private readonly IOnboardingFileService _onboardingFileService;

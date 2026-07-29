@@ -367,12 +367,30 @@ builder.Services.AddVersionedApiExplorer(options =>
 // Register Swagger
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "FlowFlex API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Workflow API",
+        Version = "v1",
+        Description = "Workflow Onboarding Engine API - Provide complete functions such as workflow management, case management, Checklist, questionnaire, document management, message center, and integration management."
+    });
     options.DocInclusionPredicate((version, desc) =>
     {
         return true;
     });
 
+    // Include XML comments from WebApi project
+    var webApiXmlFile = Path.Combine(AppContext.BaseDirectory, "WebApi.xml");
+    if (File.Exists(webApiXmlFile))
+    {
+        options.IncludeXmlComments(webApiXmlFile, includeControllerXmlComments: true);
+    }
+
+    // Include XML comments from Application.Contracts project (DTO descriptions)
+    var contractsXmlFile = Path.Combine(AppContext.BaseDirectory, "Application.Contracts.xml");
+    if (File.Exists(contractsXmlFile))
+    {
+        options.IncludeXmlComments(contractsXmlFile, includeControllerXmlComments: false);
+    }
     // Add custom Schema ID generator to resolve type conflicts with same name but different namespaces
     options.CustomSchemaIds(type =>
     {
@@ -424,7 +442,14 @@ builder.Services.AddSwaggerGen(options =>
     // Add JWT authentication configuration
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Description = @"JWT Authorization header using the Bearer scheme. 
+Supports two authentication methods:
+1. **User Token**: Obtained via login API (POST /api/ow/users/v1/login)
+2. **Client Credentials Token**: Obtained from ItemIAM (POST /oauth2/token with grant_type=client_credentials). Client tokens bypass permission checks and are suitable for AI Agents and server-to-server integrations.
+
+Example: ""Authorization: Bearer {token}""
+
+Required Headers: X-Tenant-Id (mandatory for all requests)",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,

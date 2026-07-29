@@ -24,7 +24,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [ApiController]
     [Route("ow/workflows/v{version:apiVersion}")]
     [Display(Name = "workflow")]
-    [Authorize] // 添加授权特性，要求所有workflows API都需要认证
+    [Authorize] // Require authentication for all workflow APIs
     public class WorkflowController : Controllers.ControllerBase
     {
         private readonly IWorkflowService _workflowService;
@@ -42,6 +42,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Create workflow
         /// Requires WORKFLOW:CREATE permission
         /// </summary>
+        /// <param name="input">Workflow creation data</param>
+        /// <returns>Created workflow ID</returns>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
@@ -55,6 +57,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update workflow
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <param name="input">Workflow update data</param>
+        /// <returns>Whether update was successful</returns>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -69,6 +74,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete workflow (with confirmation)
         /// Requires WORKFLOW:DELETE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <param name="confirm">Confirmation flag to proceed with deletion</param>
+        /// <returns>Whether deletion was successful</returns>
         [HttpDelete("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Delete)]
@@ -83,6 +91,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get workflow by id
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>Workflow details</returns>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
@@ -176,6 +186,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Query workflow (paged)
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="query">Query parameters including pagination and filters</param>
+        /// <returns>Paged workflow results</returns>
         [HttpPost("query")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<PagedResult<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
@@ -189,6 +201,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Activate workflow
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>Whether activation was successful</returns>
         [HttpPost("{id}/activate")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -203,6 +217,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Deactivate workflow
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>Whether deactivation was successful</returns>
         [HttpPost("{id}/deactivate")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -217,6 +233,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Set as default workflow
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>Whether setting as default was successful</returns>
         [HttpPost("{id}/set-default")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -231,6 +249,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Remove default workflow
         /// Requires WORKFLOW:UPDATE permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>Whether removing default was successful</returns>
         [HttpPost("{id}/remove-default")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -245,6 +265,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Duplicate workflow
         /// Requires WORKFLOW:CREATE permission
         /// </summary>
+        /// <param name="id">Source workflow ID to duplicate</param>
+        /// <param name="input">Duplication parameters (e.g. new name)</param>
+        /// <returns>New duplicated workflow ID</returns>
         [HttpPost("{id}/duplicate")]
         [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
@@ -258,12 +281,14 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Get workflow version history
         /// </summary>
-        // 移除GetVersionHistory、GetStagesByVersionId、GetVersionDetail、CreateFromVersion、CreateNewVersion等与版本历史相关的接口实现
+        // Removed GetVersionHistory, GetStagesByVersionId, GetVersionDetail, CreateFromVersion, CreateNewVersion and other version history related endpoint implementations
 
         /// <summary>
         /// Get stages by workflow id
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="id">Workflow ID</param>
+        /// <returns>List of stages belonging to the workflow</returns>
         [HttpGet("{id}/stages")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
@@ -278,6 +303,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Export single workflow to detailed Excel format
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="id">Workflow ID to export</param>
+        /// <returns>Excel file containing detailed workflow data</returns>
         [HttpGet("{id}/export-detailed-excel")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
@@ -293,6 +320,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Export multiple workflows to detailed Excel format
         /// Requires WORKFLOW:READ permission
         /// </summary>
+        /// <param name="search">Export search criteria to filter workflows</param>
+        /// <returns>Excel file containing detailed data for multiple workflows</returns>
         [HttpPost("export-detailed-excel")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]

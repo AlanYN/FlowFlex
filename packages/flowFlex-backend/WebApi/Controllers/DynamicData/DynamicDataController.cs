@@ -10,7 +10,8 @@ using System.Net;
 namespace FlowFlex.WebApi.Controllers.DynamicData;
 
 /// <summary>
-/// Dynamic data management API - Business data CRUD operations
+/// Dynamic data management API - Provides CRUD operations for business data with dynamic field schemas.
+/// Supports flexible field definitions with different data types, batch operations, and partial field updates.
 /// </summary>
 [ApiController]
 [Route("ow/dynamic-data/v{version:apiVersion}")]
@@ -28,9 +29,10 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get business data by ID
+    /// Get a single business data record by ID with all its dynamic fields
     /// </summary>
-    /// <param name="id">Business data ID</param>
+    /// <param name="id">Business data record ID</param>
+    /// <returns>Dynamic data object with all field values</returns>
     [HttpGet("{id}")]
     [ProducesResponseType<SuccessResponse<DynamicDataObject>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetById(long id)
@@ -44,9 +46,10 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Get business data list by IDs
+    /// Batch get multiple business data records by their IDs
     /// </summary>
-    /// <param name="ids">Business data IDs</param>
+    /// <param name="ids">List of business data record IDs</param>
+    /// <returns>List of dynamic data objects</returns>
     [HttpPost("batch")]
     [ProducesResponseType<SuccessResponse<List<DynamicDataObject>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
@@ -56,9 +59,10 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Create business data
+    /// Create a new business data record with dynamic fields
     /// </summary>
-    /// <param name="request">Business data request</param>
+    /// <param name="request">Business data creation request with field definitions and values</param>
+    /// <returns>Created record ID</returns>
     [HttpPost]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Create([FromBody] CreateBusinessDataRequest request)
@@ -83,10 +87,11 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update business data
+    /// Full update of a business data record (replaces all fields)
     /// </summary>
-    /// <param name="id">Business data ID</param>
-    /// <param name="request">Business data request</param>
+    /// <param name="id">Business data record ID</param>
+    /// <param name="request">Complete business data with all fields</param>
+    /// <returns>Whether update was successful</returns>
     [HttpPut("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateBusinessDataRequest request)
@@ -111,10 +116,11 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Update specific fields of business data
+    /// Partial update - only update specific fields of a business data record (PATCH semantics)
     /// </summary>
-    /// <param name="id">Business data ID</param>
-    /// <param name="fields">Fields to update</param>
+    /// <param name="id">Business data record ID</param>
+    /// <param name="fields">Dictionary of field names to new values (only specified fields are updated)</param>
+    /// <returns>Whether update was successful</returns>
     [HttpPatch("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> UpdateFields(long id, [FromBody] Dictionary<string, object?> fields)
@@ -124,9 +130,10 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Delete business data
+    /// Delete a single business data record
     /// </summary>
-    /// <param name="id">Business data ID</param>
+    /// <param name="id">Business data record ID</param>
+    /// <returns>Whether deletion was successful</returns>
     [HttpDelete("{id}")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> Delete(long id)
@@ -136,9 +143,10 @@ public class DynamicDataController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Batch delete business data
+    /// Batch delete multiple business data records at once
     /// </summary>
-    /// <param name="ids">Business data IDs</param>
+    /// <param name="ids">List of business data record IDs to delete</param>
+    /// <returns>Whether all deletions were successful</returns>
     [HttpDelete("batch")]
     [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> BatchDelete([FromBody] List<long> ids)

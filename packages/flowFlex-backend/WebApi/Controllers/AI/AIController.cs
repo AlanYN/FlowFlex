@@ -48,7 +48,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.BadRequest)]
         public async Task StreamAnalyzeActionAsync([FromBody] AIActionAnalysisInput input)
         {
-            // 设置流式响应头
+            // Set streaming response headers
             Response.ContentType = "text/event-stream";
             Response.Headers.Append("Cache-Control", "no-cache");
             Response.Headers.Append("Connection", "keep-alive");
@@ -124,7 +124,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         [ProducesResponseType(typeof(ErrorResponse), (int)HttpStatusCode.BadRequest)]
         public async Task StreamCreateActionAsync([FromBody] AIActionCreationInput input)
         {
-            // 设置流式响应头
+            // Set streaming response headers
             Response.ContentType = "text/event-stream";
             Response.Headers.Append("Cache-Control", "no-cache");
             Response.Headers.Append("Connection", "keep-alive");
