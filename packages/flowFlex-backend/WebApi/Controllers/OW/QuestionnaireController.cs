@@ -473,6 +473,54 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Preview/download a questionnaire question file by proxying its storage URL.
+        /// This endpoint bypasses browser CORS restrictions on OSS direct access.
+        /// </summary>
+        /// <param name="fileUrl">The file access URL</param>
+        /// <returns>File stream for preview</returns>
+        [HttpGet("questions/files/preview")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
+        [ProducesResponseType(typeof(FileStreamResult), 200)]
+        public async Task<IActionResult> PreviewQuestionFileAsync([FromQuery] string fileUrl)
+        {
+            if (string.IsNullOrWhiteSpace(fileUrl))
+            {
+                return BadRequest("fileUrl is required");
+            }
+
+            try
+            {
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(60);
+                var response = await httpClient.GetAsync(fileUrl, HttpCompletionOption.ResponseHeadersRead);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return StatusCode((int)response.StatusCode, "Failed to fetch file from storage");
+                }
+
+                var stream = await response.Content.ReadAsStreamAsync();
+                var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
+
+                // Try to extract filename from URL
+                var fileName = "file";
+                try
+                {
+                    var uri = new Uri(fileUrl);
+                    var path = uri.AbsolutePath;
+                    fileName = System.IO.Path.GetFileName(path);
+                }
+                catch { }
+
+                return File(stream, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"File preview failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Sync component mappings (初始化映射表数据)
         /// Requires QUESTION:UPDATE permission
         /// </summary>
