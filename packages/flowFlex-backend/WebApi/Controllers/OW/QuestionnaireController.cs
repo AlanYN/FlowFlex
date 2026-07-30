@@ -473,50 +473,35 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Preview/download a questionnaire question file by proxying its storage URL.
-        /// This endpoint bypasses browser CORS restrictions on OSS direct access.
+        /// Preview or download a questionnaire question file by its storage path.
+        /// Uses the file storage service to fetch the file server-side, bypassing CORS and expiry issues.
         /// </summary>
-        /// <param name="fileUrl">The file access URL</param>
-        /// <returns>File stream for preview</returns>
+        /// <param name="filePath">The OSS storage path of the file</param>
+        /// <param name="download">If true, returns as attachment (download); if false/omitted, returns inline (preview)</param>
+        /// <returns>File stream</returns>
         [HttpGet("questions/files/preview")]
         [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType(typeof(FileStreamResult), 200)]
-        public async Task<IActionResult> PreviewQuestionFileAsync([FromQuery] string fileUrl)
+        public async Task<IActionResult> PreviewQuestionFileAsync([FromQuery] string filePath, [FromQuery] bool download = false)
         {
-            if (string.IsNullOrWhiteSpace(fileUrl))
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                return BadRequest("fileUrl is required");
+                return BadRequest("filePath is required");
             }
 
             try
             {
-                using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(60);
-                var response = await httpClient.GetAsync(fileUrl, HttpCompletionOption.ResponseHeadersRead);
-
-                if (!response.IsSuccessStatusCode)
+                var (stream, fileName, contentType) = await _fileStorageService.GetFileAsync(filePath);
+                if (download)
                 {
-                    return StatusCode((int)response.StatusCode, "Failed to fetch file from storage");
+                    return File(stream, contentType ?? "application/octet-stream", fileName ?? System.IO.Path.GetFileName(filePath));
                 }
-
-                var stream = await response.Content.ReadAsStreamAsync();
-                var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
-
-                // Try to extract filename from URL
-                var fileName = "file";
-                try
-                {
-                    var uri = new Uri(fileUrl);
-                    var path = uri.AbsolutePath;
-                    fileName = System.IO.Path.GetFileName(path);
-                }
-                catch { }
-
-                return File(stream, contentType, fileName);
+                Response.Headers["Content-Disposition"] = "inline";
+                return File(stream, contentType ?? "application/octet-stream");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"File preview failed: {ex.Message}");
+                return StatusCode(500, $"File operation failed: {ex.Message}");
             }
         }
 

@@ -1,4 +1,5 @@
 <template>
+	<div>
 	<el-form
 		ref="formRef"
 		:model="formValues"
@@ -218,6 +219,24 @@
 								{{ formatFileSizeDisplay(file.fileSize) }}
 							</span>
 							<el-button
+								type="primary"
+								link
+								size="small"
+								@click="handlePreviewDynamicFile(file)"
+								title="Preview"
+							>
+								<Icon icon="mdi:eye" />
+							</el-button>
+							<el-button
+								type="primary"
+								link
+								size="small"
+								@click="handleDownloadDynamicFile(file)"
+								title="Download"
+							>
+								<Icon icon="mdi:download" />
+							</el-button>
+							<el-button
 								type="danger"
 								link
 								size="small"
@@ -268,6 +287,17 @@
 			</el-form-item>
 		</template>
 	</el-form>
+
+	<!-- 文件预览组件 -->
+	<vuePreviewFile
+		:fileUrl="previewFileUrl"
+		:type="previewFileType"
+		:isShow="previewFileShow"
+		:offloading="previewOffloading"
+		@close-office="closePreview"
+		@rendered-office="previewOffloading = false"
+	/>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -278,8 +308,10 @@ import { projectDate, projectTenMinutesSsecondsDate } from '@/settings/projectSe
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 import MergedArea from '@/components/form/inputPhone/mergedArea.vue';
-import { uploadQuestionFile } from '@/apis/ow/questionnaire';
+import { uploadQuestionFile, previewQuestionFile, downloadQuestionFile } from '@/apis/ow/questionnaire';
+import { getMimeType } from '@/utils/format';
 import { timeZoneConvert } from '@/hooks/time';
+import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import type { DynamicList } from '#/dynamic';
 import type { UploadProps } from 'element-plus';
 
@@ -290,6 +322,9 @@ interface UploadedFile {
 	fileSize: number | string;
 	uploadedBy?: string;
 	uploadDate?: string;
+	accessUrl?: string;
+	fullAccessUrl?: string;
+	filePath?: string;
 }
 
 // 上传进度接口
@@ -327,6 +362,12 @@ const uploadProgressList = ref<UploadProgress[]>([]);
 // 已上传文件映射 (fieldName -> UploadedFile[])
 const uploadedFilesMap = reactive<Record<string, UploadedFile[]>>({});
 
+// 文件预览状态
+const previewFileUrl = ref('');
+const previewFileType = ref('');
+const previewFileShow = ref(false);
+const previewOffloading = ref(false);
+
 // 获取指定字段的上传进度
 const getUploadProgress = (fieldName: string) => {
 	return uploadProgressList.value.filter((p) => p.fieldName === fieldName);
@@ -355,6 +396,9 @@ const initFormValues = (initialData?: Record<string, any>) => {
 					fileSize: f.fileSize || f.size || 0,
 					uploadedBy: f.uploadedBy,
 					uploadDate: f.uploadDate || f.uploadTime,
+					accessUrl: f.accessUrl,
+					fullAccessUrl: f.fullAccessUrl,
+					filePath: f.filePath,
 				}));
 				// formValues 也存储完整的文件对象数组
 				formValues[field.fieldName] = [...uploadedFilesMap[field.fieldName]];
@@ -540,6 +584,9 @@ const handleFileChange = async (file: any, field: DynamicList) => {
 				fileSize: response?.data?.data?.fileSize || file.raw?.size || 0,
 				uploadedBy: response?.data?.data?.uploadedBy,
 				uploadDate: response?.data?.data?.uploadTime,
+				accessUrl: response?.data?.data?.accessUrl,
+				fullAccessUrl: response?.data?.data?.fullAccessUrl,
+				filePath: response?.data?.data?.filePath,
 			};
 
 			if (!uploadedFilesMap[field.fieldName]) {
@@ -567,16 +614,94 @@ const handleRemoveFile = (fieldName: string, fileId: string) => {
 	}
 };
 
+// 预览动态字段文件（通过后端代理避免 CORS）
+const handlePreviewDynamicFile = async (file: UploadedFile) => {
+	if (!file.filePath && !file.fullAccessUrl && !file.accessUrl) {
+		ElMessage.warning('File preview not available');
+		return;
+	}
+	try {
+		const fileExt = file.fileName?.split('.').pop()?.toLowerCase() || '';
+		previewFileType.value = fileExt;
+		previewOffloading.value = true;
+
+		// 不支持预览的类型直接下载
+		if (['doc', 'msg', 'eml'].includes(fileExt)) {
+			handleDownloadDynamicFile(file);
+			previewOffloading.value = false;
+			return;
+		}
+
+		// Prefer filePath (permanent) over URL (may expire)
+		const pathOrUrl = file.filePath || file.fullAccessUrl || file.accessUrl;
+		const res = await previewQuestionFile(pathOrUrl!);
+		const mimeType = getMimeType(fileExt);
+		const blob = new Blob([res], { type: mimeType });
+		previewFileUrl.value = URL.createObjectURL(blob);
+		previewFileShow.value = true;
+	} catch {
+		ElMessage.error('Failed to preview file');
+	} finally {
+		previewOffloading.value = false;
+	}
+};
+
+const closePreview = () => {
+	previewFileShow.value = false;
+	previewOffloading.value = false;
+	if (previewFileUrl.value) {
+		URL.revokeObjectURL(previewFileUrl.value);
+	}
+	previewFileUrl.value = '';
+	previewFileType.value = '';
+};
+
+// 下载动态字段文件（通过后端代理，避免签名 URL 过期）
+const handleDownloadDynamicFile = async (file: UploadedFile) => {
+	if (!file.filePath && !file.fullAccessUrl && !file.accessUrl) {
+		ElMessage.warning('File download not available');
+		return;
+	}
+	// Prefer filePath (permanent) — use backend proxy
+	if (file.filePath) {
+		try {
+			const res = await downloadQuestionFile(file.filePath, file.fileName);
+			const blob = new Blob([res], { type: 'application/octet-stream' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = file.fileName || 'download';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(url);
+		} catch {
+			ElMessage.error('Failed to download file');
+		}
+		return;
+	}
+	// Fallback to direct URL (legacy data without filePath)
+	const url = file.fullAccessUrl || file.accessUrl;
+	const link = document.createElement('a');
+	link.href = url!;
+	link.download = file.fileName || 'download';
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+};
+
 // 更新 formValues 中的文件对象列表
 const updateFileIds = (fieldName: string) => {
 	const files = uploadedFilesMap[fieldName] || [];
-	// 存储完整的文件对象数组，包含 id, fileName, fileSize, uploadedBy, uploadDate
 	formValues[fieldName] = files.map((f) => ({
 		id: f.id,
 		fileName: f.fileName,
 		fileSize: f.fileSize,
 		uploadedBy: f.uploadedBy,
 		uploadDate: f.uploadDate,
+		accessUrl: f.accessUrl,
+		fullAccessUrl: f.fullAccessUrl,
+		filePath: f.filePath,
 	}));
 };
 
