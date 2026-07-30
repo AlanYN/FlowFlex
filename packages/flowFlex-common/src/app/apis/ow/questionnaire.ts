@@ -360,11 +360,20 @@ export function uploadQuestionFile(
 	);
 }
 
-export function previewQuestionFile(fileUrl: string) {
+export function previewQuestionFile(filePath: string) {
 	return defHttp.get({
 		url: `${Api().questionFilePreview}/preview`,
 		responseType: 'blob',
 		timeout: 60 * 1000,
-		params: { fileUrl },
+		params: { filePath },
+	});
+}
+
+export function downloadQuestionFile(filePath: string, fileName: string) {
+	return defHttp.get({
+		url: `${Api().questionFilePreview}/preview`,
+		responseType: 'blob',
+		timeout: 60 * 1000,
+		params: { filePath, download: true },
 	});
 }
