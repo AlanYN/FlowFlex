@@ -1014,7 +1014,7 @@ import {
 	projectTenMinutesSsecondsDate,
 } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
-import { uploadQuestionFile, previewQuestionFile } from '@/apis/ow/questionnaire';
+import { uploadQuestionFile, previewQuestionFile, downloadQuestionFile } from '@/apis/ow/questionnaire';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import { getMimeType } from '@/utils/format';
@@ -1647,6 +1647,7 @@ const handleFileChange = async (questionId: string, file: any, fileList: any[]) 
 						accessUrl: data.accessUrl ?? '',
 						fullAccessUrl: data.fullAccessUrl ?? '',
 						fileId: data.id,
+						filePath: data.filePath ?? '',
 					};
 				}
 				return f;
@@ -2422,8 +2423,8 @@ const questionIsDisabled = (questionId: string): boolean => {
 
 // 预览文件
 const handlePreviewFile = async (file: any) => {
-	const url = file.fullAccessUrl || file.accessUrl;
-	if (!url) return;
+	const pathOrUrl = file.filePath || file.fullAccessUrl || file.accessUrl;
+	if (!pathOrUrl) return;
 	try {
 		const fileExt = file.name?.split('.').pop()?.toLowerCase() || '';
 		previewFileType.value = fileExt;
@@ -2437,7 +2438,7 @@ const handlePreviewFile = async (file: any) => {
 		}
 
 		// Use backend proxy to avoid CORS issues with OSS direct access
-		const res = await previewQuestionFile(url);
+		const res = await previewQuestionFile(pathOrUrl);
 		const mimeType = getMimeType(fileExt);
 		const blob = new Blob([res], { type: mimeType });
 		previewFileUrl.value = URL.createObjectURL(blob);
@@ -2449,8 +2450,27 @@ const handlePreviewFile = async (file: any) => {
 	}
 };
 
-// 下载文件
-const handleDownloadFile = (file: any) => {
+// 下载文件（通过后端代理避免签名 URL 过期）
+const handleDownloadFile = async (file: any) => {
+	const filePath = file.filePath;
+	if (filePath) {
+		try {
+			const res = await downloadQuestionFile(filePath, file.name || 'download');
+			const blob = new Blob([res], { type: 'application/octet-stream' });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = file.name || 'download';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(url);
+		} catch {
+			ElMessage.error('Failed to download file');
+		}
+		return;
+	}
+	// Fallback for legacy data without filePath
 	const url = file.fullAccessUrl || file.accessUrl;
 	if (!url) return;
 	const link = document.createElement('a');
