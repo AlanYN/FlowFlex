@@ -182,7 +182,9 @@
 							class="repeatable-group border rounded-lg p-4 mb-4"
 						>
 							<div class="flex items-center justify-between mb-3 pb-2 border-b">
-								<span class="font-medium text-sm text-primary-700 dark:text-primary-200">
+								<span
+									class="font-medium text-sm text-primary-700 dark:text-primary-200"
+								>
 									Group {{ groupIdx }}
 								</span>
 								<el-button
@@ -207,19 +209,48 @@
 												{{ sectionIndex + 1 }}.{{ itemIndex + 1 }}.
 											</span>
 											{{ item.question || item.title }}
-											<span v-if="item.required" class="text-red-500 ml-1">*</span>
+											<span v-if="item.required" class="text-red-500 ml-1">
+												*
+											</span>
 										</h4>
 										<div class="mt-1">
 											<el-input
-												v-if="item.type === 'short_answer' || item.type === 'paragraph'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
-												:type="item.type === 'paragraph' ? 'textarea' : undefined"
+												v-if="
+													item.type === 'short_answer' ||
+													item.type === 'paragraph'
+												"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
+												:type="
+													item.type === 'paragraph'
+														? 'textarea'
+														: undefined
+												"
 												:rows="item.type === 'paragraph' ? 3 : undefined"
 												:placeholder="'Your answer'"
 											/>
 											<el-radio-group
-												v-else-if="item.type === 'multiple_choice' && item.options"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-else-if="
+													item.type === 'multiple_choice' && item.options
+												"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												class="w-full"
 											>
 												<div class="space-y-1">
@@ -227,12 +258,25 @@
 														v-for="option in item.options"
 														:key="option.id"
 														:value="option.value || option.label"
-													>{{ option.label }}</el-radio>
+													>
+														{{ option.label }}
+													</el-radio>
 												</div>
 											</el-radio-group>
 											<el-checkbox-group
-												v-else-if="item.type === 'checkboxes' && item.options"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-else-if="
+													item.type === 'checkboxes' && item.options
+												"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												class="w-full"
 											>
 												<div class="space-y-1">
@@ -240,12 +284,23 @@
 														v-for="option in item.options"
 														:key="option.id"
 														:value="option.value || option.label"
-													>{{ option.label }}</el-checkbox>
+													>
+														{{ option.label }}
+													</el-checkbox>
 												</div>
 											</el-checkbox-group>
 											<el-select
 												v-else-if="item.type === 'dropdown'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												placeholder="Please select"
 												class="w-full"
 											>
@@ -258,35 +313,72 @@
 											</el-select>
 											<el-input-number
 												v-else-if="item.type === 'number'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												:controls="false"
 												placeholder="Enter number"
 												class="!w-full"
 											/>
 											<el-date-picker
 												v-else-if="item.type === 'date'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												type="date"
 												placeholder="Select date"
 												class="!w-full"
 											/>
 											<el-time-picker
 												v-else-if="item.type === 'time'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												placeholder="Select time"
 												class="!w-full"
 											/>
 											<!-- 短答网格 -->
-											<div v-else-if="item.type === 'short_answer_grid'" class="w-full">
+											<div
+												v-else-if="item.type === 'short_answer_grid'"
+												class="w-full"
+											>
 												<el-table
 													v-if="item.columns && item.rows"
 													:data="item.rows"
 													border
 													class="grid-table"
 												>
-													<el-table-column prop="label" label="" fixed="left" width="200">
+													<el-table-column
+														prop="label"
+														label=""
+														fixed="left"
+														width="200"
+													>
 														<template #default="{ row }">
-															<span class="truncate">{{ row.label }}</span>
+															<span class="truncate">
+																{{ row.label }}
+															</span>
 														</template>
 													</el-table-column>
 													<el-table-column
@@ -298,7 +390,15 @@
 													>
 														<template #default="{ row }">
 															<el-input
-																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${column.id}_${row.id}`]"
+																v-model="
+																	previewData[
+																		`section_${sectionIndex}_item_${itemIndex}_g${
+																			groupIdx - 1
+																		}_grid_${column.id}_${
+																			row.id
+																		}`
+																	]
+																"
 																placeholder="Enter"
 															/>
 														</template>
@@ -306,16 +406,26 @@
 												</el-table>
 											</div>
 											<!-- 多选网格 -->
-											<div v-else-if="item.type === 'multiple_choice_grid'" class="w-full">
+											<div
+												v-else-if="item.type === 'multiple_choice_grid'"
+												class="w-full"
+											>
 												<el-table
 													v-if="item.columns && item.rows"
 													:data="item.rows"
 													border
 													class="grid-table"
 												>
-													<el-table-column prop="label" label="" fixed="left" width="200">
+													<el-table-column
+														prop="label"
+														label=""
+														fixed="left"
+														width="200"
+													>
 														<template #default="{ row }">
-															<span class="truncate">{{ row.label }}</span>
+															<span class="truncate">
+																{{ row.label }}
+															</span>
 														</template>
 													</el-table-column>
 													<el-table-column
@@ -327,23 +437,41 @@
 													>
 														<template #default="{ row }">
 															<el-checkbox
-																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${row.id}_${column.id}`]"
+																v-model="
+																	previewData[
+																		`section_${sectionIndex}_item_${itemIndex}_g${
+																			groupIdx - 1
+																		}_grid_${row.id}_${
+																			column.id
+																		}`
+																	]
+																"
 															/>
 														</template>
 													</el-table-column>
 												</el-table>
 											</div>
 											<!-- 单选网格 -->
-											<div v-else-if="item.type === 'checkbox_grid'" class="w-full">
+											<div
+												v-else-if="item.type === 'checkbox_grid'"
+												class="w-full"
+											>
 												<el-table
 													v-if="item.rows && item.columns"
 													:data="item.rows"
 													border
 													class="grid-table"
 												>
-													<el-table-column prop="label" label="" fixed="left" width="200">
+													<el-table-column
+														prop="label"
+														label=""
+														fixed="left"
+														width="200"
+													>
 														<template #default="{ row }">
-															<span class="truncate">{{ row.label }}</span>
+															<span class="truncate">
+																{{ row.label }}
+															</span>
 														</template>
 													</el-table-column>
 													<el-table-column
@@ -353,18 +481,43 @@
 														min-width="120"
 														align="center"
 													>
-														<template #default="{ row, $index: rowIndex }">
+														<template
+															#default="{ row, $index: rowIndex }"
+														>
 															<el-radio
-																v-model="previewData[`section_${sectionIndex}_item_${itemIndex}_g${groupIdx - 1}_grid_${row.id}`]"
-																:value="column.value || column.label || `${rowIndex}_${colIndex}`"
+																v-model="
+																	previewData[
+																		`section_${sectionIndex}_item_${itemIndex}_g${
+																			groupIdx - 1
+																		}_grid_${row.id}`
+																	]
+																"
+																:value="
+																	column.value ||
+																	column.label ||
+																	`${rowIndex}_${colIndex}`
+																"
 															/>
 														</template>
 													</el-table-column>
 												</el-table>
 											</div>
 											<el-input
-												v-else-if="item.type !== 'page_break' && item.type !== 'image' && item.type !== 'video'"
-												v-model="previewData[getItemKey(sectionIndex, itemIndex, false, groupIdx - 1)]"
+												v-else-if="
+													item.type !== 'page_break' &&
+													item.type !== 'image' &&
+													item.type !== 'video'
+												"
+												v-model="
+													previewData[
+														getItemKey(
+															sectionIndex,
+															itemIndex,
+															false,
+															groupIdx - 1
+														)
+													]
+												"
 												placeholder="Your answer"
 											/>
 										</div>
@@ -386,611 +539,669 @@
 
 					<!-- 非 Repeatable Section: 原有渲染 -->
 					<template v-else>
-					<div
-						v-for="(item, itemIndex) in section.questions"
-						:key="item.id || itemIndex"
-						:class="[
-							'question-item space-y-3 pb-6 border-b border-light last:border-b-0 last:pb-0',
-							{ 'question-skipped': isQuestionSkipped(sectionIndex, itemIndex) },
-						]"
-					>
-						<!-- 问题标题 -->
 						<div
-							class="flex items-start justify-between"
-							v-if="item.type !== 'page_break'"
+							v-for="(item, itemIndex) in section.questions"
+							:key="item.id || itemIndex"
+							:class="[
+								'question-item space-y-3 pb-6 border-b border-light last:border-b-0 last:pb-0',
+								{ 'question-skipped': isQuestionSkipped(sectionIndex, itemIndex) },
+							]"
 						>
-							<h4
-								class="text-base font-medium question-title flex-1 flex items-baseline gap-1 min-w-0"
+							<!-- 问题标题 -->
+							<div
+								class="flex items-start justify-between"
+								v-if="item.type !== 'page_break'"
 							>
-								<span class="text-placeholder mr-2">
-									{{ getQuestionNumber(sectionIndex, itemIndex) }}.
-								</span>
-								<a :href="`#${item.id}`" class="truncate">
-									{{ item.question || item.title }}
-								</a>
-								<span v-if="item.required" class="text-red-500 ml-1">*</span>
-							</h4>
-							<!-- <el-tag v-if="item.type" size="small" type="info" class="ml-2">
+								<h4
+									class="text-base font-medium question-title flex-1 flex items-baseline gap-1 min-w-0"
+								>
+									<span class="text-placeholder mr-2">
+										{{ getQuestionNumber(sectionIndex, itemIndex) }}.
+									</span>
+									<a :href="`#${item.id}`" class="truncate">
+										{{ item.question || item.title }}
+									</a>
+									<span v-if="item.required" class="text-red-500 ml-1">*</span>
+								</h4>
+								<!-- <el-tag v-if="item.type" size="small" type="info" class="ml-2">
 							{{ formatQuestionType(item.type) }}
 						</el-tag> -->
-						</div>
-
-						<!-- 问题描述 -->
-						<p
-							v-if="item.description"
-							class="text-sm question-description pl-6 whitespace-pre-wrap"
-						>
-							{{ item.description }}
-						</p>
-
-						<div
-							v-if="item.questionProps && item.questionProps.fileUrl"
-							class="flex flex-col max-h-[500px] justify-center items-center"
-						>
-							<el-image
-								v-if="item.questionProps.type === 'image'"
-								:src="item.questionProps.fileUrl"
-								class="responsive-image"
-								:preview-src-list="[`${item.questionProps.fileUrl}`]"
-								fit="contain"
-							/>
-							<video
-								v-else-if="item.questionProps.type === 'video'"
-								:src="item.questionProps.fileUrl"
-								:alt="item.questionProps.fileName || 'Uploaded video'"
-								controls
-								class="max-h-[500px] w-auto object-contain"
-							></video>
-						</div>
-
-						<!-- 问题输入组件 -->
-						<div class="pl-6">
-							<!-- 错误提示 -->
-							<div
-								v-if="getFieldError(sectionIndex, itemIndex)"
-								class="text-red-500 text-sm mb-2 flex items-center"
-							>
-								<el-icon class="mr-1">
-									<Warning />
-								</el-icon>
-								{{ getFieldError(sectionIndex, itemIndex) }}
 							</div>
-							<!-- 短文本输入 -->
-							<el-input
-								v-if="item.type === 'short_answer'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								:placeholder="item.placeholder || 'Your answer'"
-								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
-								:class="[
-									'preview-input',
-									{ 'error-input': getFieldError(sectionIndex, itemIndex) },
-								]"
-							/>
 
-							<!-- 长文本输入 -->
-							<el-input
-								v-else-if="item.type === 'paragraph'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								type="textarea"
-								:rows="typeof item.rows === 'number' ? item.rows : 3"
-								:placeholder="item.placeholder || 'Your answer'"
-								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
-								:class="[
-									'preview-input',
-									{ 'error-input': getFieldError(sectionIndex, itemIndex) },
-								]"
-							/>
-
-							<!-- 单选题 -->
-							<el-radio-group
-								v-else-if="item.type === 'multiple_choice' && item.options"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								@change="handleRadioChange(sectionIndex, itemIndex, item, $event)"
-								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
-								class="w-full"
+							<!-- 问题描述 -->
+							<p
+								v-if="item.description"
+								class="text-sm question-description pl-6 whitespace-pre-wrap"
 							>
-								<div class="space-y-2">
-									<el-radio
-										v-for="(option, optionIndex) in item.options"
-										:key="option.id || optionIndex"
-										:value="option.value || option.label"
-										class="preview-radio w-full"
-									>
-										<div v-if="option.isOther">
-											<el-input
-												v-model="
-													previewData[
-														getItemKey(sectionIndex, itemIndex, true)
-													]
-												"
-												:placeholder="item.placeholder || 'Your answer'"
-											/>
-										</div>
-										<div v-else>
-											{{ option.label || option.text || option.value }}
-										</div>
-									</el-radio>
-								</div>
-							</el-radio-group>
+								{{ item.description }}
+							</p>
 
-							<!-- 多选题 -->
-							<el-checkbox-group
-								v-else-if="item.type === 'checkboxes' && item.options"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								@change="
-									handleCheckboxChange(sectionIndex, itemIndex, item, $event)
+							<div
+								v-if="
+									item.questionProps &&
+									(questionBlobUrls[item.id] || item.questionProps.fileUrl)
 								"
-								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
-								class="w-full flex"
-							>
-								<div class="space-y-2">
-									<el-checkbox
-										v-for="(option, optionIndex) in item.options"
-										:key="option.id || optionIndex"
-										:value="option.value || option.label"
-										class="preview-checkbox w-full"
-									>
-										<div v-if="option.isOther">
-											<el-input
-												v-model="
-													previewData[
-														getItemKey(sectionIndex, itemIndex, true)
-													]
-												"
-												:placeholder="item.placeholder || 'Your answer'"
-											/>
-										</div>
-										<div v-else class="min-w-0 flex">
-											<span class="truncate min-w-0">
-												{{ option.label || option.text || option.value }}
-											</span>
-										</div>
-									</el-checkbox>
-								</div>
-							</el-checkbox-group>
-
-							<!-- 下拉选择 -->
-							<el-select
-								v-else-if="item.type === 'dropdown'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								:placeholder="item.placeholder || 'Please select'"
-								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
-								filterable
-								:class="[
-									'w-full preview-select',
-									{ 'error-select': getFieldError(sectionIndex, itemIndex) },
-								]"
-							>
-								<el-option
-									v-for="(option, optionIndex) in item.options"
-									:key="option.id || optionIndex"
-									:label="option.label || option.text || option.value"
-									:value="option.value || option.label"
-								/>
-							</el-select>
-
-							<!-- 数字输入 -->
-							<el-input-number
-								v-else-if="item.type === 'number'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								:placeholder="item.placeholder || 'Enter number'"
-								:min="item.min"
-								:max="item.max"
-								:step="item.step || 1"
-								class="preview-number"
-							/>
-
-							<!-- 日期选择 -->
-							<el-date-picker
-								v-else-if="item.type === 'date'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								type="date"
-								:format="projectDate"
-								:placeholder="item.placeholder || 'Select date'"
-								class="preview-date w-full"
-							/>
-
-							<!-- 时间选择 -->
-							<el-time-picker
-								v-else-if="item.type === 'time'"
-								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-								:placeholder="item.placeholder || 'Select time'"
-								class="preview-time w-full"
-							/>
-
-							<!-- 评分 -->
-							<div
-								v-else-if="item.type === 'rating'"
-								class="flex items-center space-x-2"
-							>
-								<el-rate
-									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-									:max="item.max || 5"
-									:icons="getSelectedFilledIcon(item.iconType)"
-									:void-icon="getSelectedVoidIcon(item.iconType)"
-									class="preview-rating"
-								/>
-								<span v-if="item.showText" class="text-sm text-secondary">
-									({{ item.max || 5 }} stars)
-								</span>
-							</div>
-
-							<!-- 文件上传 -->
-							<div
-								v-else-if="item.type === 'file' || item.type === 'file_upload'"
-								:class="[
-									'preview-file',
-									{ 'error-upload': getFieldError(sectionIndex, itemIndex) },
-								]"
-							>
-								<el-upload
-									drag
-									:auto-upload="false"
-									:show-file-list="true"
-									:on-change="
-										(file, fileList) =>
-											handleFileChange(
-												sectionIndex,
-												itemIndex,
-												file,
-												fileList
-											)
-									"
-									:accept="item.accept"
-									class="upload-demo w-full"
-								>
-									<el-icon class="el-icon--upload text-4xl">
-										<Upload />
-									</el-icon>
-									<div>
-										<text class="text-primary dark:text-white">
-											Drop file here
-										</text>
-										<text>or</text>
-										<em class="text-primary">click to select</em>
-									</div>
-									<div v-if="item.accept" class="el-upload__tip text-xs">
-										Accepted formats: {{ item.accept }}
-									</div>
-								</el-upload>
-							</div>
-
-							<!-- 线性量表 -->
-							<div v-else-if="item.type === 'linear_scale'" class="space-y-2">
-								<el-slider
-									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
-									:min="item.min"
-									:max="item.max"
-									:marks="getSliderMarks(item)"
-									:validate-event="false"
-									show-stops
-									:key="`slider-${getItemKey(sectionIndex, itemIndex)}-${
-										previewData[getItemKey(sectionIndex, itemIndex)] || 0
-									}`"
-									class="preview-linear-scale"
-								/>
-								<div class="flex justify-between text-xs text-secondary min-w-0">
-									<span class="truncate">{{ item.minLabel || item.min }}</span>
-									<span class="truncate">{{ item.maxLabel || item.max }}</span>
-								</div>
-							</div>
-
-							<!-- 多选网格 -->
-							<div
-								v-else-if="item.type === 'multiple_choice_grid'"
-								class="preview-grid"
-							>
-								<!-- 如果有网格数据（rows + columns），渲染为多选网格 -->
-								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
-									<el-table-column prop="label" label="" fixed="left" width="300">
-										<template #default="{ row }">
-											<span class="truncate" :title="row.label">
-												{{ row.label }}
-											</span>
-										</template>
-									</el-table-column>
-									<el-table-column
-										v-for="(column, colIndex) in item.columns"
-										:key="colIndex"
-										:label="column.label"
-										min-width="120"
-										align="center"
-									>
-										<template #header>
-											<div class="flex items-center justify-center gap-1">
-												{{ column.label }}
-												<el-tag
-													v-if="column.isOther"
-													size="small"
-													type="warning"
-												>
-													Other
-												</el-tag>
-											</div>
-										</template>
-										<template #default="{ $index: rowIndex }">
-											<div class="flex items-center justify-center gap-2">
-												<el-checkbox-group
-													v-model="
-														previewData[
-															getGridKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														]
-													"
-													@change="
-														handleGridCheckboxChange(
-															sectionIndex,
-															itemIndex,
-															rowIndex,
-															item,
-															$event
-														)
-													"
-												>
-													<el-checkbox
-														:value="
-															column.value ||
-															column.label ||
-															`col_${colIndex}`
-														"
-														class="grid-checkbox"
-													/>
-												</el-checkbox-group>
-												<el-input
-													v-if="column.isOther"
-													v-model="
-														previewData[
-															getOtherTextKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														]
-													"
-													:disabled="
-														!previewData[
-															getGridKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														]?.includes(column.value || column.label)
-													"
-													placeholder="Enter other"
-													size="small"
-													class="other-input"
-												/>
-											</div>
-										</template>
-									</el-table-column>
-								</el-table>
-
-								<!-- 如果没有任何数据，显示占位符 -->
-								<div
-									v-else
-									class="text-placeholder italic p-4 border border-dashed border-base rounded"
-								>
-									<el-icon class="mr-2">
-										<Warning />
-									</el-icon>
-									Multiple choice grid: No options, columns or rows data available
-								</div>
-							</div>
-
-							<!-- 单选网格 -->
-							<div v-else-if="item.type === 'checkbox_grid'" class="preview-grid">
-								<el-table
-									v-if="
-										item.rows &&
-										item.rows.length > 0 &&
-										item.columns &&
-										item.columns.length > 0
-									"
-									:data="item.rows"
-									border
-								>
-									<el-table-column prop="label" label="" fixed="left" width="300">
-										<template #default="{ row }">
-											<span class="truncate" :title="row.label">
-												{{ row.label }}
-											</span>
-										</template>
-									</el-table-column>
-									<el-table-column
-										v-for="(column, colIndex) in item.columns"
-										:key="colIndex"
-										:label="column.label"
-										min-width="120"
-										align="center"
-									>
-										<template #header>
-											<div class="flex items-center justify-center gap-1">
-												{{ column.label }}
-												<el-tag
-													v-if="column.isOther"
-													size="small"
-													type="warning"
-												>
-													Other
-												</el-tag>
-											</div>
-										</template>
-										<template #default="{ $index: rowIndex }">
-											<div class="flex items-center justify-center gap-2">
-												<el-radio
-													v-model="
-														previewData[
-															getGridKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														]
-													"
-													:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
-													:value="
-														column.value ||
-														column.label ||
-														`${rowIndex}_${colIndex}`
-													"
-													@change="
-														handleGridRadioChange(
-															sectionIndex,
-															itemIndex,
-															rowIndex,
-															item,
-															$event
-														)
-													"
-													class="grid-radio"
-												/>
-												<el-input
-													v-if="column.isOther"
-													v-model="
-														previewData[
-															getOtherTextKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														]
-													"
-													:disabled="
-														previewData[
-															getGridKey(
-																sectionIndex,
-																itemIndex,
-																rowIndex
-															)
-														] != (column.value || column.label)
-													"
-													placeholder="Enter other"
-													size="small"
-													class="other-input"
-												/>
-											</div>
-										</template>
-									</el-table-column>
-								</el-table>
-
-								<!-- 如果没有数据，显示占位符 -->
-								<div
-									v-else
-									class="text-placeholder italic p-4 border border-dashed border-base rounded"
-								>
-									<el-icon class="mr-2">
-										<Warning />
-									</el-icon>
-									Checkbox grid: No rows or columns data available
-									<div class="text-xs mt-1">
-										Rows: {{ item.rows?.length || 0 }}, Columns:
-										{{ item.columns?.length || 0 }}
-									</div>
-								</div>
-							</div>
-
-							<div v-else-if="item.type === 'short_answer_grid'" class="preview-grid">
-								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
-									<el-table-column prop="label" label="" fixed="left" width="300">
-										<template #default="{ row }">
-											<span class="truncate" :title="row.label">
-												{{ row.label }}
-											</span>
-										</template>
-									</el-table-column>
-									<el-table-column
-										v-for="(column, colIndex) in item.columns"
-										:key="colIndex"
-										:label="column.label"
-										min-width="150"
-										align="center"
-									>
-										<template #header>
-											<div class="flex items-center justify-center gap-1">
-												{{ column.label }}
-												<el-tag
-													v-if="column.isOther"
-													size="small"
-													type="warning"
-												>
-													Other
-												</el-tag>
-											</div>
-										</template>
-										<template #default="{ $index: rowIndex }">
-											<el-input
-												v-model="
-													previewData[
-														getGridKey(
-															sectionIndex,
-															column?.id ||
-																column?.temporaryId ||
-																column?.label,
-															rowIndex
-														)
-													]
-												"
-											/>
-										</template>
-									</el-table-column>
-								</el-table>
-							</div>
-
-							<!-- 说明文本 -->
-							<div
-								v-else-if="item.type === 'description'"
-								class="text-regular italic"
-							>
-								{{ item.content || item.text }}
-							</div>
-
-							<div v-else-if="item.type === 'page_break'" class="text-regular italic">
-								<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
-									<div class="text-center text-primary-500 text-sm">
-										— Page Break —
-									</div>
-								</div>
-							</div>
-
-							<div
-								v-else-if="item.type === 'image'"
-								class="flex justify-center items-center w-full"
+								class="flex flex-col max-h-[500px] justify-center items-center"
 							>
 								<el-image
-									:src="item.fileUrl"
+									v-if="item.questionProps.type === 'image'"
+									:src="questionBlobUrls[item.id] || item.questionProps.fileUrl"
 									class="responsive-image"
-									:preview-src-list="[`${item.fileUrl}`]"
+									:preview-src-list="[
+										questionBlobUrls[item.id] || item.questionProps.fileUrl,
+									]"
 									fit="contain"
 								/>
-							</div>
-
-							<div
-								v-else-if="item.type === 'video'"
-								class="flex justify-center items-center"
-							>
 								<video
-									:src="item.fileUrl"
+									v-else-if="item.questionProps.type === 'video'"
+									:src="questionBlobUrls[item.id] || item.questionProps.fileUrl"
+									:alt="item.questionProps.fileName || 'Uploaded video'"
 									controls
 									class="max-h-[500px] w-auto object-contain"
 								></video>
 							</div>
 
-							<!-- 未知类型 -->
-							<div
-								v-else
-								class="text-placeholder italic p-4 border border-dashed border-base rounded"
-							>
-								<el-icon class="mr-2">
-									<Warning />
-								</el-icon>
-								Unsupported question type: {{ item.type }}
+							<!-- 问题输入组件 -->
+							<div class="pl-6">
+								<!-- 错误提示 -->
+								<div
+									v-if="getFieldError(sectionIndex, itemIndex)"
+									class="text-red-500 text-sm mb-2 flex items-center"
+								>
+									<el-icon class="mr-1">
+										<Warning />
+									</el-icon>
+									{{ getFieldError(sectionIndex, itemIndex) }}
+								</div>
+								<!-- 短文本输入 -->
+								<el-input
+									v-if="item.type === 'short_answer'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									:placeholder="item.placeholder || 'Your answer'"
+									:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+									:class="[
+										'preview-input',
+										{ 'error-input': getFieldError(sectionIndex, itemIndex) },
+									]"
+								/>
+
+								<!-- 长文本输入 -->
+								<el-input
+									v-else-if="item.type === 'paragraph'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									type="textarea"
+									:rows="typeof item.rows === 'number' ? item.rows : 3"
+									:placeholder="item.placeholder || 'Your answer'"
+									:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+									:class="[
+										'preview-input',
+										{ 'error-input': getFieldError(sectionIndex, itemIndex) },
+									]"
+								/>
+
+								<!-- 单选题 -->
+								<el-radio-group
+									v-else-if="item.type === 'multiple_choice' && item.options"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									@change="
+										handleRadioChange(sectionIndex, itemIndex, item, $event)
+									"
+									:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+									class="w-full"
+								>
+									<div class="space-y-2">
+										<el-radio
+											v-for="(option, optionIndex) in item.options"
+											:key="option.id || optionIndex"
+											:value="option.value || option.label"
+											class="preview-radio w-full"
+										>
+											<div v-if="option.isOther">
+												<el-input
+													v-model="
+														previewData[
+															getItemKey(
+																sectionIndex,
+																itemIndex,
+																true
+															)
+														]
+													"
+													:placeholder="item.placeholder || 'Your answer'"
+												/>
+											</div>
+											<div v-else>
+												{{ option.label || option.text || option.value }}
+											</div>
+										</el-radio>
+									</div>
+								</el-radio-group>
+
+								<!-- 多选题 -->
+								<el-checkbox-group
+									v-else-if="item.type === 'checkboxes' && item.options"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									@change="
+										handleCheckboxChange(sectionIndex, itemIndex, item, $event)
+									"
+									:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+									class="w-full flex"
+								>
+									<div class="space-y-2">
+										<el-checkbox
+											v-for="(option, optionIndex) in item.options"
+											:key="option.id || optionIndex"
+											:value="option.value || option.label"
+											class="preview-checkbox w-full"
+										>
+											<div v-if="option.isOther">
+												<el-input
+													v-model="
+														previewData[
+															getItemKey(
+																sectionIndex,
+																itemIndex,
+																true
+															)
+														]
+													"
+													:placeholder="item.placeholder || 'Your answer'"
+												/>
+											</div>
+											<div v-else class="min-w-0 flex">
+												<span class="truncate min-w-0">
+													{{
+														option.label || option.text || option.value
+													}}
+												</span>
+											</div>
+										</el-checkbox>
+									</div>
+								</el-checkbox-group>
+
+								<!-- 下拉选择 -->
+								<el-select
+									v-else-if="item.type === 'dropdown'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									:placeholder="item.placeholder || 'Please select'"
+									:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
+									filterable
+									:class="[
+										'w-full preview-select',
+										{ 'error-select': getFieldError(sectionIndex, itemIndex) },
+									]"
+								>
+									<el-option
+										v-for="(option, optionIndex) in item.options"
+										:key="option.id || optionIndex"
+										:label="option.label || option.text || option.value"
+										:value="option.value || option.label"
+									/>
+								</el-select>
+
+								<!-- 数字输入 -->
+								<el-input-number
+									v-else-if="item.type === 'number'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									:placeholder="item.placeholder || 'Enter number'"
+									:min="item.min"
+									:max="item.max"
+									:step="item.step || 1"
+									class="preview-number"
+								/>
+
+								<!-- 日期选择 -->
+								<el-date-picker
+									v-else-if="item.type === 'date'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									type="date"
+									:format="projectDate"
+									:placeholder="item.placeholder || 'Select date'"
+									class="preview-date w-full"
+								/>
+
+								<!-- 时间选择 -->
+								<el-time-picker
+									v-else-if="item.type === 'time'"
+									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+									:placeholder="item.placeholder || 'Select time'"
+									class="preview-time w-full"
+								/>
+
+								<!-- 评分 -->
+								<div
+									v-else-if="item.type === 'rating'"
+									class="flex items-center space-x-2"
+								>
+									<el-rate
+										v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+										:max="item.max || 5"
+										:icons="getSelectedFilledIcon(item.iconType)"
+										:void-icon="getSelectedVoidIcon(item.iconType)"
+										class="preview-rating"
+									/>
+									<span v-if="item.showText" class="text-sm text-secondary">
+										({{ item.max || 5 }} stars)
+									</span>
+								</div>
+
+								<!-- 文件上传 -->
+								<div
+									v-else-if="item.type === 'file' || item.type === 'file_upload'"
+									:class="[
+										'preview-file',
+										{ 'error-upload': getFieldError(sectionIndex, itemIndex) },
+									]"
+								>
+									<el-upload
+										drag
+										:auto-upload="false"
+										:show-file-list="true"
+										:on-change="
+											(file, fileList) =>
+												handleFileChange(
+													sectionIndex,
+													itemIndex,
+													file,
+													fileList
+												)
+										"
+										:accept="item.accept"
+										class="upload-demo w-full"
+									>
+										<el-icon class="el-icon--upload text-4xl">
+											<Upload />
+										</el-icon>
+										<div>
+											<text class="text-primary dark:text-white">
+												Drop file here
+											</text>
+											<text>or</text>
+											<em class="text-primary">click to select</em>
+										</div>
+										<div v-if="item.accept" class="el-upload__tip text-xs">
+											Accepted formats: {{ item.accept }}
+										</div>
+									</el-upload>
+								</div>
+
+								<!-- 线性量表 -->
+								<div v-else-if="item.type === 'linear_scale'" class="space-y-2">
+									<el-slider
+										v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
+										:min="item.min"
+										:max="item.max"
+										:marks="getSliderMarks(item)"
+										:validate-event="false"
+										show-stops
+										:key="`slider-${getItemKey(sectionIndex, itemIndex)}-${
+											previewData[getItemKey(sectionIndex, itemIndex)] || 0
+										}`"
+										class="preview-linear-scale"
+									/>
+									<div
+										class="flex justify-between text-xs text-secondary min-w-0"
+									>
+										<span class="truncate">
+											{{ item.minLabel || item.min }}
+										</span>
+										<span class="truncate">
+											{{ item.maxLabel || item.max }}
+										</span>
+									</div>
+								</div>
+
+								<!-- 多选网格 -->
+								<div
+									v-else-if="item.type === 'multiple_choice_grid'"
+									class="preview-grid"
+								>
+									<!-- 如果有网格数据（rows + columns），渲染为多选网格 -->
+									<el-table
+										v-if="item.columns && item.rows"
+										:data="item.rows"
+										border
+									>
+										<el-table-column
+											prop="label"
+											label=""
+											fixed="left"
+											width="300"
+										>
+											<template #default="{ row }">
+												<span class="truncate" :title="row.label">
+													{{ row.label }}
+												</span>
+											</template>
+										</el-table-column>
+										<el-table-column
+											v-for="(column, colIndex) in item.columns"
+											:key="colIndex"
+											:label="column.label"
+											min-width="120"
+											align="center"
+										>
+											<template #header>
+												<div class="flex items-center justify-center gap-1">
+													{{ column.label }}
+													<el-tag
+														v-if="column.isOther"
+														size="small"
+														type="warning"
+													>
+														Other
+													</el-tag>
+												</div>
+											</template>
+											<template #default="{ $index: rowIndex }">
+												<div class="flex items-center justify-center gap-2">
+													<el-checkbox-group
+														v-model="
+															previewData[
+																getGridKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															]
+														"
+														@change="
+															handleGridCheckboxChange(
+																sectionIndex,
+																itemIndex,
+																rowIndex,
+																item,
+																$event
+															)
+														"
+													>
+														<el-checkbox
+															:value="
+																column.value ||
+																column.label ||
+																`col_${colIndex}`
+															"
+															class="grid-checkbox"
+														/>
+													</el-checkbox-group>
+													<el-input
+														v-if="column.isOther"
+														v-model="
+															previewData[
+																getOtherTextKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															]
+														"
+														:disabled="
+															!previewData[
+																getGridKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															]?.includes(
+																column.value || column.label
+															)
+														"
+														placeholder="Enter other"
+														size="small"
+														class="other-input"
+													/>
+												</div>
+											</template>
+										</el-table-column>
+									</el-table>
+
+									<!-- 如果没有任何数据，显示占位符 -->
+									<div
+										v-else
+										class="text-placeholder italic p-4 border border-dashed border-base rounded"
+									>
+										<el-icon class="mr-2">
+											<Warning />
+										</el-icon>
+										Multiple choice grid: No options, columns or rows data
+										available
+									</div>
+								</div>
+
+								<!-- 单选网格 -->
+								<div v-else-if="item.type === 'checkbox_grid'" class="preview-grid">
+									<el-table
+										v-if="
+											item.rows &&
+											item.rows.length > 0 &&
+											item.columns &&
+											item.columns.length > 0
+										"
+										:data="item.rows"
+										border
+									>
+										<el-table-column
+											prop="label"
+											label=""
+											fixed="left"
+											width="300"
+										>
+											<template #default="{ row }">
+												<span class="truncate" :title="row.label">
+													{{ row.label }}
+												</span>
+											</template>
+										</el-table-column>
+										<el-table-column
+											v-for="(column, colIndex) in item.columns"
+											:key="colIndex"
+											:label="column.label"
+											min-width="120"
+											align="center"
+										>
+											<template #header>
+												<div class="flex items-center justify-center gap-1">
+													{{ column.label }}
+													<el-tag
+														v-if="column.isOther"
+														size="small"
+														type="warning"
+													>
+														Other
+													</el-tag>
+												</div>
+											</template>
+											<template #default="{ $index: rowIndex }">
+												<div class="flex items-center justify-center gap-2">
+													<el-radio
+														v-model="
+															previewData[
+																getGridKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															]
+														"
+														:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
+														:value="
+															column.value ||
+															column.label ||
+															`${rowIndex}_${colIndex}`
+														"
+														@change="
+															handleGridRadioChange(
+																sectionIndex,
+																itemIndex,
+																rowIndex,
+																item,
+																$event
+															)
+														"
+														class="grid-radio"
+													/>
+													<el-input
+														v-if="column.isOther"
+														v-model="
+															previewData[
+																getOtherTextKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															]
+														"
+														:disabled="
+															previewData[
+																getGridKey(
+																	sectionIndex,
+																	itemIndex,
+																	rowIndex
+																)
+															] != (column.value || column.label)
+														"
+														placeholder="Enter other"
+														size="small"
+														class="other-input"
+													/>
+												</div>
+											</template>
+										</el-table-column>
+									</el-table>
+
+									<!-- 如果没有数据，显示占位符 -->
+									<div
+										v-else
+										class="text-placeholder italic p-4 border border-dashed border-base rounded"
+									>
+										<el-icon class="mr-2">
+											<Warning />
+										</el-icon>
+										Checkbox grid: No rows or columns data available
+										<div class="text-xs mt-1">
+											Rows: {{ item.rows?.length || 0 }}, Columns:
+											{{ item.columns?.length || 0 }}
+										</div>
+									</div>
+								</div>
+
+								<div
+									v-else-if="item.type === 'short_answer_grid'"
+									class="preview-grid"
+								>
+									<el-table
+										v-if="item.columns && item.rows"
+										:data="item.rows"
+										border
+									>
+										<el-table-column
+											prop="label"
+											label=""
+											fixed="left"
+											width="300"
+										>
+											<template #default="{ row }">
+												<span class="truncate" :title="row.label">
+													{{ row.label }}
+												</span>
+											</template>
+										</el-table-column>
+										<el-table-column
+											v-for="(column, colIndex) in item.columns"
+											:key="colIndex"
+											:label="column.label"
+											min-width="150"
+											align="center"
+										>
+											<template #header>
+												<div class="flex items-center justify-center gap-1">
+													{{ column.label }}
+													<el-tag
+														v-if="column.isOther"
+														size="small"
+														type="warning"
+													>
+														Other
+													</el-tag>
+												</div>
+											</template>
+											<template #default="{ $index: rowIndex }">
+												<el-input
+													v-model="
+														previewData[
+															getGridKey(
+																sectionIndex,
+																column?.id ||
+																	column?.temporaryId ||
+																	column?.label,
+																rowIndex
+															)
+														]
+													"
+												/>
+											</template>
+										</el-table-column>
+									</el-table>
+								</div>
+
+								<!-- 说明文本 -->
+								<div
+									v-else-if="item.type === 'description'"
+									class="text-regular italic"
+								>
+									{{ item.content || item.text }}
+								</div>
+
+								<div
+									v-else-if="item.type === 'page_break'"
+									class="text-regular italic"
+								>
+									<div
+										class="border-t-2 border-dashed border-primary-300 pt-4 mt-4"
+									>
+										<div class="text-center text-primary-500 text-sm">
+											— Page Break —
+										</div>
+									</div>
+								</div>
+
+								<div
+									v-else-if="item.type === 'image'"
+									class="flex justify-center items-center w-full"
+								>
+									<el-image
+										:src="item.fileUrl"
+										class="responsive-image"
+										:preview-src-list="[`${item.fileUrl}`]"
+										fit="contain"
+									/>
+								</div>
+
+								<div
+									v-else-if="item.type === 'video'"
+									class="flex justify-center items-center"
+								>
+									<video
+										:src="item.fileUrl"
+										controls
+										class="max-h-[500px] w-auto object-contain"
+									></video>
+								</div>
+
+								<!-- 未知类型 -->
+								<div
+									v-else
+									class="text-placeholder italic p-4 border border-dashed border-base rounded"
+								>
+									<el-icon class="mr-2">
+										<Warning />
+									</el-icon>
+									Unsupported question type: {{ item.type }}
+								</div>
 							</div>
 						</div>
-					</div>
-					</template><!-- end v-else non-Repeatable -->
+					</template>
+					<!-- end v-else non-Repeatable -->
 				</div>
 			</div>
 		</div>
@@ -1009,11 +1220,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { projectDate } from '@/settings/projectSetting';
 import { Workflow } from '#/onboard';
+import { previewQuestionFile } from '@/apis/ow/questionnaire';
+import { getMimeType } from '@/utils/format';
 
 import IconStar from '~icons/mdi/star';
 import IconStarOutline from '~icons/mdi/star-outline';
@@ -1390,6 +1603,45 @@ const initializePreviewData = () => {
 	previewData.value = newPreviewData;
 };
 
+// 题目媒体（图片/视频）持久 blob URL 缓存，key 为 question.id
+const questionBlobUrls = ref<Record<string, string>>({});
+
+/**
+ * 遍历问卷所有题目，对有 filePath/fileUrl 的媒体题目调用接口获取持久 blob URL
+ * 使用 filePath 而非 fullAccessUrl，避免签名链接过期导致 FAILED
+ */
+const loadQuestionMediaBlobUrls = async () => {
+	if (!props.questionnaire) return;
+
+	const questionnaire = props.questionnaire;
+	const tasks: Promise<void>[] = [];
+
+	const sections = questionnaire.sections || [];
+	sections.forEach((section: any) => {
+		(section.questions || []).forEach((question: any) => {
+			const qProps = question.questionProps;
+			if (!qProps) return;
+			const pathOrUrl = qProps.filePath || qProps.fileUrl;
+			if (!pathOrUrl || questionBlobUrls.value[question.id]) return;
+
+			tasks.push(
+				previewQuestionFile(pathOrUrl)
+					.then((blob: any) => {
+						const ext = (qProps.fileName || '').split('.').pop()?.toLowerCase() || '';
+						const mimeType = getMimeType(ext);
+						const blobObj = new Blob([blob], { type: mimeType });
+						questionBlobUrls.value[question.id] = URL.createObjectURL(blobObj);
+					})
+					.catch(() => {
+						// 静默失败，保持空值让 el-image 显示原始错误
+					})
+			);
+		});
+	});
+
+	await Promise.allSettled(tasks);
+};
+
 // 监听问卷数据变化，重新初始化预览数据
 watch(
 	() => props.questionnaire,
@@ -1397,6 +1649,8 @@ watch(
 		initializePreviewData();
 		// 重置跳过状态
 		clearSkippedQuestions();
+		// 重新加载媒体 blob URL
+		loadQuestionMediaBlobUrls();
 	},
 	{ immediate: true, deep: true }
 );
