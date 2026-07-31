@@ -56,16 +56,17 @@
 										class="assignees-tags mt-1"
 										:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
 									>
-										<el-tag
-											v-for="userId in displayAssignees"
-											:key="userId"
-											:closable="!disabled"
-											size="small"
-											type="primary"
-											@close="handleRemoveAssignee(userId)"
-										>
-											{{ getUserDisplayName(userId) }}
-										</el-tag>
+										<template v-for="userId in displayAssignees" :key="userId">
+											<el-tag
+												v-if="getUserDisplayName(userId)"
+												:closable="!disabled"
+												size="small"
+												type="primary"
+												@close="handleRemoveAssignee(userId)"
+											>
+												{{ getUserDisplayName(userId) }}
+											</el-tag>
+										</template>
 									</div>
 									<el-button
 										v-if="showAssigneesExpandButton || isAssigneesExpanded"
@@ -98,15 +99,19 @@
 											'co-assignees-collapsed': !isCoAssigneesExpanded,
 										}"
 									>
-										<el-tag
+										<template
 											v-for="userId in displayCoAssignees"
 											:key="userId"
-											:closable="!disabled"
-											size="small"
-											@close="handleRemoveCoassignee(userId)"
 										>
-											{{ getUserDisplayName(userId) }}
-										</el-tag>
+											<el-tag
+												v-if="getUserDisplayName(userId)"
+												:closable="!disabled"
+												size="small"
+												@close="handleRemoveCoassignee(userId)"
+											>
+												{{ getUserDisplayName(userId) }}
+											</el-tag>
+										</template>
 									</div>
 									<el-button
 										v-if="showExpandButton || isCoAssigneesExpanded"
@@ -503,10 +508,10 @@ const canSelectAssignOptions = computed(() => {
 	return deduplicateByKey(combined);
 });
 
-// 获取用户显示名称
+// 获取用户显示名称，字典里查不到该 ID 则返回空字符串（不显示）
 const getUserDisplayName = (userId: string): string => {
 	const user = allAssignOptions.value.find((u) => String(u.key) === userId);
-	return user?.value || userId;
+	return user?.value || '';
 };
 
 // 计算属性 - 显示开始日期
