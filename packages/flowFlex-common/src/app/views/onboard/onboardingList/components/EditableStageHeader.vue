@@ -4,7 +4,10 @@
 			<!-- 显示状态 -->
 			<div v-if="!isEditing">
 				<!-- 头部标题和操作按钮 -->
-				<div class="flex items-center justify-between cursor-pointer" @click="toggleExpanded">
+				<div
+					class="flex items-center justify-between cursor-pointer"
+					@click="toggleExpanded"
+				>
 					<h2 class="font-bold text-xl">{{ displayTitle }}</h2>
 					<div class="flex items-center gap-2">
 						<template v-if="!disabled">
@@ -53,16 +56,17 @@
 										class="assignees-tags mt-1"
 										:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
 									>
-										<el-tag
-											v-for="userId in displayAssignees"
-											:key="userId"
-											:closable="!disabled"
-											size="small"
-											type="primary"
-											@close="handleRemoveAssignee(userId)"
-										>
-											{{ getUserDisplayName(userId) }}
-										</el-tag>
+										<template v-for="userId in displayAssignees" :key="userId">
+											<el-tag
+												v-if="getUserDisplayName(userId)"
+												:closable="!disabled"
+												size="small"
+												type="primary"
+												@close="handleRemoveAssignee(userId)"
+											>
+												{{ getUserDisplayName(userId) }}
+											</el-tag>
+										</template>
 									</div>
 									<el-button
 										v-if="showAssigneesExpandButton || isAssigneesExpanded"
@@ -91,17 +95,23 @@
 									<div
 										ref="coAssigneesTagsRef"
 										class="co-assignees-tags mt-1"
-										:class="{ 'co-assignees-collapsed': !isCoAssigneesExpanded }"
+										:class="{
+											'co-assignees-collapsed': !isCoAssigneesExpanded,
+										}"
 									>
-										<el-tag
+										<template
 											v-for="userId in displayCoAssignees"
 											:key="userId"
-											:closable="!disabled"
-											size="small"
-											@close="handleRemoveCoassignee(userId)"
 										>
-											{{ getUserDisplayName(userId) }}
-										</el-tag>
+											<el-tag
+												v-if="getUserDisplayName(userId)"
+												:closable="!disabled"
+												size="small"
+												@close="handleRemoveCoassignee(userId)"
+											>
+												{{ getUserDisplayName(userId) }}
+											</el-tag>
+										</template>
 									</div>
 									<el-button
 										v-if="showExpandButton || isCoAssigneesExpanded"
@@ -385,7 +395,9 @@ const emit = defineEmits(['update:stage-data']);
 const isEditing = ref(false);
 const saving = ref(false);
 const isExpanded = ref(true);
-const toggleExpanded = () => { isExpanded.value = !isExpanded.value; };
+const toggleExpanded = () => {
+	isExpanded.value = !isExpanded.value;
+};
 
 // Co-assignees 展开/收起控制
 const isCoAssigneesExpanded = ref(false);
@@ -465,18 +477,21 @@ const deduplicateByKey = (
 };
 
 // 计算属性 - 可选择的协作负责人列表 (排除当前负责人，但保留已选的协作负责人用于回显)
+// 使用 allAssignOptions（来自 getAllUser）而非 canSelectAllAssignOption（来自 authorized-users），
+// 避免 authorized-users 因 ViewPermissionMode 过滤导致团队成员为空时下拉显示 No data (OW-683)
 const availableCoAssignees = computed(() => {
-	const currentAssigneeOptions =
+	const currentAssignee = props.currentStage?.assignee || [];
+	const filteredAll = allAssignOptions.value.filter(
+		(user) => !currentAssignee.includes(String(user.key))
+	);
+	// 保留已选的协作负责人用于回显（即使不在过滤列表中）
+	const selectedButFiltered =
 		addCoassigneeForm.value.selectedUsers.length > 0
 			? allAssignOptions.value.filter((item) =>
 					addCoassigneeForm.value.selectedUsers.includes(item.key)
 			  )
 			: [];
-	const currentAssignee = props.currentStage?.assignee || [];
-	const canselectAssigneeOption = canSelectAllAssignOption.value.filter(
-		(user) => !currentAssignee.includes(String(user.key))
-	);
-	const combined = [...currentAssigneeOptions, ...canselectAssigneeOption];
+	const combined = [...selectedButFiltered, ...filteredAll];
 	return deduplicateByKey(combined);
 });
 
@@ -487,14 +502,16 @@ const canSelectAssignOptions = computed(() => {
 					reassignForm.value.selectedAssignees.includes(item.key)
 			  )
 			: [];
-	const combined = [...currentAssigneeOptions, ...canSelectAllAssignOption.value];
+	// 使用 allAssignOptions（来自 getAllUser）替代 canSelectAllAssignOption（来自 authorized-users），
+	// 修复 authorized-users 在 VisibleToTeams 模式下因 IDM 团队成员为空返回 [] 的问题 (OW-683)
+	const combined = [...currentAssigneeOptions, ...allAssignOptions.value];
 	return deduplicateByKey(combined);
 });
 
-// 获取用户显示名称
+// 获取用户显示名称，字典里查不到该 ID 则返回空字符串（不显示）
 const getUserDisplayName = (userId: string): string => {
 	const user = allAssignOptions.value.find((u) => String(u.key) === userId);
-	return user?.value || userId;
+	return user?.value || '';
 };
 
 // 计算属性 - 显示开始日期
