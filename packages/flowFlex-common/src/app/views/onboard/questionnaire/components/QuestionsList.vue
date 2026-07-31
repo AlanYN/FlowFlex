@@ -93,7 +93,8 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														!sections[currentSectionIndex]?.isRepeatable &&
+														!sections[currentSectionIndex]
+															?.isRepeatable &&
 														(item.type === 'multiple_choice' ||
 															(item.type === 'checkboxes' &&
 																setGoToSection))
@@ -480,6 +481,7 @@ const handleAddContent = async (type: 'video' | 'image', questionIndex: number) 
 				type: type,
 				fileName: result.fileName!,
 				fileUrl: result.fileUrl!,
+				filePath: result.filePath,
 				uploadDate: new Date().toISOString(),
 			};
 
