@@ -9,6 +9,7 @@ export type FileUploadType = 'video' | 'image';
 export interface UploadResult {
 	success: boolean;
 	fileUrl?: string;
+	filePath?: string;
 	fileName?: string;
 	error?: string;
 }
@@ -214,13 +215,13 @@ export class FileUploadManager {
 				},
 				this.uploadAbortController.signal
 			);
-
 			if (res?.data?.code === '200' && res.data?.data?.fullAccessUrl) {
 				this.shouldSuppressCloseMessage = true;
 				ElMessage.success(`${type} uploaded successfully`);
 				return {
 					success: true,
 					fileUrl: res.data?.data?.fullAccessUrl,
+					filePath: res.data?.data?.filePath,
 					fileName: file.name,
 				};
 			} else {
