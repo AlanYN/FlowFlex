@@ -1433,8 +1433,9 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         {
             try
             {
-                // Serialize stages progress
-                if (entity.StagesProgress != null)
+                // Serialize stages progress — only if there is actual progress data to write.
+                // OW-691: An empty list means the field was not loaded (IsIgnore), not that it should be cleared.
+                if (entity.StagesProgress != null && entity.StagesProgress.Count > 0)
                 {
                     entity.StagesProgressJson = _stageProgressService.SerializeStagesProgress(entity.StagesProgress);
                 }
@@ -1457,27 +1458,50 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
             catch (Exception ex) when (IsJsonbTypeError(ex))
             {
-                // Fallback to manual SQL update
+                // Fallback to manual SQL update — only touch stages_progress_json if there's actual data
                 var db = _onboardingRepository.GetSqlSugarClient();
-                var sql = @"
-                    UPDATE ff_onboarding SET
-                        modify_date = @ModifyDate,
-                        modify_by = @ModifyBy,
-                        modify_user_id = @ModifyUserId,
-                        stages_progress_json = @StagesProgressJson::jsonb
-                    WHERE id = @Id";
 
-                var parameters = new
+                if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    ModifyDate = entity.ModifyDate,
-                    ModifyBy = entity.ModifyBy,
-                    ModifyUserId = entity.ModifyUserId,
-                    StagesProgressJson = entity.StagesProgressJson ?? "[]",
-                    Id = entity.Id
-                };
+                    var sql = @"
+                        UPDATE ff_onboarding SET
+                            modify_date = @ModifyDate,
+                            modify_by = @ModifyBy,
+                            modify_user_id = @ModifyUserId,
+                            stages_progress_json = @StagesProgressJson::jsonb
+                        WHERE id = @Id";
 
-                var commandResult = await db.Ado.ExecuteCommandAsync(sql, parameters);
-                return commandResult > 0;
+                    var parameters = new
+                    {
+                        ModifyDate = entity.ModifyDate,
+                        ModifyBy = entity.ModifyBy,
+                        ModifyUserId = entity.ModifyUserId,
+                        StagesProgressJson = entity.StagesProgressJson,
+                        Id = entity.Id
+                    };
+
+                    var commandResult = await db.Ado.ExecuteCommandAsync(sql, parameters);
+                    return commandResult > 0;
+                }
+                else
+                {
+                    // No stage progress to write — only update audit fields
+                    var sql = @"
+                        UPDATE ff_onboarding SET
+                            modify_date = @ModifyDate,
+                            modify_by = @ModifyBy,
+                            modify_user_id = @ModifyUserId
+                        WHERE id = @Id";
+
+                    var commandResult = await db.Ado.ExecuteCommandAsync(sql, new
+                    {
+                        ModifyDate = entity.ModifyDate,
+                        ModifyBy = entity.ModifyBy,
+                        ModifyUserId = entity.ModifyUserId,
+                        Id = entity.Id
+                    });
+                    return commandResult > 0;
+                }
             }
         }
 

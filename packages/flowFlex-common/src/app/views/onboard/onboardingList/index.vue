@@ -780,6 +780,8 @@ const formData = reactive({
 	ContactPerson: '',
 	ContactEmail: '',
 	workFlowId: '',
+	// OW-691: 保留 status 字段，编辑时回显原值，避免保存时被重置
+	status: '',
 	// 新增权限字段
 	ownership: '',
 	viewPermissionMode: CasePermissionModeEnum.Public,
@@ -1605,6 +1607,8 @@ const handleEditCase = (row: any) => {
 	formData.priority = row.priority || '';
 	formData.workFlowId = row.workflowId || '';
 	formData.ownership = row.ownership || '';
+	// OW-691: 回显原始 status，防止保存时被默认值覆盖
+	formData.status = row.status || '';
 	formData.viewPermissionMode = row.viewPermissionMode ?? CasePermissionModeEnum.Public;
 	formData.viewTeams = row.viewTeams || [];
 	formData.viewUsers = row.viewUsers || [];
