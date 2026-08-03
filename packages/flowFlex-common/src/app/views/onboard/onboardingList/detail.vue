@@ -17,32 +17,40 @@
 				</span>
 			</template>
 			<template #actions>
-				<el-button
-					type="primary"
-					@click="saveQuestionnaireAndField"
-					:loading="saveAllLoading"
-					:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled"
-					:icon="Document"
-					class="page-header-btn page-header-btn-primary"
-					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
+				<el-tooltip
+					:content="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : ''"
+					:disabled="fileUploadStore.uploadingCount === 0"
+					placement="top"
+					effect="dark"
 				>
-					Save
-				</el-button>
+					<el-button
+						type="primary"
+						@click="saveQuestionnaireAndField"
+						:loading="saveAllLoading || fileUploadStore.uploadingCount > 0"
+						:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled || fileUploadStore.uploadingCount > 0"
+						:icon="Document"
+						class="page-header-btn page-header-btn-primary"
+						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
+					>
+						Save
+					</el-button>
+				</el-tooltip>
 				<el-tooltip
 					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
-					:content="completeDisabledReason"
-					:disabled="!completeDisabledReason"
+					:content="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : completeDisabledReason"
+					:disabled="!completeDisabledReason && fileUploadStore.uploadingCount === 0"
 					placement="top"
 					effect="dark"
 				>
 					<el-button
 						type="primary"
 						@click="handleCompleteStage"
-						:loading="completing"
+						:loading="completing || fileUploadStore.uploadingCount > 0"
 						:disabled="
 							isCompleteStageDisabled ||
 							stageCanCompleted ||
-							onboardingData?.isDisabled
+							onboardingData?.isDisabled ||
+							fileUploadStore.uploadingCount > 0
 						"
 						class="page-header-btn page-header-btn-primary"
 						:icon="Check"
@@ -317,10 +325,12 @@ import QuickLink from './components/QuickLink.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';
+import { useFileUploadStore } from '@/stores/modules/fileUpload';
 
 const { t } = useI18n();
 const userStore = useUserStore();
 const globSetting = useGlobSetting();
+const fileUploadStore = useFileUploadStore();
 
 // 常量定义
 const router = useRouter();
@@ -1424,4 +1434,5 @@ onMounted(async () => {
 	-moz-hyphens: auto;
 	hyphens: auto;
 }
+
 </style>
