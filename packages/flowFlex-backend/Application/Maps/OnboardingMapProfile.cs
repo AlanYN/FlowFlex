@@ -21,6 +21,16 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.AppCode, opt => opt.Ignore()) // 忽略AppCode，防止更新时被修改
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                // OW-691: 以下字段均为"系统流程驱动的运行时状态"，不应由 Edit Case 接口覆盖
+                .ForMember(dest => dest.Status, opt => opt.Ignore())                // 由流程推进/完成接口维护
+                .ForMember(dest => dest.CurrentStageId, opt => opt.Ignore())        // 由 Stage 推进接口维护
+                .ForMember(dest => dest.CurrentStageOrder, opt => opt.Ignore())     // 由 Stage 推进接口维护
+                .ForMember(dest => dest.IsPrioritySet, opt => opt.Ignore())         // Stage 1 完成时由系统设置
+                .ForMember(dest => dest.CurrentStageStartTime, opt => opt.Ignore()) // Stage 推进时由系统设置
+                .ForMember(dest => dest.StageUpdatedById, opt => opt.Ignore())      // Stage 推进时由系统设置
+                .ForMember(dest => dest.StageUpdatedBy, opt => opt.Ignore())        // Stage 推进时由系统设置
+                .ForMember(dest => dest.StageUpdatedByEmail, opt => opt.Ignore())   // Stage 推进时由系统设置
+                .ForMember(dest => dest.StageUpdatedTime, opt => opt.Ignore())      // Stage 推进时由系统设置
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
