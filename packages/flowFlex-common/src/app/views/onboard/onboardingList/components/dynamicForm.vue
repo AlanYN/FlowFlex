@@ -1080,8 +1080,9 @@
 							@click="Submit()"
 							type="primary"
 							:icon="Document"
-							:loading="loading"
-							:disabled="!isSubmitEnabled || disabled"
+							:loading="loading || fileUploadStore.uploadingCount > 0"
+							:disabled="!isSubmitEnabled || disabled || fileUploadStore.uploadingCount > 0"
+							:title="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : ''"
 						>
 							Submit
 						</el-button>
@@ -1114,7 +1115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, readonly } from 'vue';
 import {
 	Upload,
 	Warning,
@@ -1150,6 +1151,7 @@ import {
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import { getMimeType } from '@/utils/format';
+import { useFileUploadStore } from '@/stores/modules/fileUpload';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -1178,6 +1180,8 @@ const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
 const sectionGroups = ref<Record<string, Record<string, any>[]>>({});
+// 使用全局 store 跟踪上传状态（供父页面遮罩使用）
+const fileUploadStore = useFileUploadStore();
 const dynamicFormRootRef = ref<HTMLElement>();
 const currentSectionIndex = ref(0);
 
@@ -1819,6 +1823,7 @@ const handleFileChange = async (questionId: string, file: any, fileList: any[]) 
 	// Only upload new files that haven't been uploaded yet (no accessUrl)
 	if (!file?.raw || file?.uploadedBy !== undefined) return;
 
+	fileUploadStore.increment();
 	try {
 		const uploadParams = {
 			name: 'formFile',
@@ -1849,6 +1854,8 @@ const handleFileChange = async (questionId: string, file: any, fileList: any[]) 
 		}
 	} catch {
 		// Upload error is non-blocking for the form; the file entry remains without metadata
+	} finally {
+		fileUploadStore.decrement();
 	}
 };
 
@@ -2242,6 +2249,19 @@ const collectQuestionAnswer = (
 			answer: dataSource[question.id] ?? null,
 			type: question.type,
 			responseText: '',
+		});
+	} else if (question.type === 'file' || question.type === 'file_upload') {
+		// 过滤掉尚未上传完成的文件（没有 filePath 也没有 accessUrl 的是 Element Plus 临时对象）
+		const rawFiles = dataSource[question.id];
+		const uploadedFiles = Array.isArray(rawFiles)
+			? rawFiles.filter((f: any) => f?.filePath || f?.accessUrl || f?.fullAccessUrl)
+			: [];
+		results.push({
+			questionId: question.id,
+			question: question.question,
+			answer: uploadedFiles,
+			type: question.type,
+			responseText: uploadedFiles.map((f: any) => f?.name || f?.fileName || '').join(', '),
 		});
 	} else {
 		results.push({
@@ -2710,6 +2730,11 @@ const Submit = () => {
 const Reopen = () => {
 	emit('reopen');
 };
+
+// 组件卸载时重置上传计数，防止路由切换后 uploadingCount 残留导致按钮永久 loading
+onUnmounted(() => {
+    fileUploadStore.reset();
+});
 
 defineExpose({
 	validateForm,
