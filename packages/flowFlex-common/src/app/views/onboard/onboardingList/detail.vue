@@ -18,7 +18,11 @@
 			</template>
 			<template #actions>
 				<el-tooltip
-					:content="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : ''"
+					:content="
+						fileUploadStore.uploadingCount > 0
+							? 'File upload in progress, please wait...'
+							: ''
+					"
 					:disabled="fileUploadStore.uploadingCount === 0"
 					placement="top"
 					effect="dark"
@@ -27,7 +31,12 @@
 						type="primary"
 						@click="saveQuestionnaireAndField"
 						:loading="saveAllLoading || fileUploadStore.uploadingCount > 0"
-						:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled || fileUploadStore.uploadingCount > 0"
+						:disabled="
+							isSaveDisabled ||
+							stageCanCompleted ||
+							onboardingData?.isDisabled ||
+							fileUploadStore.uploadingCount > 0
+						"
 						:icon="Document"
 						class="page-header-btn page-header-btn-primary"
 						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
@@ -37,7 +46,11 @@
 				</el-tooltip>
 				<el-tooltip
 					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
-					:content="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : completeDisabledReason"
+					:content="
+						fileUploadStore.uploadingCount > 0
+							? 'File upload in progress, please wait...'
+							: completeDisabledReason
+					"
 					:disabled="!completeDisabledReason && fileUploadStore.uploadingCount === 0"
 					placement="top"
 					effect="dark"
@@ -446,8 +459,9 @@ const isCompleteStageDisabled = computed(() => {
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
-	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	if (['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+	// 对于已完成、已中止、已取消或暂停的状态，禁用完成阶段
+	// OW-691: 加入 Completed，防止 stages_progress_json 被清空后按钮意外解锁
+	if (['Completed', 'Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
 		return true;
 	}
 
@@ -479,7 +493,10 @@ const completeDisabledReason = computed(() => {
 	}
 
 	const status = onboardingData.value?.status;
-	if (status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+	if (
+		status &&
+		['Completed', 'Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)
+	) {
 		return `Cannot complete stage when case status is ${status}`;
 	}
 
@@ -1093,7 +1110,9 @@ const handleCompleteStage = async () => {
 							);
 							if (latestStage?.isCompleted) {
 								ElMessage.error(
-									`This stage has already been completed by ${latestStage.completedBy || 'another user'}. Please refresh the page.`
+									`This stage has already been completed by ${
+										latestStage.completedBy || 'another user'
+									}. Please refresh the page.`
 								);
 								loadOnboardingDetail();
 								done();
@@ -1434,5 +1453,4 @@ onMounted(async () => {
 	-moz-hyphens: auto;
 	hyphens: auto;
 }
-
 </style>
