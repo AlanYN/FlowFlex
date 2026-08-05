@@ -1,302 +1,307 @@
 <template>
 	<div>
-	<el-form
-		ref="formRef"
-		:model="formValues"
-		:label-position="labelPosition"
-		:label-width="labelWidth"
-		:disabled="disabled"
-		class="dynamic-form-grid"
-	>
-		<template v-for="field in fields" :key="field.id">
-			<el-form-item
-				:label="field.fieldName"
-				:prop="field.fieldName"
-				:rules="getFieldRules(field)"
-				:class="getFieldClass(field)"
-			>
-				<template #label="{ label }">
-					<span class="inline-flex items-center gap-x-1">
-						{{ label }}
-						<el-tooltip
-							v-if="field.description"
-							placement="top"
-							:popper-options="{
-								modifiers: [
-									{ name: 'computeStyles', options: { adaptive: false } },
-								],
-							}"
-						>
-							<template #content>
-								<span style="white-space: pre-wrap">{{ field.description }}</span>
-							</template>
-							<Icon
-								icon="mdi:information-outline"
-								class="text-gray-400 cursor-help"
-							/>
-						</el-tooltip>
-					</span>
-				</template>
+		<el-form
+			ref="formRef"
+			:model="formValues"
+			:label-position="labelPosition"
+			:label-width="labelWidth"
+			:disabled="disabled"
+			class="dynamic-form-grid"
+		>
+			<template v-for="field in fields" :key="field.id">
+				<el-form-item
+					:label="field.fieldName"
+					:prop="field.fieldName"
+					:rules="getFieldRules(field)"
+					:class="getFieldClass(field)"
+				>
+					<template #label="{ label }">
+						<span class="inline-flex items-center gap-x-1">
+							{{ label }}
+							<el-tooltip
+								v-if="field.description"
+								placement="top"
+								:popper-options="{
+									modifiers: [
+										{ name: 'computeStyles', options: { adaptive: false } },
+									],
+								}"
+							>
+								<template #content>
+									<span style="white-space: pre-wrap">
+										{{ field.description }}
+									</span>
+								</template>
+								<Icon
+									icon="mdi:information-outline"
+									class="text-gray-400 cursor-help"
+								/>
+							</el-tooltip>
+						</span>
+					</template>
 
-				<!-- Number 数字 -->
-				<InputNumber
-					v-if="field.dataType === propertyTypeEnum.Number"
-					v-model="formValues[field.fieldName]"
-					:is-foloat="field.additionalInfo?.isFloat ?? false"
-					:minus-number="field.additionalInfo?.allowNegative ?? false"
-					:is-financial="field.additionalInfo?.isFinancial ?? false"
-					:decimal-places="Number(field.format?.decimalPlaces) || 2"
-					class="w-full"
-					:property="{
-						placeholder: `Please enter ${field.fieldName}`,
-						disabled: readonly,
-					}"
-				/>
-
-				<!-- DatePicker 日期 -->
-				<el-date-picker
-					v-else-if="field.dataType === propertyTypeEnum.DatePicker"
-					v-model="formValues[field.fieldName]"
-					:type="getDateType(field)"
-					:format="field.format?.dateFormat || projectDate"
-					:value-format="field.format?.dateFormat || projectDate"
-					:placeholder="`Select ${field.fieldName}`"
-					:disabled="readonly"
-					class="w-full"
-					:clearable="true"
-				/>
-
-				<!-- Switch 布尔/开关 -->
-				<template v-else-if="field.dataType === propertyTypeEnum.Switch">
-					<el-switch
-						v-if="field.additionalInfo?.displayStyle === 'switch'"
+					<!-- Number 数字 -->
+					<InputNumber
+						v-if="field.dataType === propertyTypeEnum.Number"
 						v-model="formValues[field.fieldName]"
-						:active-text="field.additionalInfo?.trueLabel || 'Yes'"
-						:inactive-text="field.additionalInfo?.falseLabel || 'No'"
-						:disabled="readonly"
-						inline-prompt
+						:is-foloat="field.additionalInfo?.isFloat ?? false"
+						:minus-number="field.additionalInfo?.allowNegative ?? false"
+						:is-financial="field.additionalInfo?.isFinancial ?? false"
+						:decimal-places="Number(field.format?.decimalPlaces) || 2"
+						class="w-full"
+						:property="{
+							placeholder: `Please enter ${field.fieldName}`,
+							disabled: readonly,
+						}"
 					/>
-					<el-checkbox
-						v-else-if="field.additionalInfo?.displayStyle === 'checkbox'"
+
+					<!-- DatePicker 日期 -->
+					<el-date-picker
+						v-else-if="field.dataType === propertyTypeEnum.DatePicker"
+						v-model="formValues[field.fieldName]"
+						:type="getDateType(field)"
+						:format="field.format?.dateFormat || projectDate"
+						:value-format="field.format?.dateFormat || projectDate"
+						:placeholder="`Select ${field.fieldName}`"
+						:disabled="readonly"
+						class="w-full"
+						:clearable="true"
+					/>
+
+					<!-- Switch 布尔/开关 -->
+					<template v-else-if="field.dataType === propertyTypeEnum.Switch">
+						<el-switch
+							v-if="field.additionalInfo?.displayStyle === 'switch'"
+							v-model="formValues[field.fieldName]"
+							:active-text="field.additionalInfo?.trueLabel || 'Yes'"
+							:inactive-text="field.additionalInfo?.falseLabel || 'No'"
+							:disabled="readonly"
+							inline-prompt
+						/>
+						<el-checkbox
+							v-else-if="field.additionalInfo?.displayStyle === 'checkbox'"
+							v-model="formValues[field.fieldName]"
+							:disabled="readonly"
+						>
+							{{ field.additionalInfo?.trueLabel || 'Yes' }}
+						</el-checkbox>
+						<el-radio-group
+							v-else
+							v-model="formValues[field.fieldName]"
+							:disabled="readonly"
+						>
+							<el-radio :value="true">
+								{{ field.additionalInfo?.trueLabel || 'Yes' }}
+							</el-radio>
+							<el-radio :value="false">
+								{{ field.additionalInfo?.falseLabel || 'No' }}
+							</el-radio>
+						</el-radio-group>
+					</template>
+
+					<!-- SingleLineText 单行文本 -->
+					<el-input
+						v-else-if="field.dataType === propertyTypeEnum.SingleLineText"
+						v-model="formValues[field.fieldName]"
+						:maxlength="field.fieldValidate?.maxLength || 100"
+						:placeholder="`Please enter ${field.fieldName}`"
+						:disabled="readonly"
+						:show-word-limit="true"
+						clearable
+					/>
+
+					<!-- MultilineText 多行文本 -->
+					<el-input
+						v-else-if="field.dataType === propertyTypeEnum.MultilineText"
+						v-model="formValues[field.fieldName]"
+						type="textarea"
+						:rows="Number(field.additionalInfo?.rows) || 4"
+						:maxlength="field.fieldValidate?.maxLength || 5000"
+						:placeholder="`Please enter ${field.fieldName}`"
+						:disabled="readonly"
+						:resize="Number(field.additionalInfo?.rows) > 1 ? 'none' : 'vertical'"
+						:show-word-limit="true"
+					/>
+
+					<!-- DropdownSelect 下拉选择 -->
+					<el-select
+						v-else-if="field.dataType === propertyTypeEnum.DropdownSelect"
+						v-model="formValues[field.fieldName]"
+						:multiple="field.additionalInfo?.allowMultiple ?? false"
+						:filterable="field.additionalInfo?.allowSearch ?? true"
+						:placeholder="`Select ${field.fieldName}`"
+						:disabled="readonly"
+						class="w-full"
+						clearable
+						tag-type="primary"
+					>
+						<el-option
+							v-for="item in field.dropdownItems"
+							:key="item.id"
+							:label="`${item.value}`"
+							:value="item.value"
+						/>
+					</el-select>
+
+					<!-- File 文件 -->
+					<div v-else-if="field.dataType === propertyTypeEnum.File" class="w-full">
+						<el-upload
+							:key="`upload-${field.fieldName}-${
+								getUploadedFiles(field.fieldName).length
+							}`"
+							:auto-upload="false"
+							:show-file-list="false"
+							:limit="Number(field.additionalInfo?.maxCount) || 1"
+							:accept="getAcceptExtensions(field)"
+							:disabled="readonly"
+							:on-change="(file: any) => handleFileChange(file, field)"
+							:on-exceed="handleExceed"
+						>
+							<el-button type="primary" :disabled="readonly">Upload File</el-button>
+						</el-upload>
+						<div class="el-upload__tip text-gray-400 mt-1">
+							Max {{ formatFileSize(field.additionalInfo?.maxSize) }},
+							{{ field.additionalInfo?.maxCount || 1 }} file(s)
+							<span v-if="field.additionalInfo?.allowedExtensions?.length">
+								({{ field.additionalInfo.allowedExtensions.join(', ') }})
+							</span>
+						</div>
+						<!-- 上传进度 -->
+						<div
+							v-if="getUploadProgress(field.fieldName).length > 0"
+							class="mt-2 space-y-2"
+						>
+							<div
+								v-for="progress in getUploadProgress(field.fieldName)"
+								:key="progress.uid"
+								class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-black-200 rounded"
+							>
+								<Icon icon="mdi:file-upload" class="text-blue-500" />
+								<div class="flex-1 min-w-0">
+									<div class="text-sm truncate">{{ progress.name }}</div>
+									<el-progress
+										:percentage="progress.percentage"
+										:status="progress.error ? 'exception' : undefined"
+										:show-text="false"
+										:stroke-width="4"
+									/>
+								</div>
+								<span class="text-xs text-gray-500 flex-shrink-0">
+									{{ progress.percentage }}%
+								</span>
+							</div>
+						</div>
+						<!-- 已上传文件列表 -->
+						<div
+							v-if="getUploadedFiles(field.fieldName).length > 0"
+							class="mt-2 space-y-2"
+						>
+							<div
+								v-for="file in getUploadedFiles(field.fieldName)"
+								:key="file.id"
+								class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-black-200 rounded"
+							>
+								<Icon icon="mdi:file-document" class="text-primary flex-shrink-0" />
+								<div class="flex-1 min-w-0">
+									<span class="text-sm truncate block" :title="file.fileName">
+										{{ file.fileName }}
+									</span>
+									<span
+										v-if="file.uploadedBy || file.uploadDate"
+										class="text-xs text-gray-500"
+									>
+										Uploaded by {{ file.uploadedBy }},
+										{{
+											timeZoneConvert(
+												file.uploadDate,
+												false,
+												projectTenMinutesSsecondsDate
+											)
+										}}
+									</span>
+								</div>
+								<span class="text-xs text-gray-400 flex-shrink-0">
+									{{ formatFileSizeDisplay(file.fileSize) }}
+								</span>
+								<el-button
+									type="primary"
+									link
+									size="small"
+									@click="handlePreviewDynamicFile(file)"
+									title="Preview"
+								>
+									<Icon icon="mdi:eye" />
+								</el-button>
+								<el-button
+									type="primary"
+									link
+									size="small"
+									@click="handleDownloadDynamicFile(file)"
+									title="Download"
+								>
+									<Icon icon="mdi:download" />
+								</el-button>
+								<el-button
+									type="danger"
+									link
+									size="small"
+									:disabled="readonly"
+									@click="handleRemoveFile(field.fieldName, file?.id)"
+								>
+									<Icon icon="mdi:close" />
+								</el-button>
+							</div>
+						</div>
+					</div>
+
+					<!-- People 人员 -->
+					<FlowflexUser
+						v-else-if="field.dataType === propertyTypeEnum.Pepole"
+						v-model="formValues[field.fieldName]"
+						:max-count="field.additionalInfo?.allowMultiple ? 0 : 1"
+						:disabled="readonly"
+						selection-type="user"
+						class="w-full"
+					/>
+
+					<!-- Email 邮箱 -->
+					<el-input
+						v-else-if="field.dataType === propertyTypeEnum.Email"
+						v-model="formValues[field.fieldName]"
+						type="email"
+						:placeholder="`Please enter ${field.fieldName}`"
+						:disabled="readonly"
+						clearable
+					/>
+
+					<!-- Phone 电话 -->
+					<MergedArea
+						v-else-if="field.dataType === propertyTypeEnum.Phone"
 						v-model="formValues[field.fieldName]"
 						:disabled="readonly"
-					>
-						{{ field.additionalInfo?.trueLabel || 'Yes' }}
-					</el-checkbox>
-					<el-radio-group
+					/>
+
+					<!-- 默认文本输入 -->
+					<el-input
 						v-else
 						v-model="formValues[field.fieldName]"
+						:placeholder="`Please enter ${field.fieldName}`"
 						:disabled="readonly"
-					>
-						<el-radio :value="true">
-							{{ field.additionalInfo?.trueLabel || 'Yes' }}
-						</el-radio>
-						<el-radio :value="false">
-							{{ field.additionalInfo?.falseLabel || 'No' }}
-						</el-radio>
-					</el-radio-group>
-				</template>
-
-				<!-- SingleLineText 单行文本 -->
-				<el-input
-					v-else-if="field.dataType === propertyTypeEnum.SingleLineText"
-					v-model="formValues[field.fieldName]"
-					:maxlength="field.fieldValidate?.maxLength || 100"
-					:placeholder="`Please enter ${field.fieldName}`"
-					:disabled="readonly"
-					:show-word-limit="true"
-					clearable
-				/>
-
-				<!-- MultilineText 多行文本 -->
-				<el-input
-					v-else-if="field.dataType === propertyTypeEnum.MultilineText"
-					v-model="formValues[field.fieldName]"
-					type="textarea"
-					:rows="Number(field.additionalInfo?.rows) || 4"
-					:maxlength="field.fieldValidate?.maxLength || 5000"
-					:placeholder="`Please enter ${field.fieldName}`"
-					:disabled="readonly"
-					:resize="Number(field.additionalInfo?.rows) > 1 ? 'none' : 'vertical'"
-					:show-word-limit="true"
-				/>
-
-				<!-- DropdownSelect 下拉选择 -->
-				<el-select
-					v-else-if="field.dataType === propertyTypeEnum.DropdownSelect"
-					v-model="formValues[field.fieldName]"
-					:multiple="field.additionalInfo?.allowMultiple ?? false"
-					:filterable="field.additionalInfo?.allowSearch ?? true"
-					:placeholder="`Select ${field.fieldName}`"
-					:disabled="readonly"
-					class="w-full"
-					clearable
-					tag-type="primary"
-				>
-					<el-option
-						v-for="item in field.dropdownItems"
-						:key="item.id"
-						:label="`${item.value}`"
-						:value="item.value"
+						clearable
 					/>
-				</el-select>
+				</el-form-item>
+			</template>
+		</el-form>
 
-				<!-- File 文件 -->
-				<div v-else-if="field.dataType === propertyTypeEnum.File" class="w-full">
-					<el-upload
-						:key="`upload-${field.fieldName}-${
-							getUploadedFiles(field.fieldName).length
-						}`"
-						:auto-upload="false"
-						:show-file-list="false"
-						:limit="Number(field.additionalInfo?.maxCount) || 1"
-						:accept="getAcceptExtensions(field)"
-						:disabled="readonly"
-						:on-change="(file: any) => handleFileChange(file, field)"
-						:on-exceed="handleExceed"
-					>
-						<el-button type="primary" :disabled="readonly">Upload File</el-button>
-					</el-upload>
-					<div class="el-upload__tip text-gray-400 mt-1">
-						Max {{ formatFileSize(field.additionalInfo?.maxSize) }},
-						{{ field.additionalInfo?.maxCount || 1 }} file(s)
-						<span v-if="field.additionalInfo?.allowedExtensions?.length">
-							({{ field.additionalInfo.allowedExtensions.join(', ') }})
-						</span>
-					</div>
-					<!-- 上传进度 -->
-					<div
-						v-if="getUploadProgress(field.fieldName).length > 0"
-						class="mt-2 space-y-2"
-					>
-						<div
-							v-for="progress in getUploadProgress(field.fieldName)"
-							:key="progress.uid"
-							class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-black-200 rounded"
-						>
-							<Icon icon="mdi:file-upload" class="text-blue-500" />
-							<div class="flex-1 min-w-0">
-								<div class="text-sm truncate">{{ progress.name }}</div>
-								<el-progress
-									:percentage="progress.percentage"
-									:status="progress.error ? 'exception' : undefined"
-									:show-text="false"
-									:stroke-width="4"
-								/>
-							</div>
-							<span class="text-xs text-gray-500 flex-shrink-0">
-								{{ progress.percentage }}%
-							</span>
-						</div>
-					</div>
-					<!-- 已上传文件列表 -->
-					<div v-if="getUploadedFiles(field.fieldName).length > 0" class="mt-2 space-y-2">
-						<div
-							v-for="file in getUploadedFiles(field.fieldName)"
-							:key="file.id"
-							class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-black-200 rounded"
-						>
-							<Icon icon="mdi:file-document" class="text-primary flex-shrink-0" />
-							<div class="flex-1 min-w-0">
-								<span class="text-sm truncate block" :title="file.fileName">
-									{{ file.fileName }}
-								</span>
-								<span
-									v-if="file.uploadedBy || file.uploadDate"
-									class="text-xs text-gray-500"
-								>
-									Uploaded by {{ file.uploadedBy }},
-									{{
-										timeZoneConvert(
-											file.uploadDate,
-											false,
-											projectTenMinutesSsecondsDate
-										)
-									}}
-								</span>
-							</div>
-							<span class="text-xs text-gray-400 flex-shrink-0">
-								{{ formatFileSizeDisplay(file.fileSize) }}
-							</span>
-							<el-button
-								type="primary"
-								link
-								size="small"
-								@click="handlePreviewDynamicFile(file)"
-								title="Preview"
-							>
-								<Icon icon="mdi:eye" />
-							</el-button>
-							<el-button
-								type="primary"
-								link
-								size="small"
-								@click="handleDownloadDynamicFile(file)"
-								title="Download"
-							>
-								<Icon icon="mdi:download" />
-							</el-button>
-							<el-button
-								type="danger"
-								link
-								size="small"
-								:disabled="readonly"
-								@click="handleRemoveFile(field.fieldName, file?.id)"
-							>
-								<Icon icon="mdi:close" />
-							</el-button>
-						</div>
-					</div>
-				</div>
-
-				<!-- People 人员 -->
-				<FlowflexUser
-					v-else-if="field.dataType === propertyTypeEnum.Pepole"
-					v-model="formValues[field.fieldName]"
-					:max-count="field.additionalInfo?.allowMultiple ? 0 : 1"
-					:disabled="readonly"
-					selection-type="user"
-					class="w-full"
-				/>
-
-				<!-- Email 邮箱 -->
-				<el-input
-					v-else-if="field.dataType === propertyTypeEnum.Email"
-					v-model="formValues[field.fieldName]"
-					type="email"
-					:placeholder="`Please enter ${field.fieldName}`"
-					:disabled="readonly"
-					clearable
-				/>
-
-				<!-- Phone 电话 -->
-				<MergedArea
-					v-else-if="field.dataType === propertyTypeEnum.Phone"
-					v-model="formValues[field.fieldName]"
-					:disabled="readonly"
-				/>
-
-				<!-- 默认文本输入 -->
-				<el-input
-					v-else
-					v-model="formValues[field.fieldName]"
-					:placeholder="`Please enter ${field.fieldName}`"
-					:disabled="readonly"
-					clearable
-				/>
-			</el-form-item>
-		</template>
-	</el-form>
-
-	<!-- 文件预览组件 -->
-	<vuePreviewFile
-		:fileUrl="previewFileUrl"
-		:type="previewFileType"
-		:isShow="previewFileShow"
-		:offloading="previewOffloading"
-		@close-office="closePreview"
-		@rendered-office="previewOffloading = false"
-	/>
+		<!-- 文件预览组件 -->
+		<vuePreviewFile
+			:fileUrl="previewFileUrl"
+			:type="previewFileType"
+			:isShow="previewFileShow"
+			:offloading="previewOffloading"
+			@close-office="closePreview"
+			@rendered-office="previewOffloading = false"
+		/>
 	</div>
 </template>
 
@@ -308,7 +313,11 @@ import { projectDate, projectTenMinutesSsecondsDate } from '@/settings/projectSe
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 import MergedArea from '@/components/form/inputPhone/mergedArea.vue';
-import { uploadQuestionFile, previewQuestionFile, downloadQuestionFile } from '@/apis/ow/questionnaire';
+import {
+	uploadQuestionFile,
+	previewQuestionFile,
+	downloadQuestionFile,
+} from '@/apis/ow/questionnaire';
 import { getMimeType } from '@/utils/format';
 import { timeZoneConvert } from '@/hooks/time';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';

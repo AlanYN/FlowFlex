@@ -10,7 +10,7 @@
 	>
 		<div v-if="task" class="dialog-content">
 			<!-- 任务基本信息 -->
-			<div class="task-basic-info">
+			<div class="task-basic-info" data-tour="task-detail-info">
 				<div v-if="task.description" class="task-info-item">
 					<span class="info-label">Description:</span>
 					<span class="info-value">{{ task.description }}</span>
@@ -30,7 +30,7 @@
 			</div>
 
 			<!-- Notes 区域 -->
-			<div class="notes-section">
+			<div class="notes-section" data-tour="task-detail-notes">
 				<div class="section-header">
 					<h3 class="section-title">
 						<el-icon><Edit /></el-icon>
@@ -151,7 +151,7 @@
 			</div>
 
 			<!-- 附件区域 -->
-			<div class="attachments-section">
+			<div class="attachments-section" data-tour="task-detail-attachments">
 				<div class="section-header">
 					<h3 class="section-title">
 						<el-icon><Paperclip /></el-icon>
@@ -258,7 +258,7 @@
 			</div>
 		</div>
 
-		<div class="notes-section mt-4">
+		<div class="notes-section mt-4" data-tour="task-detail-changelog">
 			<div class="section-header">
 				<div class="section-title">Change Log</div>
 			</div>

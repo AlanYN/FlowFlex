@@ -167,5 +167,22 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// <param name="stageId">Stage ID to save</param>
         /// <returns>True if save was successful, false otherwise</returns>
         Task<bool> SaveStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Check whether the current user has already seen the guided tour for a specific stage.
+        /// Uses TourSeenBy stored in stages_progress_json (account-level, device-independent).
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>True if current user has already seen the tour for this stage</returns>
+        Task<bool> GetTourSeenAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Mark the guided tour as seen by the current user for a specific stage.
+        /// Records the timestamp in TourSeenBy inside stages_progress_json.
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        Task MarkTourSeenAsync(long onboardingId, long stageId);
     }
 }

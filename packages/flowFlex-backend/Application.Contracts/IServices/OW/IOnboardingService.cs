@@ -175,5 +175,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="pageSize">Page size (default: 20, max: 100)</param>
         /// <returns>Paged result of active onboarding records</returns>
         Task<PagedResult<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int pageIndex = 1, int pageSize = 20);
+
+        /// <summary>
+        /// Check whether the current user has already seen the guided tour for a specific stage.
+        /// </summary>
+        Task<bool> GetTourSeenAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Mark the guided tour as seen by the current user for a specific stage.
+        /// </summary>
+        Task MarkTourSeenAsync(long onboardingId, long stageId);
     }
 }

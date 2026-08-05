@@ -267,6 +267,14 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         public string AiSummaryData { get; set; }
 
+        /// <summary>
+        /// Tour seen record — key is userId (string), value is first-seen UTC timestamp.
+        /// Tracks which assignees have already viewed the guided tour for this stage,
+        /// so it is only shown once per user per stage (account-level, not browser-level).
+        /// Stored as part of stages_progress_json JSONB — no schema migration required.
+        /// </summary>
+        public Dictionary<string, DateTime> TourSeenBy { get; set; } = new Dictionary<string, DateTime>();
+
         // === Legacy fields for backward compatibility - will be removed in future versions ===
 
         /// <summary>
