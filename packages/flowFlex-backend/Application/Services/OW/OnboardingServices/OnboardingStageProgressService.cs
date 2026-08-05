@@ -1481,7 +1481,5 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var id = _operatorContextService.GetOperatorId();
             return id == 0 ? null : id;
         }
-
-        #endregion
     }
 }
