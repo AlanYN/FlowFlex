@@ -1,0 +1,373 @@
+/**
+ * Driver.js Popover — ff-tour-popover
+ *
+ * Layout & typography ONLY.
+ * All colors use system CSS variables so light/dark theme switching works automatically.
+ *
+ * Popover structure:
+ *   .driver-popover-title          — bold heading
+ *   .driver-popover-description
+ *     .ff-tour-body                — description text
+ *     .ff-tour-footer
+ *       .ff-tour-footer-row1       — dots + ← + Next →
+ *       .ff-tour-footer-row2       — "X of Y" + "Skip tour"
+ */
+
+/* ─── Popover container ────────────────────────────────────────────────────── */
+
+.driver-popover.ff-tour-popover {
+    background: hsl(var(--popover)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--el-box-shadow-light) !important;
+    padding: 22px 22px 0 !important;
+    max-width: 380px !important;
+    min-width: 300px !important;
+    color: hsl(var(--popover-foreground)) !important;
+
+    // Hide Driver.js built-in footer entirely — we use our own inside description
+    .driver-popover-footer,
+    .driver-popover-navigation-btns,
+    .driver-popover-progress-text {
+        display: none !important;
+    }
+}
+
+/* ─── Close (×) button ─────────────────────────────────────────────────────── */
+
+.driver-popover.ff-tour-popover .driver-popover-close-btn {
+    color: hsl(var(--muted-foreground)) !important;
+    font-size: 16px !important;
+    top: 14px !important;
+    right: 16px !important;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+        background: hsl(var(--muted)) !important;
+        color: hsl(var(--foreground)) !important;
+    }
+}
+
+/* ─── Title ────────────────────────────────────────────────────────────────── */
+
+.driver-popover.ff-tour-popover .driver-popover-title {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    color: hsl(var(--popover-foreground)) !important;
+    margin: 0 28px 10px 0 !important; // right margin for close button
+    padding: 0 !important;
+}
+
+/* ─── Description wrapper ──────────────────────────────────────────────────── */
+
+.driver-popover.ff-tour-popover .driver-popover-description {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ─── Body text ────────────────────────────────────────────────────────────── */
+
+.ff-tour-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 18px;
+
+    strong {
+        color: hsl(var(--popover-foreground));
+        font-weight: 600;
+    }
+}
+
+/* ─── Footer container ─────────────────────────────────────────────────────── */
+
+.ff-tour-footer {
+    border-top: 1px solid hsl(var(--border));
+    padding: 12px 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ─── Row 1: dots + ← + Next ───────────────────────────────────────────────── */
+
+.ff-tour-footer-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+/* Step dots */
+.ff-tour-dots {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    max-width: 160px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Nav buttons group — always pinned to the right */
+.ff-tour-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.ff-tour-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: hsl(var(--muted-foreground));
+    opacity: 0.3;
+    transition: opacity 0.2s, width 0.2s;
+
+    &--active {
+        width: 18px;
+        border-radius: 4px;
+        opacity: 1;
+        background: hsl(var(--muted-foreground));
+    }
+}
+
+/* ← Back button — link style, no border/background */
+.ff-tour-btn-prev {
+    background: transparent;
+    border: none;
+    color: hsl(var(--muted-foreground));
+    font-size: 14px;
+    font-weight: 500;
+    padding: 5px 4px;
+    border-radius: 0;
+    cursor: pointer;
+    line-height: 1.4;
+    flex-shrink: 0;
+    text-decoration: none;
+    transition: color 0.15s;
+
+    &:hover:not(:disabled) {
+        color: hsl(var(--foreground));
+    }
+
+    &:disabled {
+        opacity: 0.3;
+        cursor: default;
+    }
+}
+
+/* Next → / Done button — matches el-button--primary style */
+.ff-tour-btn-next {
+    background: var(--el-color-primary);
+    color: var(--el-color-white, #fff);
+    border: 1px solid var(--el-color-primary);
+    border-radius: var(--el-border-radius-base, 4px);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 16px;
+    cursor: pointer;
+    line-height: 1.4;
+    flex-shrink: 0;
+    transition: background 0.1s, border-color 0.1s;
+
+    &:hover {
+        background: var(--el-color-primary-light-3);
+        border-color: var(--el-color-primary-light-3);
+    }
+
+    &:active {
+        background: var(--el-color-primary-dark-2);
+        border-color: var(--el-color-primary-dark-2);
+    }
+}
+
+/* ─── Row 2: counter + skip ────────────────────────────────────────────────── */
+
+.ff-tour-footer-row2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ff-tour-counter {
+    font-size: 12px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    opacity: 0.7;
+}
+
+.ff-tour-btn-skip {
+    background: transparent;
+    border: none;
+    color: hsl(var(--muted-foreground));
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.15s;
+
+    &:hover {
+        color: hsl(var(--foreground));
+    }
+}
+
+/* ─── Highlighted element ring ─────────────────────────────────────────────── */
+
+/* No extra styling — Driver.js stage cutout is enough to indicate active element.
+   Do NOT touch background here, it would override the element's own colors
+   (e.g. green Done button would turn white). */
+.driver-active-element {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Driver.js SVG stage background — keep fill transparent */
+#driver-highlighted-element-stage,
+.driver-stage {
+    fill: transparent !important;
+}
+
+/* Driver.js dims the whole page with an SVG overlay. It is kept click-through
+   (pointer-events: none) — driver.css already blocks interaction on the rest
+   of the page while a step is active, and the highlighted element + popover
+   stay interactive. */
+.driver-overlay {
+    pointer-events: none;
+}
+
+/* ─── Driver.js CSS variable overrides ─────────────────────────────────────── */
+
+/* Driver.js v1 exposes --driver-* CSS variables for the stage cut-out.
+   Set the border color to transparent to remove the blue outline. */
+:root {
+    --driver-popover-background-color: hsl(var(--popover));
+    --driver-popover-text-color: hsl(var(--popover-foreground));
+    --driver-stage-background-color: transparent;
+}
+
+/* ─── Dark theme overrides ──────────────────────────────────────────────────── */
+
+/*
+ * overlayOpacity 已在 useTourGuide.ts 里动态设为 0.75（暗色）/ 0.4（亮色）。
+ * 高对比蒙层由 JS 保证，这里让 popover 在深色背景上清晰可读。
+ */
+.dark {
+    .driver-popover.ff-tour-popover {
+        background: #252836 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 12px !important;
+        box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.06),
+            0 16px 48px rgba(0, 0, 0, 0.8) !important;
+        color: #f1f5f9 !important;
+
+        .driver-popover-close-btn {
+            color: #94a3b8 !important;
+
+            &:hover {
+                background: rgba(255, 255, 255, 0.08) !important;
+                color: #f1f5f9 !important;
+            }
+        }
+
+        .driver-popover-title {
+            color: #ffffff !important;
+        }
+    }
+
+    .ff-tour-body {
+        color: #cbd5e1;
+
+        strong {
+            color: #f1f5f9;
+        }
+    }
+
+    .ff-tour-footer {
+        border-top-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .ff-tour-dot {
+        background: #475569;
+        opacity: 1;
+
+        &--active {
+            background: var(--el-color-primary);
+            opacity: 1;
+        }
+    }
+
+    .ff-tour-btn-prev {
+        color: #94a3b8;
+
+        &:hover:not(:disabled) {
+            color: #f1f5f9;
+        }
+    }
+
+    .ff-tour-counter {
+        color: #64748b;
+        opacity: 1;
+    }
+
+    .ff-tour-btn-skip {
+        color: #64748b;
+
+        &:hover {
+            color: #94a3b8;
+        }
+    }
+
+    .ff-tour-click-hint {
+        color: #818cf8;
+        background: rgba(129, 140, 248, 0.15);
+        border-color: rgba(129, 140, 248, 0.4);
+    }
+}
+
+/* ─── Driver.js overlay — slightly stronger dim in dark mode ───────────────── */
+/* overlayOpacity is controlled in useTourGuide.ts (0.75 dark / 0.4 light). */
+
+/* ─── waitForUserClick hint label ──────────────────────────────────────────── */
+
+/* Shown in place of the Next → button when a step requires the user to
+   physically click the highlighted element to advance. */
+.ff-tour-click-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-5);
+    border-radius: var(--el-border-radius-base, 4px);
+    padding: 4px 10px;
+    flex-shrink: 0;
+    animation: ff-tour-hint-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ff-tour-hint-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.6; }
+}

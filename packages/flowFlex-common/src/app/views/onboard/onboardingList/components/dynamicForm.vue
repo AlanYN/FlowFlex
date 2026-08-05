@@ -23,7 +23,9 @@
 							type="primary"
 							size="small"
 							round
-						>Repeatable</el-tag>
+						>
+							Repeatable
+						</el-tag>
 					</div>
 					<p
 						v-if="currentSection.description"
@@ -72,7 +74,10 @@
 										<span v-if="question.required" class="text-red-500">*</span>
 									</span>
 								</div>
-								<p v-if="question.description" class="text-xs form-question-desc mt-1 whitespace-pre-wrap">
+								<p
+									v-if="question.description"
+									class="text-xs form-question-desc mt-1 whitespace-pre-wrap"
+								>
 									{{ question.description }}
 								</p>
 							</div>
@@ -86,7 +91,11 @@
 							/>
 							<!-- 长答题 -->
 							<el-input
-								v-else-if="question.type === 'long_answer' || question.type === 'paragraph' || question.type === 'textarea'"
+								v-else-if="
+									question.type === 'long_answer' ||
+									question.type === 'paragraph' ||
+									question.type === 'textarea'
+								"
 								v-model="getTarget(groupIndex)[question.id]"
 								type="textarea"
 								:rows="3"
@@ -97,7 +106,11 @@
 							/>
 							<!-- 单选 -->
 							<div v-else-if="question.type === 'multiple_choice'" class="w-full">
-								<div v-for="option in question.options" :key="option.id" class="mb-2">
+								<div
+									v-for="option in question.options"
+									:key="option.id"
+									class="mb-2"
+								>
 									<el-radio
 										v-model="getTarget(groupIndex)[question.id]"
 										:value="option.value || option.label"
@@ -113,7 +126,11 @@
 								v-model="getTarget(groupIndex)[question.id]"
 								:disabled="questionIsDisabled(question.id)"
 							>
-								<div v-for="option in question.options" :key="option.id" class="mb-2">
+								<div
+									v-for="option in question.options"
+									:key="option.id"
+									class="mb-2"
+								>
 									<el-checkbox :value="option.value || option.label">
 										{{ option.label }}
 									</el-checkbox>
@@ -163,7 +180,12 @@
 								class="!w-full"
 							/>
 							<!-- 文件上传 -->
-							<div v-else-if="question.type === 'file' || question.type === 'file_upload'" class="w-full">
+							<div
+								v-else-if="
+									question.type === 'file' || question.type === 'file_upload'
+								"
+								class="w-full"
+							>
 								<el-upload
 									drag
 									:auto-upload="false"
@@ -175,14 +197,19 @@
 								>
 									<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
 									<div>
-										<span class="text-primary dark:text-white">Drop file here</span>
-										<span> or </span>
+										<span class="text-primary dark:text-white">
+											Drop file here
+										</span>
+										<span>or</span>
 										<em class="text-primary">click to select</em>
 									</div>
 								</el-upload>
 							</div>
 							<!-- 多选网格 (multiple_choice_grid) -->
-							<div v-else-if="question.type === 'multiple_choice_grid'" class="preview-grid w-full">
+							<div
+								v-else-if="question.type === 'multiple_choice_grid'"
+								class="preview-grid w-full"
+							>
 								<el-table
 									v-if="question.columns && question.rows"
 									:data="question.rows"
@@ -191,7 +218,9 @@
 								>
 									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
-											<span class="truncate" :title="row.label">{{ row.label }}</span>
+											<span class="truncate" :title="row.label">
+												{{ row.label }}
+											</span>
 										</template>
 									</el-table-column>
 									<el-table-column
@@ -203,26 +232,43 @@
 									>
 										<template #default="{ row }">
 											<el-checkbox-group
-												v-model="getTarget(groupIndex)[`${question.id}_${row.id}`]"
+												v-model="
+													getTarget(groupIndex)[
+														`${question.id}_${row.id}`
+													]
+												"
 												:disabled="questionIsDisabled(question.id)"
 											>
-												<el-checkbox :value="column.id" class="grid-checkbox" />
+												<el-checkbox
+													:value="column.id"
+													class="grid-checkbox"
+												/>
 											</el-checkbox-group>
 										</template>
 									</el-table-column>
 								</el-table>
 							</div>
 							<!-- 单选网格 (checkbox_grid) -->
-							<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid w-full">
+							<div
+								v-else-if="question.type === 'checkbox_grid'"
+								class="preview-grid w-full"
+							>
 								<el-table
-									v-if="question.rows && question.rows.length > 0 && question.columns && question.columns.length > 0"
+									v-if="
+										question.rows &&
+										question.rows.length > 0 &&
+										question.columns &&
+										question.columns.length > 0
+									"
 									:data="question.rows"
 									border
 									class="grid-table"
 								>
 									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
-											<span class="truncate" :title="row.label">{{ row.label }}</span>
+											<span class="truncate" :title="row.label">
+												{{ row.label }}
+											</span>
 										</template>
 									</el-table-column>
 									<el-table-column
@@ -234,9 +280,17 @@
 									>
 										<template #default="{ row, $index: rowIndex }">
 											<el-radio
-												v-model="getTarget(groupIndex)[`${question.id}_${row.id}`]"
+												v-model="
+													getTarget(groupIndex)[
+														`${question.id}_${row.id}`
+													]
+												"
 												:name="`grid_${question.id}_g${groupIndex}_${rowIndex}`"
-												:value="column.value || column.label || `${rowIndex}_${colIndex}`"
+												:value="
+													column.value ||
+													column.label ||
+													`${rowIndex}_${colIndex}`
+												"
 												:disabled="questionIsDisabled(question.id)"
 												class="grid-radio"
 											/>
@@ -245,7 +299,10 @@
 								</el-table>
 							</div>
 							<!-- 短答网格 (short_answer_grid) -->
-							<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid w-full">
+							<div
+								v-else-if="question.type === 'short_answer_grid'"
+								class="preview-grid w-full"
+							>
 								<el-table
 									v-if="question.columns && question.rows"
 									:data="question.rows"
@@ -254,7 +311,9 @@
 								>
 									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
-											<span class="truncate" :title="row.label">{{ row.label }}</span>
+											<span class="truncate" :title="row.label">
+												{{ row.label }}
+											</span>
 										</template>
 									</el-table-column>
 									<el-table-column
@@ -266,7 +325,11 @@
 									>
 										<template #default="{ row }">
 											<el-input
-												v-model="getTarget(groupIndex)[`${question.id}_${column.id}_${row.id}`]"
+												v-model="
+													getTarget(groupIndex)[
+														`${question.id}_${column.id}_${row.id}`
+													]
+												"
 												:disabled="questionIsDisabled(question.id)"
 											/>
 										</template>
@@ -275,7 +338,11 @@
 							</div>
 							<!-- 其他类型回退到文本输入 -->
 							<el-input
-								v-else-if="question.type !== 'page_break' && question.type !== 'image' && question.type !== 'video'"
+								v-else-if="
+									question.type !== 'page_break' &&
+									question.type !== 'image' &&
+									question.type !== 'video'
+								"
 								v-model="getTarget(groupIndex)[question.id]"
 								:placeholder="'Enter ' + question.question"
 								:disabled="questionIsDisabled(question.id)"
@@ -298,192 +365,134 @@
 
 				<!-- 非 Repeatable Section: 原有渲染逻辑 -->
 				<template v-else>
-				<div
-					v-for="(question, questionIndex) in currentSection.questions"
-					:key="question.id"
-					:id="question.id || question.temporaryId"
-					:data-question-id="question.id || question.temporaryId"
-					class="question-item"
-					:class="{ '!bg-white !border-none': question.type == 'page_break' }"
-				>
-					<div class="mb-2" v-if="question.type !== 'page_break'">
-						<div class="flex items-center gap-2">
-							<span class="text-sm font-medium form-question-number">
-								{{ currentSectionIndex + 1 }}-{{
-									getQuestionNumber(+questionIndex)
-								}}.
-								{{ question.title }}
-								<span
-									v-if="question.required && !isQuestionSkipped(question)"
-									class="text-red-500"
-								>
-									*
-								</span>
-							</span>
-							<!-- Action Tag for question -->
-							<ActionTag
-								v-if="
-									question.action &&
-									question.action.id &&
-									question.action.name &&
-									onboardingId
-								"
-								:action="question.action"
-								:trigger-source-id="question.id"
-								trigger-source-type="question"
-								:onboarding-id="onboardingId"
-								type="success"
-								size="small"
-							/>
-						</div>
-						<p
-							v-if="question.description"
-							class="text-xs form-question-desc mt-1 whitespace-pre-wrap"
-						>
-							{{ question.description }}
-						</p>
-						<div
-							v-if="question.questionProps && question.questionProps.fileUrl"
-							class="flex justify-center items-center"
-						>
-							<el-image
-								v-if="question.questionProps.type === 'image'"
-								:src="question.questionProps.fileUrl"
-								class="responsive-image"
-								:preview-src-list="[`${question.questionProps.fileUrl}`]"
-								fit="contain"
-							/>
-							<video
-								v-else-if="question.questionProps.type === 'video'"
-								:src="question.questionProps.fileUrl"
-								:alt="question.questionProps.fileName || 'Uploaded video'"
-								controls
-								class="max-h-[500px] w-auto object-contain"
-							></video>
-						</div>
-					</div>
-					<!-- 短答题 -->
-					<el-input
-						v-if="question.type === 'short_answer' || question.type === 'text'"
-						v-model="formData[question.id]"
-						:maxlength="questionMaxlength"
-						:placeholder="'Enter ' + question.question"
-						:disabled="questionIsDisabled(question.id)"
-						@change="handleInputChange(question.id, $event)"
-					/>
-
-					<!-- 长答题 -->
-					<el-input
-						v-else-if="
-							question.type === 'long_answer' ||
-							question.type === 'paragraph' ||
-							question.type === 'textarea'
-						"
-						:disabled="questionIsDisabled(question.id)"
-						v-model="formData[question.id]"
-						:maxlength="notesPageTextraMaxLength"
-						type="textarea"
-						:rows="3"
-						show-word-limit
-						:placeholder="'Enter ' + question.question"
-						@change="handleInputChange(question.id, $event)"
-					/>
-
-					<!-- 单选题 -->
-					<div v-else-if="question.type === 'multiple_choice'" class="w-full">
-						<div class="space-y-2">
-							<div
-								v-for="option in question.options"
-								:key="option.id || option.value"
-								class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
-								:class="{
-									'cursor-not-allowed form-radio-disabled': questionIsDisabled(
-										question.id
-									),
-								}"
-								@click="
-									!questionIsDisabled(question.id) &&
-										handleHasOtherQuestion(question, option.value)
-								"
-							>
-								<div
-									:class="[
-										'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
-										formData[question.id] === (option.value || option.label)
-											? 'form-radio-checked'
-											: 'form-radio-unchecked',
-									]"
-								>
-									<div
-										v-if="
-											formData[question.id] === (option.value || option.label)
-										"
-										class="w-2 h-2 bg-white rounded-full"
-									></div>
-								</div>
-								<div v-if="option.isOther">
-									<el-input
-										@click.stop
-										:disabled="
-											formData[question.id] != option.value ||
-											questionIsDisabled(question.id)
-										"
-										v-model="formData[`${question.id}_${option.id}`]"
-										:maxlength="questionMaxlength"
-										placeholder="Enter other"
-									/>
-								</div>
-								<div v-else class="flex items-center gap-2">
+					<div
+						v-for="(question, questionIndex) in currentSection.questions"
+						:key="question.id"
+						:id="question.id || question.temporaryId"
+						:data-question-id="question.id || question.temporaryId"
+						class="question-item"
+						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
+					>
+						<div class="mb-2" v-if="question.type !== 'page_break'">
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-medium form-question-number">
+									{{ currentSectionIndex + 1 }}-{{
+										getQuestionNumber(+questionIndex)
+									}}.
+									{{ question.title }}
 									<span
-										class="text-sm"
-										:class="{
-											'text-primary-500 font-bold':
-												formData[question.id] ===
-												(option.value || option.label),
-										}"
+										v-if="question.required && !isQuestionSkipped(question)"
+										class="text-red-500"
 									>
-										{{ option.label || option.text || option.value }}
+										*
 									</span>
-									<!-- Action Tag for option -->
-									<ActionTag
-										v-if="
-											option.action &&
-											option.action.id &&
-											option.action.name &&
-											onboardingId
-										"
-										:action="option.action"
-										:trigger-source-id="option.id || option.temporaryId"
-										trigger-source-type="option"
-										:onboarding-id="onboardingId"
-										type="success"
-										size="small"
-									/>
-								</div>
+								</span>
+								<!-- Action Tag for question -->
+								<ActionTag
+									v-if="
+										question.action &&
+										question.action.id &&
+										question.action.name &&
+										onboardingId
+									"
+									:action="question.action"
+									:trigger-source-id="question.id"
+									trigger-source-type="question"
+									:onboarding-id="onboardingId"
+									type="success"
+									size="small"
+								/>
+							</div>
+							<p
+								v-if="question.description"
+								class="text-xs form-question-desc mt-1 whitespace-pre-wrap"
+							>
+								{{ question.description }}
+							</p>
+							<div
+								v-if="question.questionProps && question.questionProps.fileUrl"
+								class="flex justify-center items-center"
+							>
+								<el-image
+									v-if="question.questionProps.type === 'image'"
+									:src="question.questionProps.fileUrl"
+									class="responsive-image"
+									:preview-src-list="[`${question.questionProps.fileUrl}`]"
+									fit="contain"
+								/>
+								<video
+									v-else-if="question.questionProps.type === 'video'"
+									:src="question.questionProps.fileUrl"
+									:alt="question.questionProps.fileName || 'Uploaded video'"
+									controls
+									class="max-h-[500px] w-auto object-contain"
+								></video>
 							</div>
 						</div>
-					</div>
+						<!-- 短答题 -->
+						<el-input
+							v-if="question.type === 'short_answer' || question.type === 'text'"
+							v-model="formData[question.id]"
+							:maxlength="questionMaxlength"
+							:placeholder="'Enter ' + question.question"
+							:disabled="questionIsDisabled(question.id)"
+							@change="handleInputChange(question.id, $event)"
+						/>
 
-					<!-- 多选题 -->
-					<el-checkbox-group
-						v-else-if="question.type === 'checkboxes'"
-						v-model="formData[question.id]"
-						@change="handleHasOtherQuestion(question, $event)"
-						class="w-full"
-						:disabled="questionIsDisabled(question.id)"
-					>
-						<div class="space-y-2">
-							<el-checkbox
-								v-for="option in question.options"
-								:key="option.id"
-								:value="option.value"
-								class="w-full"
-							>
-								<div class="flex items-center gap-x-2">
+						<!-- 长答题 -->
+						<el-input
+							v-else-if="
+								question.type === 'long_answer' ||
+								question.type === 'paragraph' ||
+								question.type === 'textarea'
+							"
+							:disabled="questionIsDisabled(question.id)"
+							v-model="formData[question.id]"
+							:maxlength="notesPageTextraMaxLength"
+							type="textarea"
+							:rows="3"
+							show-word-limit
+							:placeholder="'Enter ' + question.question"
+							@change="handleInputChange(question.id, $event)"
+						/>
+
+						<!-- 单选题 -->
+						<div v-else-if="question.type === 'multiple_choice'" class="w-full">
+							<div class="space-y-2">
+								<div
+									v-for="option in question.options"
+									:key="option.id || option.value"
+									class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
+									:class="{
+										'cursor-not-allowed form-radio-disabled':
+											questionIsDisabled(question.id),
+									}"
+									@click="
+										!questionIsDisabled(question.id) &&
+											handleHasOtherQuestion(question, option.value)
+									"
+								>
+									<div
+										:class="[
+											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
+											formData[question.id] === (option.value || option.label)
+												? 'form-radio-checked'
+												: 'form-radio-unchecked',
+										]"
+									>
+										<div
+											v-if="
+												formData[question.id] ===
+												(option.value || option.label)
+											"
+											class="w-2 h-2 bg-white rounded-full"
+										></div>
+									</div>
 									<div v-if="option.isOther">
 										<el-input
+											@click.stop
 											:disabled="
-												!formData[question.id]?.includes(option.value) ||
+												formData[question.id] != option.value ||
 												questionIsDisabled(question.id)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
@@ -491,421 +500,519 @@
 											placeholder="Enter other"
 										/>
 									</div>
-									<span v-else class="text-sm">
-										{{ option.label }}
-									</span>
-									<ActionTag
-										v-if="
-											option.action &&
-											option.action.id &&
-											option.action.name &&
-											onboardingId
-										"
-										:action="option.action"
-										:trigger-source-id="option.id || option.temporaryId"
-										trigger-source-type="option"
-										:onboarding-id="onboardingId"
-										type="success"
-										size="small"
-									/>
+									<div v-else class="flex items-center gap-2">
+										<span
+											class="text-sm"
+											:class="{
+												'text-primary-500 font-bold':
+													formData[question.id] ===
+													(option.value || option.label),
+											}"
+										>
+											{{ option.label || option.text || option.value }}
+										</span>
+										<!-- Action Tag for option -->
+										<ActionTag
+											v-if="
+												option.action &&
+												option.action.id &&
+												option.action.name &&
+												onboardingId
+											"
+											:action="option.action"
+											:trigger-source-id="option.id || option.temporaryId"
+											trigger-source-type="option"
+											:onboarding-id="onboardingId"
+											type="success"
+											size="small"
+										/>
+									</div>
 								</div>
-							</el-checkbox>
+							</div>
 						</div>
-					</el-checkbox-group>
 
-					<!-- 下拉选择 -->
-					<el-select
-						v-else-if="question.type === 'dropdown'"
-						v-model="formData[question.id]"
-						:placeholder="'Select ' + question.question"
-						class="w-full"
-						filterable
-						@change="handleInputChange(question.id, $event)"
-						:disabled="questionIsDisabled(question.id)"
-					>
-						<el-option
-							v-for="option in question.options"
-							:key="option.id || option.value"
-							:label="option.label || option.text || option.value"
-							:value="option.value || option.label"
-						/>
-					</el-select>
-
-					<!-- 日期选择 -->
-					<el-date-picker
-						v-else-if="question.type === 'date'"
-						v-model="formData[question.id]"
-						type="date"
-						:placeholder="'Select date'"
-						class="w-full"
-						:format="projectDate"
-						@change="handleInputChange(question.id, $event)"
-						:disabled="questionIsDisabled(question.id)"
-					/>
-
-					<!-- 时间选择 -->
-					<el-time-picker
-						v-else-if="question.type === 'time'"
-						v-model="formData[question.id]"
-						:placeholder="'Select time'"
-						class="w-full"
-						@change="handleInputChange(question.id, $event)"
-						:disabled="questionIsDisabled(question.id)"
-					/>
-
-					<!-- 数字输入 -->
-					<el-input-number
-						v-else-if="question.type === 'number'"
-						v-model="formData[question.id]"
-						:placeholder="'Enter number'"
-						:controls="false"
-						class="w-full text-left"
-						:disabled="questionIsDisabled(question.id)"
-						@change="handleInputChange(question.id, $event)"
-					/>
-					<!-- 评分 -->
-					<div v-else-if="question.type === 'rating'" class="flex items-center space-x-2">
-						<el-rate
+						<!-- 多选题 -->
+						<el-checkbox-group
+							v-else-if="question.type === 'checkboxes'"
 							v-model="formData[question.id]"
-							:max="question.max || 5"
-							:icons="getSelectedFilledIcon(question.iconType)"
-							:void-icon="getSelectedVoidIcon(question.iconType)"
-							@change="handleInputChange(question.id, $event)"
-							:disabled="questionIsDisabled(question.id)"
-						/>
-						<span v-if="question.showText" class="text-sm form-star-text">
-							({{ question.max || 5 }} stars)
-						</span>
-					</div>
-
-					<!-- 线性量表 -->
-					<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
-						<el-slider
-							:key="`slider-${question.id}-${formData[question.id] || 0}`"
-							v-model="formData[question.id]"
-							:min="question.min"
-							:max="question.max"
-							:marks="getSliderMarks(question)"
-							class="preview-linear-scale"
-							@change="handleInputChange(question.id, $event)"
-							:validate-event="false"
-							show-stops
-							:disabled="questionIsDisabled(question.id)"
-						/>
-						<div class="flex justify-between text-xs form-slider-labels">
-							<span>{{ question.minLabel || question.min }}</span>
-							<span>{{ question.maxLabel || question.max }}</span>
-						</div>
-					</div>
-
-					<!-- 文件上传 -->
-					<div
-						v-else-if="question.type === 'file' || question.type === 'file_upload'"
-						class="w-full"
-					>
-						<el-upload
-							drag
-							:auto-upload="false"
-							:show-file-list="true"
-							:on-change="
-								(file, fileList) => {
-									handleFileChange(question.id, file, fileList);
-								}
-							"
-							v-model:file-list="formData[question.id]"
-							:accept="question.accept"
+							@change="handleHasOtherQuestion(question, $event)"
 							class="w-full"
 							:disabled="questionIsDisabled(question.id)"
 						>
-							<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
-							<div>
-								<text class="text-primary dark:text-white">Drop file here</text>
-								<text>or</text>
-								<em class="text-primary">click to select</em>
-							</div>
-							<div v-if="question.accept" class="el-upload__tip text-xs">
-								Accepted formats: {{ question.accept }}
-							</div>
-						</el-upload>
-						<!-- File upload metadata: uploader name and date -->
-						<div
-							v-if="formData[question.id] && formData[question.id].length > 0"
-							class="mt-1 space-y-1"
-						>
-							<div
-								v-for="file in formData[question.id]"
-								:key="file.uid || file.name"
-								class="flex items-center"
-							>
-								<span
-									v-if="file.uploadedBy || file.uploadDate"
-									class="text-xs text-gray-500 ml-2"
+							<div class="space-y-2">
+								<el-checkbox
+									v-for="option in question.options"
+									:key="option.id"
+									:value="option.value"
+									class="w-full"
 								>
-									Uploaded by {{ file.uploadedBy }},
-									{{
-										timeZoneConvert(
-											file.uploadDate,
-											false,
-											projectTenMinutesSsecondsDate
-										)
-									}}
-								</span>
-								<!-- Preview/Download buttons -->
-								<div v-if="file.accessUrl || file.fullAccessUrl" class="flex items-center ml-2 gap-1">
-									<el-button
-										:icon="View"
-										link
-										size="small"
-										@click="handlePreviewFile(file)"
-										title="Preview"
-									/>
-									<el-button
-										:icon="Download"
-										link
-										size="small"
-										@click="handleDownloadFile(file)"
-										title="Download"
-									/>
+									<div class="flex items-center gap-x-2">
+										<div v-if="option.isOther">
+											<el-input
+												:disabled="
+													!formData[question.id]?.includes(
+														option.value
+													) || questionIsDisabled(question.id)
+												"
+												v-model="formData[`${question.id}_${option.id}`]"
+												:maxlength="questionMaxlength"
+												placeholder="Enter other"
+											/>
+										</div>
+										<span v-else class="text-sm">
+											{{ option.label }}
+										</span>
+										<ActionTag
+											v-if="
+												option.action &&
+												option.action.id &&
+												option.action.name &&
+												onboardingId
+											"
+											:action="option.action"
+											:trigger-source-id="option.id || option.temporaryId"
+											trigger-source-type="option"
+											:onboarding-id="onboardingId"
+											type="success"
+											size="small"
+										/>
+									</div>
+								</el-checkbox>
+							</div>
+						</el-checkbox-group>
+
+						<!-- 下拉选择 -->
+						<el-select
+							v-else-if="question.type === 'dropdown'"
+							v-model="formData[question.id]"
+							:placeholder="'Select ' + question.question"
+							class="w-full"
+							filterable
+							@change="handleInputChange(question.id, $event)"
+							:disabled="questionIsDisabled(question.id)"
+						>
+							<el-option
+								v-for="option in question.options"
+								:key="option.id || option.value"
+								:label="option.label || option.text || option.value"
+								:value="option.value || option.label"
+							/>
+						</el-select>
+
+						<!-- 日期选择 -->
+						<el-date-picker
+							v-else-if="question.type === 'date'"
+							v-model="formData[question.id]"
+							type="date"
+							:placeholder="'Select date'"
+							class="w-full"
+							:format="projectDate"
+							@change="handleInputChange(question.id, $event)"
+							:disabled="questionIsDisabled(question.id)"
+						/>
+
+						<!-- 时间选择 -->
+						<el-time-picker
+							v-else-if="question.type === 'time'"
+							v-model="formData[question.id]"
+							:placeholder="'Select time'"
+							class="w-full"
+							@change="handleInputChange(question.id, $event)"
+							:disabled="questionIsDisabled(question.id)"
+						/>
+
+						<!-- 数字输入 -->
+						<el-input-number
+							v-else-if="question.type === 'number'"
+							v-model="formData[question.id]"
+							:placeholder="'Enter number'"
+							:controls="false"
+							class="w-full text-left"
+							:disabled="questionIsDisabled(question.id)"
+							@change="handleInputChange(question.id, $event)"
+						/>
+						<!-- 评分 -->
+						<div
+							v-else-if="question.type === 'rating'"
+							class="flex items-center space-x-2"
+						>
+							<el-rate
+								v-model="formData[question.id]"
+								:max="question.max || 5"
+								:icons="getSelectedFilledIcon(question.iconType)"
+								:void-icon="getSelectedVoidIcon(question.iconType)"
+								@change="handleInputChange(question.id, $event)"
+								:disabled="questionIsDisabled(question.id)"
+							/>
+							<span v-if="question.showText" class="text-sm form-star-text">
+								({{ question.max || 5 }} stars)
+							</span>
+						</div>
+
+						<!-- 线性量表 -->
+						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
+							<el-slider
+								:key="`slider-${question.id}-${formData[question.id] || 0}`"
+								v-model="formData[question.id]"
+								:min="question.min"
+								:max="question.max"
+								:marks="getSliderMarks(question)"
+								class="preview-linear-scale"
+								@change="handleInputChange(question.id, $event)"
+								:validate-event="false"
+								show-stops
+								:disabled="questionIsDisabled(question.id)"
+							/>
+							<div class="flex justify-between text-xs form-slider-labels">
+								<span>{{ question.minLabel || question.min }}</span>
+								<span>{{ question.maxLabel || question.max }}</span>
+							</div>
+						</div>
+
+						<!-- 文件上传 -->
+						<div
+							v-else-if="question.type === 'file' || question.type === 'file_upload'"
+							class="w-full"
+						>
+							<el-upload
+								drag
+								:auto-upload="false"
+								:show-file-list="true"
+								:on-change="
+									(file, fileList) => {
+										handleFileChange(question.id, file, fileList);
+									}
+								"
+								v-model:file-list="formData[question.id]"
+								:accept="question.accept"
+								class="w-full"
+								:disabled="questionIsDisabled(question.id)"
+							>
+								<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
+								<div>
+									<text class="text-primary dark:text-white">Drop file here</text>
+									<text>or</text>
+									<em class="text-primary">click to select</em>
+								</div>
+								<div v-if="question.accept" class="el-upload__tip text-xs">
+									Accepted formats: {{ question.accept }}
+								</div>
+							</el-upload>
+							<!-- File upload metadata: uploader name and date -->
+							<div
+								v-if="formData[question.id] && formData[question.id].length > 0"
+								class="mt-1 space-y-1"
+							>
+								<div
+									v-for="file in formData[question.id]"
+									:key="file.uid || file.name"
+									class="flex items-center"
+								>
+									<span
+										v-if="file.uploadedBy || file.uploadDate"
+										class="text-xs text-gray-500 ml-2"
+									>
+										Uploaded by {{ file.uploadedBy }},
+										{{
+											timeZoneConvert(
+												file.uploadDate,
+												false,
+												projectTenMinutesSsecondsDate
+											)
+										}}
+									</span>
+									<!-- Preview/Download buttons -->
+									<div
+										v-if="file.accessUrl || file.fullAccessUrl"
+										class="flex items-center ml-2 gap-1"
+									>
+										<el-button
+											:icon="View"
+											link
+											size="small"
+											@click="handlePreviewFile(file)"
+											title="Preview"
+										/>
+										<el-button
+											:icon="Download"
+											link
+											size="small"
+											@click="handleDownloadFile(file)"
+											title="Download"
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
 
-					<!-- 多选网格 -->
-					<div v-else-if="question.type === 'multiple_choice_grid'" class="preview-grid">
-						<el-table
-							v-if="question.columns && question.rows"
-							:data="question.rows"
-							border
-							resizable
-							class="grid-table"
-						>
-							<el-table-column
-								prop="label"
-								label=""
-								fixed="left"
-								width="300"
-								resizable
-							>
-								<template #default="{ row }">
-									<span class="truncate" :title="row.label">{{ row.label }}</span>
-								</template>
-							</el-table-column>
-							<el-table-column
-								v-for="(column, colIndex) in question.columns"
-								:key="colIndex"
-								:label="column.label"
-								min-width="120"
-								resizable
-								align="center"
-							>
-								<template #header>
-									<div class="flex items-center justify-center gap-1">
-										{{ column.label }}
-										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
-									</div>
-								</template>
-								<template #default="{ row }">
-									<div class="flex items-center justify-center gap-2">
-										<el-checkbox-group
-											v-model="formData[`${question.id}_${row.id}`]"
-											@change="handleHasOtherQuestion(question, row.id)"
-											:disabled="questionIsDisabled(question.id)"
-										>
-											<el-checkbox :value="column.id" class="grid-checkbox" />
-										</el-checkbox-group>
-										<el-input
-											v-if="column.isOther"
-											v-model="
-												formData[`${question.id}_${row.id}_${column.id}`]
-											"
-											:disabled="
-												!formData[`${question.id}_${row.id}`]?.includes(
-													column.id
-												)
-											"
-											:maxlength="questionMaxlength"
-											placeholder="Enter other"
-											class="other-input"
-										/>
-									</div>
-								</template>
-							</el-table-column>
-						</el-table>
-					</div>
-
-					<!-- 单选网格 (Checkbox grid) -->
-					<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
-						<el-table
-							v-if="
-								question.rows &&
-								question.rows.length > 0 &&
-								question.columns &&
-								question.columns.length > 0
-							"
-							:data="question.rows"
-							border
-							resizable
-							class="grid-table"
-						>
-							<el-table-column
-								prop="label"
-								label=""
-								fixed="left"
-								width="300"
-								resizable
-							>
-								<template #default="{ row }">
-									<span class="truncate" :title="row.label">{{ row.label }}</span>
-								</template>
-							</el-table-column>
-							<el-table-column
-								v-for="(column, colIndex) in question.columns"
-								:key="colIndex"
-								:label="column.label"
-								min-width="120"
-								resizable
-								align="center"
-							>
-								<template #header>
-									<div class="flex items-center justify-center gap-1">
-										{{ column.label }}
-										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
-									</div>
-								</template>
-								<template #default="{ row, $index: rowIndex }">
-									<div class="flex items-center justify-center gap-2">
-										<el-radio
-											v-model="formData[`${question.id}_${row.id}`]"
-											:name="`grid_${question.id}_${rowIndex}`"
-											:value="
-												column.value ||
-												column.label ||
-												`${rowIndex}_${colIndex}`
-											"
-											:disabled="questionIsDisabled(question.id)"
-											@change="handleHasOtherQuestion(question, row.id)"
-											class="grid-radio"
-										/>
-										<el-input
-											v-if="column.isOther"
-											v-model="
-												formData[`${question.id}_${row.id}_${column.id}`]
-											"
-											:disabled="
-												formData[`${question.id}_${row.id}`] !=
-													(column.value || column.label) ||
-												questionIsDisabled(question.id)
-											"
-											placeholder="Enter other"
-											:maxlength="questionMaxlength"
-											class="other-input"
-										/>
-									</div>
-								</template>
-							</el-table-column>
-						</el-table>
-
-						<!-- 如果没有数据，显示占位符 -->
+						<!-- 多选网格 -->
 						<div
-							v-else
-							class="form-unsupported-type italic p-4 border border-dashed rounded"
+							v-else-if="question.type === 'multiple_choice_grid'"
+							class="preview-grid"
 						>
-							<el-icon class="mr-2"><Warning /></el-icon>
-							Checkbox grid: No rows or columns data available
-							<div class="text-xs mt-1">
-								Rows: {{ question.rows?.length || 0 }}, Columns:
-								{{ question.columns?.length || 0 }}
+							<el-table
+								v-if="question.columns && question.rows"
+								:data="question.rows"
+								border
+								resizable
+								class="grid-table"
+							>
+								<el-table-column
+									prop="label"
+									label=""
+									fixed="left"
+									width="300"
+									resizable
+								>
+									<template #default="{ row }">
+										<span class="truncate" :title="row.label">
+											{{ row.label }}
+										</span>
+									</template>
+								</el-table-column>
+								<el-table-column
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									:label="column.label"
+									min-width="120"
+									resizable
+									align="center"
+								>
+									<template #header>
+										<div class="flex items-center justify-center gap-1">
+											{{ column.label }}
+											<el-tag v-if="column.isOther" type="warning">
+												Other
+											</el-tag>
+										</div>
+									</template>
+									<template #default="{ row }">
+										<div class="flex items-center justify-center gap-2">
+											<el-checkbox-group
+												v-model="formData[`${question.id}_${row.id}`]"
+												@change="handleHasOtherQuestion(question, row.id)"
+												:disabled="questionIsDisabled(question.id)"
+											>
+												<el-checkbox
+													:value="column.id"
+													class="grid-checkbox"
+												/>
+											</el-checkbox-group>
+											<el-input
+												v-if="column.isOther"
+												v-model="
+													formData[
+														`${question.id}_${row.id}_${column.id}`
+													]
+												"
+												:disabled="
+													!formData[`${question.id}_${row.id}`]?.includes(
+														column.id
+													)
+												"
+												:maxlength="questionMaxlength"
+												placeholder="Enter other"
+												class="other-input"
+											/>
+										</div>
+									</template>
+								</el-table-column>
+							</el-table>
+						</div>
+
+						<!-- 单选网格 (Checkbox grid) -->
+						<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
+							<el-table
+								v-if="
+									question.rows &&
+									question.rows.length > 0 &&
+									question.columns &&
+									question.columns.length > 0
+								"
+								:data="question.rows"
+								border
+								resizable
+								class="grid-table"
+							>
+								<el-table-column
+									prop="label"
+									label=""
+									fixed="left"
+									width="300"
+									resizable
+								>
+									<template #default="{ row }">
+										<span class="truncate" :title="row.label">
+											{{ row.label }}
+										</span>
+									</template>
+								</el-table-column>
+								<el-table-column
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									:label="column.label"
+									min-width="120"
+									resizable
+									align="center"
+								>
+									<template #header>
+										<div class="flex items-center justify-center gap-1">
+											{{ column.label }}
+											<el-tag v-if="column.isOther" type="warning">
+												Other
+											</el-tag>
+										</div>
+									</template>
+									<template #default="{ row, $index: rowIndex }">
+										<div class="flex items-center justify-center gap-2">
+											<el-radio
+												v-model="formData[`${question.id}_${row.id}`]"
+												:name="`grid_${question.id}_${rowIndex}`"
+												:value="
+													column.value ||
+													column.label ||
+													`${rowIndex}_${colIndex}`
+												"
+												:disabled="questionIsDisabled(question.id)"
+												@change="handleHasOtherQuestion(question, row.id)"
+												class="grid-radio"
+											/>
+											<el-input
+												v-if="column.isOther"
+												v-model="
+													formData[
+														`${question.id}_${row.id}_${column.id}`
+													]
+												"
+												:disabled="
+													formData[`${question.id}_${row.id}`] !=
+														(column.value || column.label) ||
+													questionIsDisabled(question.id)
+												"
+												placeholder="Enter other"
+												:maxlength="questionMaxlength"
+												class="other-input"
+											/>
+										</div>
+									</template>
+								</el-table-column>
+							</el-table>
+
+							<!-- 如果没有数据，显示占位符 -->
+							<div
+								v-else
+								class="form-unsupported-type italic p-4 border border-dashed rounded"
+							>
+								<el-icon class="mr-2"><Warning /></el-icon>
+								Checkbox grid: No rows or columns data available
+								<div class="text-xs mt-1">
+									Rows: {{ question.rows?.length || 0 }}, Columns:
+									{{ question.columns?.length || 0 }}
+								</div>
 							</div>
 						</div>
-					</div>
 
-					<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
-						<el-table
-							v-if="question.columns && question.rows"
-							:data="question.rows"
-							border
-							resizable
-							class="grid-table"
+						<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
+							<el-table
+								v-if="question.columns && question.rows"
+								:data="question.rows"
+								border
+								resizable
+								class="grid-table"
+							>
+								<el-table-column
+									prop="label"
+									label=""
+									fixed="left"
+									width="300"
+									resizable
+								>
+									<template #default="{ row }">
+										<span class="truncate" :title="row.label">
+											{{ row.label }}
+										</span>
+									</template>
+								</el-table-column>
+								<el-table-column
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									:label="column.label"
+									min-width="150"
+									resizable
+									align="center"
+								>
+									<template #header>
+										<div class="flex items-center justify-center gap-1">
+											{{ column.label }}
+											<el-tag v-if="column.isOther" type="warning">
+												Other
+											</el-tag>
+										</div>
+									</template>
+									<template #default="{ row }">
+										<el-input
+											v-model="
+												formData[`${question.id}_${column.id}_${row.id}`]
+											"
+											:maxlength="questionMaxlength"
+											:disabled="questionIsDisabled(question.id)"
+										/>
+									</template>
+								</el-table-column>
+							</el-table>
+						</div>
+
+						<div
+							v-else-if="question.type === 'page_break'"
+							class="form-page-break italic"
 						>
-							<el-table-column
-								prop="label"
-								label=""
-								fixed="left"
-								width="300"
-								resizable
-							>
-								<template #default="{ row }">
-									<span class="truncate" :title="row.label">{{ row.label }}</span>
-								</template>
-							</el-table-column>
-							<el-table-column
-								v-for="(column, colIndex) in question.columns"
-								:key="colIndex"
-								:label="column.label"
-								min-width="150"
-								resizable
-								align="center"
-							>
-								<template #header>
-									<div class="flex items-center justify-center gap-1">
-										{{ column.label }}
-										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
-									</div>
-								</template>
-								<template #default="{ row }">
-									<el-input
-										v-model="formData[`${question.id}_${column.id}_${row.id}`]"
-										:maxlength="questionMaxlength"
-										:disabled="questionIsDisabled(question.id)"
-									/>
-								</template>
-							</el-table-column>
-						</el-table>
-					</div>
+							<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+								<div class="text-center text-primary-500 text-sm">
+									— Page Break —
+								</div>
+							</div>
+						</div>
 
-					<div v-else-if="question.type === 'page_break'" class="form-page-break italic">
-						<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
-							<div class="text-center text-primary-500 text-sm">— Page Break —</div>
+						<div
+							v-else-if="question.type === 'image'"
+							class="flex justify-center items-center"
+						>
+							<el-image
+								:src="question.fileUrl"
+								class="responsive-image"
+								:preview-src-list="[`${question.fileUrl}`]"
+								fit="contain"
+							/>
+						</div>
+
+						<div
+							v-else-if="question.type === 'video'"
+							class="flex justify-center items-center"
+						>
+							<video
+								:src="question.fileUrl"
+								controls
+								class="max-h-[500px] w-auto object-contain"
+							></video>
 						</div>
 					</div>
-
 					<div
-						v-else-if="question.type === 'image'"
-						class="flex justify-center items-center"
+						v-if="!currentSection.questions || currentSection.questions.length <= 0"
+						class="empty-state-container"
 					>
-						<el-image
-							:src="question.fileUrl"
-							class="responsive-image"
-							:preview-src-list="[`${question.fileUrl}`]"
-							fit="contain"
-						/>
+						<el-empty
+							:image-size="60"
+							description="No questions available in this section"
+						>
+							<template #description>
+								<p class="form-empty-text text-sm">
+									This section doesn't contain any questions yet.
+								</p>
+							</template>
+						</el-empty>
 					</div>
-
-					<div
-						v-else-if="question.type === 'video'"
-						class="flex justify-center items-center"
-					>
-						<video
-							:src="question.fileUrl"
-							controls
-							class="max-h-[500px] w-auto object-contain"
-						></video>
-					</div>
-				</div>
-				<div
-					v-if="!currentSection.questions || currentSection.questions.length <= 0"
-					class="empty-state-container"
-				>
-					<el-empty :image-size="60" description="No questions available in this section">
-						<template #description>
-							<p class="form-empty-text text-sm">
-								This section doesn't contain any questions yet.
-							</p>
-						</template>
-					</el-empty>
-				</div>
-				</template><!-- end of v-else (non-Repeatable) -->
+				</template>
+				<!-- end of v-else (non-Repeatable) -->
 
 				<!-- 统一的底部导航控件 -->
 				<div class="bottom-navigation">
@@ -934,9 +1041,10 @@
 					</div>
 
 					<!-- 右侧：下一页按钮 -->
-					<div class="nav-right">
+					<div class="nav-right" data-tour="questionnaire-nav-right">
 						<el-button
 							v-if="!isLastSection && totalSections > 1"
+							data-tour="questionnaire-next-section"
 							@click="goToNextSection"
 						>
 							Next
@@ -957,6 +1065,7 @@
 						</el-button>
 						<el-button
 							v-if="questionnaireAnswers?.status !== 'Submitted' && isLastSection"
+							data-tour="questionnaire-submit"
 							@click="Submit()"
 							type="primary"
 							:icon="Document"
@@ -995,7 +1104,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
-import { Upload, Warning, ArrowLeft, ArrowRight, Document, View, Download } from '@element-plus/icons-vue';
+import {
+	Upload,
+	Warning,
+	ArrowLeft,
+	ArrowRight,
+	Document,
+	View,
+	Download,
+} from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import {
@@ -1014,7 +1131,11 @@ import {
 	projectTenMinutesSsecondsDate,
 } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
-import { uploadQuestionFile, previewQuestionFile, downloadQuestionFile } from '@/apis/ow/questionnaire';
+import {
+	uploadQuestionFile,
+	previewQuestionFile,
+	downloadQuestionFile,
+} from '@/apis/ow/questionnaire';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import { getMimeType } from '@/utils/format';
@@ -1162,101 +1283,105 @@ const applyAnswers = (answers?: QuestionnaireAnswer[], instances?: SectionInstan
 	if (!Array.isArray(answers) || answers.length === 0) {
 		// 即使 responses 为空也要尝试恢复 sectionInstances
 	} else {
-	answers.forEach((ans) => {
-		if (!ans || !ans.questionId) return;
+		answers.forEach((ans) => {
+			if (!ans || !ans.questionId) return;
 
-		// 检查是否是网格问题（包含下划线分隔的ID）
-		if (ans.type === 'multiple_choice_grid' || ans.type === 'checkbox_grid') {
-			if (ans?.type === 'multiple_choice_grid') {
-				// 多选网格：将逗号分隔的字符串转换为数组
-				const selectedValues = ans.answer;
+			// 检查是否是网格问题（包含下划线分隔的ID）
+			if (ans.type === 'multiple_choice_grid' || ans.type === 'checkbox_grid') {
+				if (ans?.type === 'multiple_choice_grid') {
+					// 多选网格：将逗号分隔的字符串转换为数组
+					const selectedValues = ans.answer;
 
-				formData.value[ans.questionId] = selectedValues;
-			} else if (ans?.type === 'checkbox_grid') {
-				// 单选网格：直接设置字符串值
-				formData.value[ans.questionId] = ans.answer;
-			}
-
-			if (ans.responseText) {
-				const responseText = JSON.parse(ans.responseText);
-				Object.keys(responseText).forEach((key) => {
-					formData.value[key] = responseText[key];
-				});
-			}
-		} else if (ans.type === 'multiple_choice' || ans.type === 'checkboxes') {
-			// 对于多选题，需要将答案转换为数组格式
-			if (ans.type === 'checkboxes') {
-				// 处理多选题答案：确保是数组格式
-				if (Array.isArray(ans.answer)) {
+					formData.value[ans.questionId] = selectedValues;
+				} else if (ans?.type === 'checkbox_grid') {
+					// 单选网格：直接设置字符串值
 					formData.value[ans.questionId] = ans.answer;
-				} else if (ans.answer) {
-					// 将字符串转换为数组
-					const answerStr = String(ans.answer);
-					if (answerStr.includes(',')) {
-						formData.value[ans.questionId] = answerStr
-							.split(',')
-							.map((item) => item.trim())
-							.filter(Boolean);
+				}
+
+				if (ans.responseText) {
+					const responseText = JSON.parse(ans.responseText);
+					Object.keys(responseText).forEach((key) => {
+						formData.value[key] = responseText[key];
+					});
+				}
+			} else if (ans.type === 'multiple_choice' || ans.type === 'checkboxes') {
+				// 对于多选题，需要将答案转换为数组格式
+				if (ans.type === 'checkboxes') {
+					// 处理多选题答案：确保是数组格式
+					if (Array.isArray(ans.answer)) {
+						formData.value[ans.questionId] = ans.answer;
+					} else if (ans.answer) {
+						// 将字符串转换为数组
+						const answerStr = String(ans.answer);
+						if (answerStr.includes(',')) {
+							formData.value[ans.questionId] = answerStr
+								.split(',')
+								.map((item) => item.trim())
+								.filter(Boolean);
+						} else {
+							formData.value[ans.questionId] = [answerStr];
+						}
 					} else {
-						formData.value[ans.questionId] = [answerStr];
+						formData.value[ans.questionId] = [];
 					}
 				} else {
-					formData.value[ans.questionId] = [];
+					// 单选题保持原有逻辑
+					formData.value[ans.questionId] = ans.answer;
 				}
+
+				if (ans.responseText) {
+					const responseText = JSON.parse(ans.responseText);
+					Object.keys(responseText).forEach((key) => {
+						formData.value[key] = responseText[key];
+					});
+				}
+			} else if (ans.type === 'short_answer_grid') {
+				formData.value[ans.questionId] = ans.answer;
+				if (ans.responseText) {
+					const responseText = JSON.parse(ans.responseText);
+					Object.keys(responseText).forEach((key) => {
+						formData.value[key] = responseText[key];
+					});
+				}
+			} else if (ans.type === 'file' || ans.type === 'file_upload') {
+				// 文件上传：对旧文件补充 uploadedBy / uploadDate
+				if (Array.isArray(ans.answer)) {
+					const createdEntry = ans.changeHistory?.find((h) => h.action === 'created');
+					const fallbackUser = createdEntry?.user || '';
+					const fallbackDate = createdEntry?.timestamp || '';
+
+					formData.value[ans.questionId] = ans.answer.map((file: any) => {
+						if (!file.uploadedBy) {
+							return {
+								...file,
+								uploadedBy: fallbackUser,
+								uploadDate: fallbackDate,
+							};
+						}
+						return file;
+					});
+				} else {
+					formData.value[ans.questionId] = ans.answer;
+				}
+			} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
+				// 确保数字类型的答案保持为数字
+				const numValue = Number(ans.answer);
+				formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
+			} else if (ans.type === 'number') {
+				const numValue = Number(ans.answer);
+				formData.value[ans.questionId] = isNaN(numValue) ? null : numValue;
 			} else {
-				// 单选题保持原有逻辑
 				formData.value[ans.questionId] = ans.answer;
 			}
-
-			if (ans.responseText) {
-				const responseText = JSON.parse(ans.responseText);
-				Object.keys(responseText).forEach((key) => {
-					formData.value[key] = responseText[key];
-				});
-			}
-		} else if (ans.type === 'short_answer_grid') {
-			formData.value[ans.questionId] = ans.answer;
-			if (ans.responseText) {
-				const responseText = JSON.parse(ans.responseText);
-				Object.keys(responseText).forEach((key) => {
-					formData.value[key] = responseText[key];
-				});
-			}
-		} else if (ans.type === 'file' || ans.type === 'file_upload') {
-			// 文件上传：对旧文件补充 uploadedBy / uploadDate
-			if (Array.isArray(ans.answer)) {
-				const createdEntry = ans.changeHistory?.find((h) => h.action === 'created');
-				const fallbackUser = createdEntry?.user || '';
-				const fallbackDate = createdEntry?.timestamp || '';
-
-				formData.value[ans.questionId] = ans.answer.map((file: any) => {
-					if (!file.uploadedBy) {
-						return {
-							...file,
-							uploadedBy: fallbackUser,
-							uploadDate: fallbackDate,
-						};
-					}
-					return file;
-				});
-			} else {
-				formData.value[ans.questionId] = ans.answer;
-			}
-		} else if (ans.type === 'linear_scale' || ans.type === 'rating') {
-			// 确保数字类型的答案保持为数字
-			const numValue = Number(ans.answer);
-			formData.value[ans.questionId] = isNaN(numValue) ? 0 : numValue;
-		} else if (ans.type === 'number') {
-			const numValue = Number(ans.answer);
-			formData.value[ans.questionId] = isNaN(numValue) ? null : numValue;
-		} else {
-			formData.value[ans.questionId] = ans.answer;
-		}
-	});
+		});
 	} // end of else block for responses
 
 	// 回填 sectionInstances（Repeatable Section 的答案）
-	if (Array.isArray(instances) && instances.length > 0 && formattedQuestionnaires.value.length > 0) {
+	if (
+		Array.isArray(instances) &&
+		instances.length > 0 &&
+		formattedQuestionnaires.value.length > 0
+	) {
 		const questionnaire = formattedQuestionnaires.value[0];
 		// 按 sectionId 分组
 		const instancesBySectionId: Record<string, SectionInstance[]> = {};
@@ -1288,15 +1413,29 @@ const applyAnswers = (answers?: QuestionnaireAnswer[], instances?: SectionInstan
 						} else if (ans.answer) {
 							const answerStr = String(ans.answer);
 							group[ans.questionId] = answerStr.includes(',')
-								? answerStr.split(',').map((item) => item.trim()).filter(Boolean)
+								? answerStr
+										.split(',')
+										.map((item) => item.trim())
+										.filter(Boolean)
 								: [answerStr];
 						}
 					} else if (ans.type === 'file' || ans.type === 'file_upload') {
 						group[ans.questionId] = Array.isArray(ans.answer) ? ans.answer : ans.answer;
-					} else if (ans.type === 'linear_scale' || ans.type === 'rating' || ans.type === 'number') {
+					} else if (
+						ans.type === 'linear_scale' ||
+						ans.type === 'rating' ||
+						ans.type === 'number'
+					) {
 						const numValue = Number(ans.answer);
-						group[ans.questionId] = isNaN(numValue) ? (ans.type === 'number' ? null : 0) : numValue;
-					} else if (ans.type === 'multiple_choice_grid' || ans.type === 'checkbox_grid') {
+						group[ans.questionId] = isNaN(numValue)
+							? ans.type === 'number'
+								? null
+								: 0
+							: numValue;
+					} else if (
+						ans.type === 'multiple_choice_grid' ||
+						ans.type === 'checkbox_grid'
+					) {
 						group[ans.questionId] = ans.answer;
 						if (ans.responseText) {
 							const responseText = JSON.parse(ans.responseText);
@@ -1412,7 +1551,9 @@ const removeGroup = async (groupIndex: number) => {
 	if (hasData) {
 		try {
 			await ElMessageBox.confirm(
-				`Are you sure you want to delete Group ${groupIndex + 1}? The data in this group will be lost.`,
+				`Are you sure you want to delete Group ${
+					groupIndex + 1
+				}? The data in this group will be lost.`,
 				'Confirm Delete',
 				{ confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' }
 			);
@@ -1712,21 +1853,28 @@ const validateForm = (presentQuestionIndex?: number) => {
 								(typeof value === 'string' && value.trim() === '') ||
 								(Array.isArray(value) && value.length === 0);
 
-							if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
+							if (
+								question.type === 'multiple_choice_grid' ||
+								question.type === 'checkbox_grid'
+							) {
 								if (question.rows && question.rows.length > 0) {
 									let allRowsCompleted = true;
 									question.rows.forEach((row: any, rowIndex: number) => {
 										const gridKey = `${question.id}_${row.id || rowIndex}`;
 										const gridValue = group[gridKey];
 										if (question.type === 'multiple_choice_grid') {
-											if (!Array.isArray(gridValue) || gridValue.length === 0) allRowsCompleted = false;
+											if (!Array.isArray(gridValue) || gridValue.length === 0)
+												allRowsCompleted = false;
 										} else {
-											if (!gridValue || gridValue === '') allRowsCompleted = false;
+											if (!gridValue || gridValue === '')
+												allRowsCompleted = false;
 										}
 									});
 									if (!allRowsCompleted) {
 										isValid = false;
-										errors.push(`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`);
+										errors.push(
+											`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`
+										);
 									}
 								}
 							} else if (question.type === 'short_answer_grid') {
@@ -1735,12 +1883,15 @@ const validateForm = (presentQuestionIndex?: number) => {
 									question.rows.forEach((row: any) => {
 										question.columns.forEach((column: any) => {
 											const gridKey = `${question.id}_${column.id}_${row.id}`;
-											if (group[gridKey] && group[gridKey].trim() !== '') anyCellFilled = true;
+											if (group[gridKey] && group[gridKey].trim() !== '')
+												anyCellFilled = true;
 										});
 									});
 									if (!anyCellFilled) {
 										isValid = false;
-										errors.push(`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`);
+										errors.push(
+											`${sIndex + 1} - G${groupIndex + 1} - ${qIdx + 1}`
+										);
 									}
 								}
 							} else if (isEmpty) {
@@ -1969,7 +2120,10 @@ const transformFormDataForAPI = () => {
 };
 
 // 从数据源收集单个 question 的答案
-const collectQuestionAnswer = (question: any, dataSource: Record<string, any>): QuestionnaireAnswer[] => {
+const collectQuestionAnswer = (
+	question: any,
+	dataSource: Record<string, any>
+): QuestionnaireAnswer[] => {
 	const results: QuestionnaireAnswer[] = [];
 
 	if (question.type === 'multiple_choice_grid' || question.type === 'checkbox_grid') {
@@ -2353,7 +2507,10 @@ onMounted(async () => {
 				});
 		});
 		// 初始化完毕后再应用答案，防止被覆盖
-		applyAnswers(props.questionnaireAnswers?.answer, props.questionnaireAnswers?.sectionInstances);
+		applyAnswers(
+			props.questionnaireAnswers?.answer,
+			props.questionnaireAnswers?.sectionInstances
+		);
 	}
 });
 

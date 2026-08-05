@@ -536,3 +536,26 @@ export interface SectionAnswer {
 	version: number;
 	currentSectionIndex: number;
 }
+
+export interface UseOnboardTourStepsOptions {
+	/** Reactive userId string (or 'guest') */
+	userId: Ref<string>;
+	/** Reactive onboardingId from route */
+	onboardingId: Ref<string>;
+	/** Reactive active stage id */
+	activeStage: Ref<string>;
+	/** Reactive stageDataLoading flag */
+	stageDataLoading: Ref<boolean>;
+	/** Reactive sorted component list for the current stage */
+	sortedComponents: Ref<any[]>;
+	/** Reactive questionnaires data (loaded from API) */
+	questionnairesData: Ref<any[]>;
+	/** Reactive checklists data (loaded from API) */
+	getChecklistDataForComponent: (component: any) => any[] | null;
+	/** Whether the current stage is already completed */
+	stageCanCompleted: Ref<boolean | undefined>;
+	/** Active stage display name */
+	stageName: Ref<string>;
+	/** Case name */
+	caseName: Ref<string>;
+}

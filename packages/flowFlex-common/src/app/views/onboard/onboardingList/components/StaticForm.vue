@@ -1,5 +1,5 @@
 <template>
-	<div class="wfe-global-block-bg">
+	<div class="wfe-global-block-bg" v-bind="tourId ? { 'data-tour': tourId } : {}">
 		<!-- 统一的头部卡片 -->
 		<div
 			class="case-component-header rounded-xl"
@@ -82,6 +82,8 @@ const props = defineProps<{
 	onboardingId: string;
 	stageId: string;
 	disabled?: boolean;
+	/** data-tour anchor id applied to the header element for guided tour */
+	tourId?: string;
 }>();
 
 const emit = defineEmits(['save-success']);

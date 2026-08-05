@@ -338,3 +338,76 @@ export interface InputProperty {
 	sourceType?: number;
 	value?: any;
 }
+
+export interface TourStep {
+	/** CSS selector targeting the element to highlight */
+	element: string;
+	/** Step title */
+	title?: string;
+	/** Step description text */
+	description: string;
+	/** Tooltip position relative to the element */
+	side?: 'top' | 'bottom' | 'left' | 'right';
+	/** Tooltip alignment */
+	align?: 'start' | 'center' | 'end';
+	/**
+	 * When true, the element is only used to decide whether the step applies.
+	 * Driver.js renders the popover centered WITHOUT a highlight box, which
+	 * prevents tall content (questionnaire / checklist) from expanding the
+	 * overlay and causing layout shift.
+	 */
+	disableHighlight?: boolean;
+	/**
+	 * When true, the step is not filtered out even if the element is missing
+	 * from the DOM at tour-start time. Use for steps whose element appears
+	 * dynamically (e.g. after a dialog opens in beforeHighlight).
+	 */
+	lazyElement?: boolean;
+	/**
+	 * Optional async callback invoked just before this step's element is highlighted.
+	 * Use to open dialogs / expand panels that need to be visible for the step.
+	 * If it returns a selector string, the tour will wait for that element to appear
+	 * in the DOM (up to 2 seconds) before continuing.
+	 */
+	beforeHighlight?: () => void | string | Promise<void | string>;
+	/**
+	 * When true, the tour pauses on this step and waits for the user to manually
+	 * click the highlighted element before advancing to the next step.
+	 * The "Next" button is hidden and a hint label is shown instead.
+	 * Useful for "Details" buttons, dialog close buttons, etc. where user
+	 * interaction is the natural trigger to continue.
+	 */
+	waitForUserClick?: boolean;
+	/**
+	 * Optional async callback invoked after the user performs the waitForUserClick
+	 * action. Use to close dialogs or perform cleanup before the next step starts.
+	 */
+	afterUserClick?: () => void | Promise<void>;
+}
+
+export interface UseTourGuideOptions {
+	persistKey: string;
+	onComplete?: () => void;
+	onSkip?: () => void;
+	/**
+	 * Fallback getter for the scrollable content container.
+	 * The hook prefers resolving the scroll container from the highlighted
+	 * element itself (walking up to the nearest `.el-scrollbar__wrap`), so this
+	 * getter is only used when no scrollable ancestor can be found.
+	 */
+	getScrollContainer?: () => HTMLElement | null;
+	/**
+	 * Optional async function to check whether the current user has already
+	 * seen the tour (account-level, from backend).
+	 * If it resolves to true, auto-start is suppressed even if localStorage
+	 * has no record. Used to prevent the tour from showing again when the
+	 * user switches browsers or clears local storage.
+	 */
+	checkSeenRemote?: () => Promise<boolean>;
+	/**
+	 * Optional async function to mark the tour as seen on the backend.
+	 * Called once when the tour completes or is skipped.
+	 * Errors are swallowed silently — tour marking is best-effort.
+	 */
+	markSeenRemote?: () => Promise<void>;
+}

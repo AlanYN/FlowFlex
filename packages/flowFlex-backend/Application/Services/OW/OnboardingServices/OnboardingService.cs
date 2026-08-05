@@ -151,6 +151,12 @@ namespace FlowFlex.Application.Services.OW
         public Task<bool> SaveStageAsync(long onboardingId, long stageId)
             => _stageProgressService.SaveStageAsync(onboardingId, stageId);
 
+        public Task<bool> GetTourSeenAsync(long onboardingId, long stageId)
+            => _stageProgressService.GetTourSeenAsync(onboardingId, stageId);
+
+        public Task MarkTourSeenAsync(long onboardingId, long stageId)
+            => _stageProgressService.MarkTourSeenAsync(onboardingId, stageId);
+
         #endregion
 
         #region User Management Operations
