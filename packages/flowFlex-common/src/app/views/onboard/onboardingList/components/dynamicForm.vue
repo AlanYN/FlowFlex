@@ -410,19 +410,32 @@
 								{{ question.description }}
 							</p>
 							<div
-								v-if="question.questionProps && question.questionProps.fileUrl"
+								v-if="
+									question.questionProps &&
+									(questionBlobUrls[question.id] ||
+										question.questionProps.fileUrl)
+								"
 								class="flex justify-center items-center"
 							>
 								<el-image
 									v-if="question.questionProps.type === 'image'"
-									:src="question.questionProps.fileUrl"
+									:src="
+										questionBlobUrls[question.id] ||
+										question.questionProps.fileUrl
+									"
 									class="responsive-image"
-									:preview-src-list="[`${question.questionProps.fileUrl}`]"
+									:preview-src-list="[
+										questionBlobUrls[question.id] ||
+											question.questionProps.fileUrl,
+									]"
 									fit="contain"
 								/>
 								<video
 									v-else-if="question.questionProps.type === 'video'"
-									:src="question.questionProps.fileUrl"
+									:src="
+										questionBlobUrls[question.id] ||
+										question.questionProps.fileUrl
+									"
 									:alt="question.questionProps.fileName || 'Uploaded video'"
 									controls
 									class="max-h-[500px] w-auto object-contain"
@@ -1069,8 +1082,9 @@
 							@click="Submit()"
 							type="primary"
 							:icon="Document"
-							:loading="loading"
-							:disabled="!isSubmitEnabled || disabled"
+							:loading="loading || fileUploadStore.uploadingCount > 0"
+							:disabled="!isSubmitEnabled || disabled || fileUploadStore.uploadingCount > 0"
+							:title="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : ''"
 						>
 							Submit
 						</el-button>
@@ -1103,7 +1117,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, readonly } from 'vue';
 import {
 	Upload,
 	Warning,
@@ -1139,6 +1153,7 @@ import {
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import { getMimeType } from '@/utils/format';
+import { useFileUploadStore } from '@/stores/modules/fileUpload';
 
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
@@ -1167,6 +1182,8 @@ const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
 const sectionGroups = ref<Record<string, Record<string, any>[]>>({});
+// 使用全局 store 跟踪上传状态（供父页面遮罩使用）
+const fileUploadStore = useFileUploadStore();
 const dynamicFormRootRef = ref<HTMLElement>();
 const currentSectionIndex = ref(0);
 
@@ -1175,6 +1192,46 @@ const previewFileUrl = ref('');
 const previewFileType = ref('');
 const previewFileShow = ref(false);
 const offloading = ref(false);
+
+// 题目媒体（图片/视频）持久 blob URL 缓存，key 为 question.id
+const questionBlobUrls = ref<Record<string, string>>({});
+
+/**
+ * 遍历问卷所有题目，对有 filePath 的媒体题目调用接口获取持久 blob URL
+ * 使用 filePath 而非 fullAccessUrl，避免签名链接过期导致 FAILED
+ */
+const loadQuestionMediaBlobUrls = async () => {
+	if (!hasQuestionnaireData.value || formattedQuestionnaires.value.length === 0) return;
+
+	const tasks: Promise<void>[] = [];
+
+	formattedQuestionnaires.value.forEach((questionnaire) => {
+		questionnaire.sections?.forEach((section: any) => {
+			section.questions?.forEach((question: any) => {
+				const props_ = question.questionProps;
+				if (!props_) return;
+				const pathOrUrl = props_.filePath || props_.fileUrl;
+				if (!pathOrUrl || questionBlobUrls.value[question.id]) return;
+
+				tasks.push(
+					previewQuestionFile(pathOrUrl)
+						.then((blob: any) => {
+							const ext =
+								(props_.fileName || '').split('.').pop()?.toLowerCase() || '';
+							const mimeType = getMimeType(ext);
+							const blobObj = new Blob([blob], { type: mimeType });
+							questionBlobUrls.value[question.id] = URL.createObjectURL(blobObj);
+						})
+						.catch(() => {
+							// 静默失败，保持空值让 el-image 显示原始错误
+						})
+				);
+			});
+		});
+	});
+
+	await Promise.allSettled(tasks);
+};
 
 // 内部维护被跳过的问题集合（用于响应式更新）
 const internalSkippedQuestions = ref<Set<string>>(new Set());
@@ -1768,6 +1825,7 @@ const handleFileChange = async (questionId: string, file: any, fileList: any[]) 
 	// Only upload new files that haven't been uploaded yet (no accessUrl)
 	if (!file?.raw || file?.uploadedBy !== undefined) return;
 
+	fileUploadStore.increment();
 	try {
 		const uploadParams = {
 			name: 'formFile',
@@ -1798,6 +1856,8 @@ const handleFileChange = async (questionId: string, file: any, fileList: any[]) 
 		}
 	} catch {
 		// Upload error is non-blocking for the form; the file entry remains without metadata
+	} finally {
+		fileUploadStore.decrement();
 	}
 };
 
@@ -2192,6 +2252,19 @@ const collectQuestionAnswer = (
 			type: question.type,
 			responseText: '',
 		});
+	} else if (question.type === 'file' || question.type === 'file_upload') {
+		// 过滤掉尚未上传完成的文件（没有 filePath 也没有 accessUrl 的是 Element Plus 临时对象）
+		const rawFiles = dataSource[question.id];
+		const uploadedFiles = Array.isArray(rawFiles)
+			? rawFiles.filter((f: any) => f?.filePath || f?.accessUrl || f?.fullAccessUrl)
+			: [];
+		results.push({
+			questionId: question.id,
+			question: question.question,
+			answer: uploadedFiles,
+			type: question.type,
+			responseText: uploadedFiles.map((f: any) => f?.name || f?.fileName || '').join(', '),
+		});
 	} else {
 		results.push({
 			questionId: question.id,
@@ -2401,6 +2474,9 @@ const goToSection = (index: number) => {
 // 初始化
 onMounted(async () => {
 	await nextTick();
+
+	// 加载题目媒体的持久 blob URL（防止签名链接过期导致图片 FAILED）
+	await loadQuestionMediaBlobUrls();
 
 	// 初始化表单数据
 	if (hasQuestionnaireData.value && formattedQuestionnaires.value.length > 0) {
@@ -2656,6 +2732,11 @@ const Submit = () => {
 const Reopen = () => {
 	emit('reopen');
 };
+
+// 组件卸载时重置上传计数，防止路由切换后 uploadingCount 残留导致按钮永久 loading
+onUnmounted(() => {
+    fileUploadStore.reset();
+});
 
 defineExpose({
 	validateForm,
