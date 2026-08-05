@@ -1436,6 +1436,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         #endregion
 
+        #region Helper Methods
+
         // Note: NormalizeToStartOfDay, NormalizeEstimatedDays, and GetNormalizedUtcNow
         // have been removed. Use OnboardingSharedUtilities methods directly:
         // - OnboardingSharedUtilities.NormalizeToStartOfDay(dateTime)
