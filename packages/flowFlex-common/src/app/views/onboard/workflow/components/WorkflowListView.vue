@@ -103,6 +103,17 @@
 									<el-icon><Download /></el-icon>
 									Export Workflow
 								</el-dropdown-item>
+								<el-dropdown-item
+									v-if="
+										row.status === 'inactive' &&
+										hasPermission(row.id, ProjectPermissionEnum.workflow.delete)
+									"
+									@click="$emit('command', 'delete', row)"
+									class="text-red-500"
+								>
+									<el-icon class="!text-red-500"><Delete /></el-icon>
+									Delete
+								</el-dropdown-item>
 							</el-dropdown-menu>
 						</template>
 					</el-dropdown>
@@ -201,6 +212,7 @@ import {
 	Check,
 	Download,
 	Connection,
+	Delete,
 } from '@element-plus/icons-vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, tableMaxHeight } from '@/settings/projectSetting';
