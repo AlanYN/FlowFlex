@@ -139,6 +139,17 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 .ToListAsync();
         }
 
+        public async Task<HashSet<long>> GetWorkflowIdsWithCasesAsync()
+        {
+            var ids = await _db.Queryable<Onboarding>()
+                .Where(x => x.IsValid)
+                .Select(x => x.WorkflowId)
+                .Distinct()
+                .ToListAsync();
+
+            return new HashSet<long>(ids);
+        }
+
         public async Task<List<Onboarding>> GetListByStageIdAsync(long stageId)
         {
             return await _db.Queryable<Onboarding>()
