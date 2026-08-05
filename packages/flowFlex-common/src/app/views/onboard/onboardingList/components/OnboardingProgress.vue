@@ -42,6 +42,7 @@
 				<div class="mb-4">
 					<el-button
 						class="w-full justify-between flex-row-reverse"
+						data-tour="progress-toggle-btn"
 						@click="toggleStagesView"
 						:icon="showAllStages ? ArrowUp : ArrowDown"
 					>
@@ -68,6 +69,9 @@
 									? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-indigo-900/20'
 									: 'cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-indigo-900/10',
 							]"
+							:data-tour="
+								activeStage === stage.stageId ? 'progress-active-stage' : undefined
+							"
 							@click="isStageAccessible(stage) && handleStageClick(stage.stageId)"
 						>
 							<!-- 阶段状态图标 -->
@@ -142,6 +146,7 @@
 												>
 													<div
 														class="text-orange-400 px-2 border border-orange-400 rounded-xl flex items-center gap-x-2 text-sm dark:bg-orange-900"
+														data-tour="progress-required-tag"
 													>
 														<Icon icon="mdi:information-outline" />
 														Required

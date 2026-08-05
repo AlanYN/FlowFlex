@@ -1,7 +1,7 @@
 <template>
 	<div class="pb-6">
 		<!-- 页面头部 -->
-		<PageHeader :show-back-button="true" @go-back="handleBack">
+		<PageHeader data-tour="case-title" :show-back-button="true" @go-back="handleBack">
 			<template #title>
 				<span class="flex items-center gap-2">
 					<span>
@@ -39,6 +39,7 @@
 						"
 						:icon="Document"
 						class="page-header-btn page-header-btn-primary"
+					    data-tour="save-btn"
 						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 					>
 						Save
@@ -66,6 +67,7 @@
 							fileUploadStore.uploadingCount > 0
 						"
 						class="page-header-btn page-header-btn-primary"
+						data-tour="complete-btn"
 						:icon="Check"
 					>
 						Complete
@@ -135,9 +137,10 @@
 						<!-- 根据Stage Components动态渲染 -->
 						<template v-if="!stageDataLoading && onboardingActiveStageInfo?.components">
 							<div
-								v-for="component in sortedComponents"
+								v-for="(component, componentIndex) in sortedComponents"
 								:key="`${component.key}-${component.order}`"
 								v-show="component.isEnabled"
+								:data-tour="getTourAnchor(component, componentIndex)"
 							>
 								<!-- 静态字段表单 -->
 								<StaticForm
@@ -160,55 +163,68 @@
 								/>
 
 								<!-- 检查清单组件 -->
-								<CheckList
+								<template
 									v-else-if="
 										component.key === 'checklist' &&
 										component?.checklistIds &&
 										component.checklistIds?.length > 0
 									"
-									:loading="checkLoading"
-									:stage-id="activeStage"
-									:checklist-data="getChecklistDataForComponent(component)"
-									:onboarding-id="onboardingId"
-									:disabled="
-										isAbortedReadonly ||
-										stageCanCompleted ||
-										onboardingData?.isDisabled ||
-										!hasCasePermission(ProjectPermissionEnum.case.update)
-									"
-									@task-toggled="handleTaskToggled"
-									@refresh-checklist="loadCheckListData"
-								/>
+								>
+									<CheckList
+										:loading="checkLoading"
+										:stage-id="activeStage"
+										:checklist-data="getChecklistDataForComponent(component)"
+										:onboarding-id="onboardingId"
+										:disabled="
+											isAbortedReadonly ||
+											stageCanCompleted ||
+											onboardingData?.isDisabled ||
+											!hasCasePermission(ProjectPermissionEnum.case.update)
+										"
+										@task-toggled="handleTaskToggled"
+										@refresh-checklist="loadCheckListData"
+									/>
+								</template>
 
 								<!-- 问卷组件 -->
-								<QuestionnaireDetails
+								<template
 									v-else-if="
 										component.key === 'questionnaires' &&
 										component?.questionnaireIds &&
 										component.questionnaireIds?.length > 0
 									"
-									:ref="setQuestionnaireDetailsRef"
-									:stage-id="activeStage"
-									:lead-data="onboardingData"
-									:workflow-stages="workflowStages"
-									:disabled="
-										isAbortedReadonly ||
-										stageCanCompleted ||
-										onboardingData?.isDisabled ||
-										!hasCasePermission(ProjectPermissionEnum.case.update)
-									"
-									:questionnaire-data="
-										getQuestionnaireDataForComponent(component)
-									"
-									:currentstageCanCompleted="!!stageCanCompleted"
-									:onboardingId="onboardingId"
-									@stage-updated="handleStageUpdated"
-									:loading="questionnaireLoading"
-									@question-submitted="handleQuestionSubmitted"
-									:questionnaire-answers="
-										getQuestionnaireAnswersForComponent(component)
-									"
-								/>
+								>
+									<QuestionnaireDetails
+										:ref="setQuestionnaireDetailsRef"
+										:stage-id="activeStage"
+										:lead-data="onboardingData"
+										:workflow-stages="workflowStages"
+										:disabled="
+											isAbortedReadonly ||
+											stageCanCompleted ||
+											onboardingData?.isDisabled ||
+											!hasCasePermission(ProjectPermissionEnum.case.update)
+										"
+										:questionnaire-data="
+											getQuestionnaireDataForComponent(component)
+										"
+										:currentstageCanCompleted="!!stageCanCompleted"
+										:onboardingId="onboardingId"
+										@stage-updated="handleStageUpdated"
+										:loading="questionnaireLoading"
+										@question-submitted="handleQuestionSubmitted"
+										:questionnaire-answers="
+											getQuestionnaireAnswersForComponent(component)
+										"
+										:tour-id="
+											questionnaireOrderMap.get(componentIndex) === 1
+												? 'stage-questionnaire-first'
+												: `stage-questionnaire-other-${questionnaireOrderMap.get(
+														componentIndex
+												  )}`
+										"
+									/>
+								</template>
 
 								<!-- 文件组件 -->
 								<Documents
@@ -252,6 +268,7 @@
 						<!-- OnboardingProgress组件 -->
 						<OnboardingProgress
 							v-if="onboardingData && onboardingId"
+							data-tour="progress-bar"
 							:active-stage="activeStage"
 							:onboarding-data="onboardingData"
 							:workflow-stages="workflowStages"
@@ -282,6 +299,23 @@
 			ref="changeLogRef"
 			:onboarding-id="onboardingId"
 			:stage-id="activeStage"
+		/>
+
+		<!-- Tour Guide — 右下角 "?" 重播按钮 -->
+		<TourGuide
+			v-if="activeStage && !stageDataLoading"
+			ref="tourGuideRef"
+			:persist-key="tourPersistKey"
+			:steps="tourSteps"
+			:auto-start="isCurrentUserAssigned"
+			:show-fab="true"
+			:get-scroll-container="
+				() => (leftScrollbarRef as any)?.$el?.querySelector('.el-scrollbar__wrap') ?? null
+			"
+			:check-seen-remote="
+				() => getTourSeen(onboardingId, activeStage).then((r) => r?.seen ?? false)
+			"
+			:mark-seen-remote="() => markTourSeen(onboardingId, activeStage).then()"
 		/>
 
 		<!-- Portal Access Management 对话框 -->
@@ -315,6 +349,8 @@ import {
 	completeCurrentStage,
 	onboardingSave,
 	updateStageFields,
+	getTourSeen,
+	markTourSeen,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, SectionAnswer, Stage, StageComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -338,6 +374,8 @@ import QuickLink from './components/QuickLink.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { useOnboardTourSteps } from '@/hooks/useOnboardTourSteps';
 import { useFileUploadStore } from '@/stores/modules/fileUpload';
 
 const { t } = useI18n();
@@ -538,7 +576,10 @@ onBeforeUpdate(() => {
 	questionnaireDetailsRefs.value = [];
 });
 
-// 函数式ref，用于收集StaticForm组件实例（去重）
+// ─── Tour Guide (via useOnboardTourSteps) ────────────────────────────────────
+// NOTE: Intentionally placed AFTER sortedComponents, questionnairesData and
+// getChecklistDataForComponent are declared to avoid TDZ errors.
+
 const setStaticFormRef = (el: any) => {
 	if (el && !staticFormRefs.value.includes(el)) {
 		staticFormRefs.value.push(el);
@@ -607,6 +648,49 @@ const sortedComponents = computed(() => {
 		return a.order - b.order; // 根据order排序
 	});
 });
+
+// ─── Tour Guide ───────────────────────────────────────────────────────────────
+// Placed here so all dependencies (sortedComponents, questionnairesData,
+// getChecklistDataForComponent) are already initialized — avoids TDZ errors.
+
+/**
+ * Auto-start the guided tour only when the current user is the assignee
+ * (or a co-assignee) of the active stage. Other users (managers, observers)
+ * should not have the tour pop up automatically; they can still replay it
+ * via the "?" FAB button.
+ */
+const isCurrentUserAssigned = computed(() => {
+	const stage = onboardingActiveStageInfo.value;
+	if (!stage) return false;
+	const currentUserId = String(userStore.getUserInfo?.userId ?? '');
+	if (!currentUserId) return false;
+	const assignees = [...(stage.assignee ?? []), ...(stage.coAssignees ?? [])].map(String);
+	return assignees.includes(currentUserId);
+});
+
+const {
+	tourGuideRef,
+	tourPersistKey,
+	tourSteps,
+	questionnaireOrderMap,
+	getTourAnchor,
+	setupTourWatcher,
+} = useOnboardTourSteps({
+	userId: computed(() => userStore.getUserInfo?.userId || 'guest'),
+	onboardingId,
+	activeStage,
+	stageDataLoading,
+	sortedComponents,
+	questionnairesData,
+	getChecklistDataForComponent,
+	stageCanCompleted,
+	stageName: computed(() => onboardingActiveStageInfo.value?.stageName || ''),
+	caseName: computed(() => onboardingData.value?.caseName || ''),
+});
+
+setupTourWatcher(() => isCurrentUserAssigned.value);
+
+// ─── End Tour Guide ───────────────────────────────────────────────────────────
 
 // 处理onboarding数据的共同逻辑
 const processOnboardingData = (responseData: OnboardingItem) => {

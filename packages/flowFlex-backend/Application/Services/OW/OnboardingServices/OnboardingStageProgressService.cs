@@ -1382,7 +1382,59 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         #endregion
 
-        #region Helper Methods
+        #region TourSeenAsync
+
+        /// <inheritdoc />
+        public async Task<bool> GetTourSeenAsync(long onboardingId, long stageId)
+        {
+            var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (onboarding == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+
+            LoadStagesProgressFromJsonReadOnly(onboarding);
+
+            var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+            if (stageProgress == null)
+                return false;
+
+            var userId = GetCurrentUserId()?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(userId))
+                return false;
+
+            return stageProgress.TourSeenBy != null && stageProgress.TourSeenBy.ContainsKey(userId);
+        }
+
+        /// <inheritdoc />
+        public async Task MarkTourSeenAsync(long onboardingId, long stageId)
+        {
+            var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (onboarding == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+
+            await EnsureStagesProgressInitializedAsync(onboarding);
+
+            var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+            if (stageProgress == null)
+                return; // stage not found — silently ignore (tour mark is best-effort)
+
+            var userId = GetCurrentUserId()?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(userId))
+                return;
+
+            stageProgress.TourSeenBy ??= new Dictionary<string, DateTime>();
+
+            // Idempotent — only record the first-seen timestamp
+            if (!stageProgress.TourSeenBy.ContainsKey(userId))
+            {
+                stageProgress.TourSeenBy[userId] = DateTime.UtcNow;
+
+                await FilterValidStagesProgressAsync(onboarding);
+                onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
+                await SafeUpdateOnboardingAsync(onboarding);
+            }
+        }
+
+        #endregion
 
         // Note: NormalizeToStartOfDay, NormalizeEstimatedDays, and GetNormalizedUtcNow
         // have been removed. Use OnboardingSharedUtilities methods directly:
