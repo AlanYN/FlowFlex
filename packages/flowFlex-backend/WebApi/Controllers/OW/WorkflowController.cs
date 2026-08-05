@@ -80,10 +80,24 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Get workflows for Case filter dropdown
+        /// Returns all Active workflows + Inactive workflows that have at least one case
+        /// Requires CASE:READ permission (used in Case list page)
+        /// </summary>
+        [HttpGet("for-case-filter")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetForCaseFilter()
+        {
+            var data = await _workflowService.GetForCaseFilterAsync();
+            return Success(data);
+        }
+
+        /// <summary>
         /// Get workflow by id
         /// Requires WORKFLOW:READ permission
         /// </summary>
-        [HttpGet("{id}")]
+        [HttpGet("{id:long}")]
         [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<WorkflowOutputDto>>((int)HttpStatusCode.OK)]

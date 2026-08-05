@@ -29,6 +29,12 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<Stream> ExportMultipleDetailedToExcelAsync(WorkflowExportSearch search);
 
         /// <summary>
+        /// Get workflows for Case filter dropdown:
+        /// returns all Active workflows + Inactive workflows that have at least one case
+        /// </summary>
+        Task<List<WorkflowOutputDto>> GetForCaseFilterAsync();
+
+        /// <summary>
         /// Create workflow from version with stages
         /// </summary>
         /// <param name="input">Create from version input</param>
