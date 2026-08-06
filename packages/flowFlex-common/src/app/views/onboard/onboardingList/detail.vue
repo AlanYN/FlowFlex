@@ -255,8 +255,10 @@
 							:active-stage="activeStage"
 							:onboarding-data="onboardingData"
 							:workflow-stages="workflowStages"
+							:onboarding-id="onboardingId"
 							@set-active-stage="setActiveStage"
 							@stage-completed="loadOnboardingDetail"
+							@stage-rolled-back="handleStageRolledBack"
 						/>
 
 						<!-- 笔记区域 -->
@@ -1147,6 +1149,11 @@ const handleCompleteStage = async () => {
 			},
 		}
 	);
+};
+
+// Roll Back Stage 回调：重新加载 onboarding progress 数据
+const handleStageRolledBack = async () => {
+	await loadOnboardingDetail();
 };
 
 const saveQuestionnaireAndField = async () => {

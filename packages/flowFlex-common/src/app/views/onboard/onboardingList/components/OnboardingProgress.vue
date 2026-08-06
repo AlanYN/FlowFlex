@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
@@ -186,22 +186,72 @@
 										}}
 									</span>
 								</div>
+								<!-- Roll Back 按钮：仅对已完成且有权限的 Stage 显示 -->
+								<div
+									v-if="stage.status === 'Completed' && stage.canRollBack"
+									class="mt-1 flex justify-end"
+								>
+									<el-button
+										type="warning"
+										size="small"
+										@click.stop="handleRollBack(stage)"
+									>
+										Roll Back
+									</el-button>
+								</div>
 							</div>
 						</div>
 					</div>
 				</el-scrollbar>
 			</div>
 		</el-collapse-transition>
+
+		<!-- Roll Back Stage 确认弹窗 -->
+		<el-dialog
+			v-model="rollBackDialogVisible"
+			title="Roll Back Stage"
+			width="500px"
+			:close-on-click-modal="!rollBackLoading"
+			append-to-body
+		>
+			<div class="space-y-4">
+				<p class="text-gray-600">
+					This action will reopen
+					<strong>{{ rollBackTargetStage?.title }}</strong>
+					and set it back to InProgress.
+				</p>
+				<div>
+					<label class="block text-sm text-gray-500 mb-1">Reason (optional)</label>
+					<el-input
+						v-model="rollBackReason"
+						type="textarea"
+						:rows="3"
+						placeholder="Enter reason (optional)"
+						:disabled="rollBackLoading"
+					/>
+				</div>
+			</div>
+			<template #footer>
+				<el-button @click="rollBackDialogVisible = false" :disabled="rollBackLoading">
+					Cancel
+				</el-button>
+				<el-button type="warning" :loading="rollBackLoading" @click="handleRollBackConfirm">
+					Confirm Roll Back
+				</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { Check, Clock, ArrowDown, ArrowUp, ArrowRight } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { OnboardingItem, Stage } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
+import { rollBackStage } from '@/apis/ow/onboarding';
 
 // Props
 interface Props {
@@ -209,6 +259,7 @@ interface Props {
 	onboardingData: OnboardingItem;
 	workflowStages: Stage[]; // 从父组件传递的工作流阶段
 	stageAccessCheck?: (stageId: string) => boolean; // 阶段访问权限检查函数
+	onboardingId: string; // 父组件传入的 onboarding ID
 }
 
 const props = defineProps<Props>();
@@ -217,7 +268,38 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	setActiveStage: [stageId: string];
 	stageCompleted: [];
+	stageRolledBack: [];
 }>();
+
+// Roll Back 弹窗状态
+const rollBackDialogVisible = ref(false);
+const rollBackReason = ref('');
+const rollBackLoading = ref(false);
+const rollBackTargetStage = ref<any>(null);
+
+// Roll Back 事件处理
+const handleRollBack = (stage: any) => {
+	rollBackTargetStage.value = stage;
+	rollBackReason.value = '';
+	rollBackDialogVisible.value = true;
+};
+
+const handleRollBackConfirm = async () => {
+	if (!props.onboardingId || !rollBackTargetStage.value?.stageId) return;
+	rollBackLoading.value = true;
+	try {
+		await rollBackStage(props.onboardingId, rollBackTargetStage.value.stageId, {
+			reason: rollBackReason.value || undefined,
+		});
+		ElMessage.success('Stage has been rolled back successfully.');
+		rollBackDialogVisible.value = false;
+		rollBackReason.value = '';
+		rollBackTargetStage.value = null;
+		emit('stageRolledBack');
+	} finally {
+		rollBackLoading.value = false;
+	}
+};
 
 // 响应式数据
 const isOpen = ref(true);
@@ -262,6 +344,7 @@ const stages = computed(() => {
 			stage?.completionTime || '',
 			stage?.saveTime || ''
 		),
+		canRollBack: (stage as any).canRollBack ?? false,
 	}));
 });
 
