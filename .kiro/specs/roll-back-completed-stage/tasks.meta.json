@@ -1,0 +1,332 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 创建 Migration 文件，新增 `roll_back_teams` 列": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001375952
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001389817
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001539264
+      }
+    ],
+    "1.2 在 MigrationManager.cs 中注册新 Migration": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376503
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001390314
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001540124
+      }
+    ],
+    "1.3 更新 Stage Entity，新增 RollBackTeams 属性": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376606
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001391486
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001541159
+      }
+    ],
+    "2. Checkpoint — 确认数据库变更基础就绪": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376707
+      }
+    ],
+    "3.1 创建 RollBackStageInput DTO": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376793
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001562539
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001672744
+      }
+    ],
+    "3.2 在 IOnboardingStageManagementService 中声明 RollBackStageAsync 方法": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376882
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001563454
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001673398
+      }
+    ],
+    "3.3 实现 OnboardingStageManagementService.RollBackStageAsync — 权限校验": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001376970
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001688715
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002278405
+      }
+    ],
+    "3.4 实现 OnboardingStageManagementService.RollBackStageAsync — 状态校验与重置": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377053
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002295947
+      }
+    ],
+    "3.5 实现 Onboarding 状态联动逻辑": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377136
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002308105
+      }
+    ],
+    "3.6 实现操作日志记录与通知发送（fire-and-forget）": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377218
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002320655
+      }
+    ],
+    "4.1 在 OnboardingController 新增 RollBack API 端点": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377304
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002335809
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003416960
+      }
+    ],
+    "4.2 在 OnboardingStageProgressOutputDto 中新增 CanRollBack 字段": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377386
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002336946
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003417814
+      }
+    ],
+    "4.3 在查询 Stage 进度时填充 CanRollBack 字段": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377481
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003472474
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003988611
+      }
+    ],
+    "5. Checkpoint — 后端基础就绪": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377565
+      }
+    ],
+    "6.1 在 Stage 配置页面新增 RollBackTeams 团队选择器": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377648
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002337479
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003418556
+      }
+    ],
+    "6.2 确保 Stage 配置保存时 RollBackTeams 正确序列化提交": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377728
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003473131
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003989504
+      }
+    ],
+    "7.1 在 onboarding.ts 中新增 rollBackStage API 函数": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377808
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786004021363
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786004593028
+      }
+    ],
+    "7.2 在 Stage 卡片组件中新增 Roll Back 按钮": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377882
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786004609694
+      }
+    ],
+    "7.3 实现 Roll Back 二次确认弹窗与提交逻辑": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001377981
+      },
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786004627788
+      }
+    ],
+    "8. Checkpoint — 前端功能就绪": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001378063
+      }
+    ],
+    "10. Final Checkpoint — 确认所有测试通过": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001378175
+      }
+    ],
+    "1. 数据库 Migration 与 Entity 同步": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786001541269
+      }
+    ],
+    "3. 后端核心逻辑：DTO、服务接口与实现": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786002320790
+      }
+    ],
+    "4. 后端 Controller 与输出 DTO 变更": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003988757
+      }
+    ],
+    "6. Stage 配置前端：RollBackTeams 选择器": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786003989675
+      }
+    ],
+    "7. 前端 Roll Back 功能：API 函数 + UI 组件": [
+      {
+        "executionId": "f6d6b11a-7167-4d97-ba3c-9749a09b8889",
+        "chatSessionId": "sess_cf99173d-4e83-45b4-96b1-b817ef352921",
+        "timestamp": 1786004627915
+      }
+    ]
+  }
+}

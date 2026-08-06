@@ -53,7 +53,7 @@
 				<!-- 搜索区域 -->
 				<OnboardFilter
 					:life-cycle-stage="lifeCycleStage"
-					:all-workflows="allWorkflows"
+					:all-workflows="filterWorkflows"
 					:onboarding-stages="onboardingStages"
 					:loading="loading"
 					:selected-items="selectedItems"
@@ -459,7 +459,7 @@
 				<!-- 搜索区域 -->
 				<OnboardFilter
 					:life-cycle-stage="lifeCycleStage"
-					:all-workflows="allWorkflows"
+					:all-workflows="filterWorkflows"
 					:onboarding-stages="onboardingStages"
 					:loading="loading"
 					:selected-items="selectedItems"
@@ -606,16 +606,7 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-							:disabled="!workflow.isActive"
-						>
-							<div class="flex items-center justify-between">
-								<span>{{ workflow.name }}</span>
-								<el-tag v-if="!workflow.isActive" type="danger" size="small">
-									Inactive
-								</el-tag>
-								<el-tag v-else type="success" size="small">Active</el-tag>
-							</div>
-						</el-option>
+						/>
 					</el-select>
 				</el-form-item>
 
@@ -695,7 +686,7 @@ import {
 	resumeOnboardingWithConfirmation,
 	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
-import { getAllStages, getWorkflowList } from '@/apis/ow';
+import { getAllStages, getWorkflowList, getWorkflowsForCaseFilter } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
 import type { FlowflexUser } from '#/golbal';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
@@ -780,7 +771,7 @@ const formData = reactive({
 	ContactPerson: '',
 	ContactEmail: '',
 	workFlowId: '',
-	// OW-691: 保留 status 字段，编辑时回显原值，避免保存时被重置
+		// OW-691: 保留 status 字段，编辑时回显原值，避免保存时被重置
 	status: '',
 	// 新增权限字段
 	ownership: '',
@@ -2080,15 +2071,27 @@ const fetchAllStages = async () => {
 	}
 };
 
+// allWorkflows: 仅 Active 的 Workflow，用于创建 Case 弹窗的 Workflow 下拉
 const allWorkflows = ref<any[]>([]);
+// filterWorkflows: Active + 有 Case 在使用的 Inactive，用于 Case 列表筛选下拉
+const filterWorkflows = ref<any[]>([]);
+
 const fetchAllWorkflows = async () => {
-	const response = await getWorkflowList();
+	// 弹窗用：只拉 Active 的（带分页参数才会触发后端的 isActive 过滤逻辑）
+	const response = await getWorkflowList({ isActive: true, pageIndex: 1, pageSize: 999 });
 	if (response.code === '200') {
-		allWorkflows.value = response.data || [];
+		// 带分页参数时返回 { items, totalCount }；兼容不带分页时的直接数组
+		allWorkflows.value = response.data?.items ?? response.data ?? [];
 		const defaultWorkflow = allWorkflows.value.find((item) => item.isDefault);
 		if (defaultWorkflow) {
 			defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
 		}
+	}
+
+	// 筛选用：Active + 有 Case 在使用的 Inactive
+	const filterResponse = await getWorkflowsForCaseFilter();
+	if (filterResponse.code === '200') {
+		filterWorkflows.value = filterResponse.data || [];
 	}
 };
 

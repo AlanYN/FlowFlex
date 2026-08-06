@@ -350,6 +350,8 @@ export interface Stage {
 	assignee?: string[];
 	coAssignees?: string[];
 	required: boolean;
+	rollBackTeams?: string[];
+	canRollBack?: boolean;
 }
 
 // 检查清单任务完成记录相关类型定义

@@ -597,6 +597,7 @@ import {
 	updateWorkflow as updateWorkflowApi,
 	activateWorkflow as activateWorkflowApi,
 	deactivateWorkflow as deactivateWorkflowApi,
+	deleteWorkflow as deleteWorkflowApi,
 	duplicateWorkflow as duplicateWorkflowApi,
 	createStage,
 	getStagesByWorkflow,
@@ -833,7 +834,7 @@ const loadWorkflowDetail = async (workflowId: string) => {
 // 获取工作流列表（分页数据，用于列表视图）
 // 筛选
 const searchWorkflowName = ref<string[]>([]);
-const searceWorkflowStatus = ref<string>('');
+const searceWorkflowStatus = ref<string>('active');
 const handleWorkflowChange = () => {
 	fetchWorkflows(true);
 };
@@ -1015,6 +1016,11 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 		case 'export':
 			if (targetWorkflow) {
 				exportWorkflow(targetWorkflow);
+			}
+			break;
+		case 'delete':
+			if (targetWorkflow) {
+				deleteWorkflowConfirm(targetWorkflow);
 			}
 			break;
 		case 'workflowChart':
@@ -1705,6 +1711,62 @@ const downloadFileFromBlob = (blob: Blob, baseFileName: string): boolean => {
 		console.error('Download failed:', error);
 		return false;
 	}
+};
+
+const deleteWorkflowConfirm = async (targetWorkflow?: any) => {
+	const workflowToDelete = targetWorkflow || workflow.value;
+	if (!workflowToDelete) return;
+
+	ElMessageBox.confirm(
+		`Are you sure you want to permanently delete the workflow "${workflowToDelete.name}"? This action cannot be undone.`,
+		'⚠️ Confirm Workflow Deletion',
+		{
+			confirmButtonText: 'Delete',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'danger-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'delete-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deleting...';
+
+					try {
+						const res = await deleteWorkflowApi(workflowToDelete.id);
+
+						if (res.code === '200') {
+							ElMessage.success(t('sys.api.operationSuccess'));
+							// 如果当前正在查看该 workflow 详情，返回列表
+							if (workflow.value && workflow.value.id === workflowToDelete.id) {
+								workflow.value = null;
+								viewMode.value = 'list';
+							}
+							fetchWorkflows();
+							done();
+						} else {
+							ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} catch (error: any) {
+						ElMessage.error(error?.message || t('sys.api.operationFailed'));
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete';
+					} finally {
+						currentActionWorkflow.value = null;
+						currentActionType.value = null;
+					}
+				} else {
+					currentActionWorkflow.value = null;
+					currentActionType.value = null;
+					done();
+				}
+			},
+		}
+	);
 };
 
 const exportWorkflow = async (targetWorkflow?: any) => {

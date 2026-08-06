@@ -142,6 +142,13 @@ namespace FlowFlex.Domain.Entities.OW
         public bool UseSameTeamForOperate { get; set; } = false;
 
         /// <summary>
+        /// Roll Back Teams - JSONB array of team IDs allowed to roll back completed stages.
+        /// NULL or empty array means no one can roll back (security default).
+        /// </summary>
+        [SugarColumn(ColumnName = "roll_back_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string RollBackTeams { get; set; }
+
+        /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         [SugarColumn(ColumnName = "attachment_management_needed")]

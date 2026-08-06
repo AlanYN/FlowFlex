@@ -87,6 +87,8 @@ const Api = (id?: string | number) => {
 		checklistTaskFile: `${globSetting.apiProName}/ow/checklist-task-completions/${globSetting.apiVersion}/upload-file`,
 
 		updateStageFields: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/stage/update-custom-fields`,
+		onboardingRollBackStage: (stageId: string | number) =>
+			`${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/stages/${stageId}/roll-back`,
 	};
 };
 
@@ -895,5 +897,23 @@ export function getTourSeen(onboardingId: string | number, stageId: string | num
 export function markTourSeen(onboardingId: string | number, stageId: string | number) {
 	return defHttp.post({
 		url: Api(onboardingId).onboardingTourSeen(stageId),
+	});
+}
+
+/**
+ * Roll back a completed stage to InProgress state
+ * @param onboardingId 入职ID
+ * @param stageId 阶段ID
+ * @param params 回退参数 {reason?: string}
+ * @returns boolean
+ */
+export function rollBackStage(
+	onboardingId: string | number,
+	stageId: string | number,
+	params?: { reason?: string }
+) {
+	return defHttp.post({
+		url: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${onboardingId}/stages/${stageId}/roll-back`,
+		params: params || {},
 	});
 }

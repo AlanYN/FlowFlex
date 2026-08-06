@@ -199,5 +199,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// STRICT MODE: Stage permission = Workflow ∩ Stage (requires both levels)
         /// </summary>
         public FlowFlex.Application.Contracts.Dtos.OW.Permission.PermissionInfoDto Permission { get; set; }
+
+        /// <summary>
+        /// Whether the current user has permission to roll back this stage.
+        /// Computed by the service layer based on RollBackTeams vs current user's teams.
+        /// </summary>
+        public bool CanRollBack { get; set; }
     }
 }
