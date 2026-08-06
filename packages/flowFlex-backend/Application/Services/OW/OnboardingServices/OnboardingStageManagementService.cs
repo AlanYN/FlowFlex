@@ -1046,5 +1046,194 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         }
 
         #endregion
+
+
+        #region Roll Back Stage
+
+        /// <inheritdoc />
+        public async Task<bool> RollBackStageAsync(long onboardingId, long stageId, RollBackStageInput input)
+        {
+            // === Step 1 (Task 3.3): Load onboarding and validate ===
+            var entity = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Ensure stages progress is initialized so StagesProgress is populated
+            await _stageProgressService.EnsureStagesProgressInitializedAsync(entity);
+
+            // Load all stages for this workflow
+            var allStages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            var stage = allStages.FirstOrDefault(s => s.Id == stageId && s.IsValid);
+            if (stage == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found or does not belong to the current workflow");
+            }
+
+            // === Admin bypass: System Admin and Tenant Admin can always roll back ===
+            if (!_permissionService.HasAdminPrivileges())
+            {
+                // === Permission check: RollBackTeams whitelist ===
+                var rollBackTeamIds = ParseAssigneeJson(stage.RollBackTeams);
+                if (rollBackTeamIds == null || rollBackTeamIds.Count == 0)
+                {
+                    throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "This stage has no roll back permission configured");
+                }
+
+                var userTeamIds = _permissionService.GetUserTeamIds();
+                var hasPermission = userTeamIds != null && userTeamIds.Any(t => rollBackTeamIds.Contains(t));
+                if (!hasPermission)
+                {
+                    throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You do not have permission to perform this operation");
+                }
+            }
+
+            // === Step 2 (Task 3.4): Validate stage status and reset progress ===
+            var progress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+            if (progress == null || (progress.Status != "Completed" && !progress.IsCompleted))
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Only completed stages can be rolled back");
+            }
+
+            // Reset progress fields
+            progress.Status = "InProgress";
+            progress.IsCompleted = false;
+            progress.CompletionTime = null;
+            progress.CompletedBy = null;
+            progress.CompletedById = null;
+            progress.IsCurrent = true;
+
+            // Update onboarding's current stage pointer
+            entity.CurrentStageId = stageId;
+            entity.CurrentStageOrder = stage.Order;
+
+            // === Step 3 (Task 3.5): Onboarding status linkage ===
+            if (entity.Status == "Completed")
+            {
+                entity.Status = "InProgress";
+                entity.ActualCompletionDate = null;
+            }
+
+            UpdateStageTrackingInfo(entity);
+            var result = await SaveOnboardingChangesAsync(entity);
+
+            if (result)
+            {
+                // === Step 4 (Task 3.6): Write operation log ===
+                await LogStageRollBackAsync(entity, stage, input?.Reason);
+
+                // === Fire-and-forget notifications ===
+                var capturedEntity = entity;
+                var capturedStage = stage;
+                var capturedAllStages = allStages.OrderBy(s => s.Order).ToList();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var caseUrl = BuildCaseUrl(capturedEntity.Id, capturedEntity.TenantId);
+                        var caseId = capturedEntity.CaseCode ?? capturedEntity.Id.ToString();
+                        var caseName = capturedEntity.CaseName ?? $"Case {caseId}";
+                        var utcTime = DateTimeOffset.UtcNow;
+                        var localTime = TimeZoneInfo.ConvertTime(utcTime, TimeZoneInfo.Local);
+                        var rollBackTime = localTime.ToString("MM/dd/yyyy hh:mm:ss tt",
+                            System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                        var performedBy = GetCurrentUserName();
+
+                        // Notify the rolled-back stage's current assignee
+                        await SendEmailToStageAssigneesAsync(
+                            capturedEntity, capturedStage,
+                            caseId, caseName,
+                            capturedStage.Name, capturedStage.Name,
+                            performedBy, rollBackTime, caseUrl);
+
+                        // Notify assignees of all non-Skipped stages with Order > this stage's Order
+                        var laterStages = capturedAllStages
+                            .Where(s => s.Order > capturedStage.Order)
+                            .ToList();
+
+                        foreach (var laterStage in laterStages)
+                        {
+                            var laterProgress = capturedEntity.StagesProgress?
+                                .FirstOrDefault(sp => sp.StageId == laterStage.Id);
+                            if (laterProgress != null &&
+                                string.Equals(laterProgress.Status, "Skipped", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            await SendEmailToStageAssigneesAsync(
+                                capturedEntity, laterStage,
+                                caseId, caseName,
+                                capturedStage.Name, laterStage.Name,
+                                performedBy, rollBackTime, caseUrl);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error sending roll back notifications for OnboardingId={OnboardingId}, StageId={StageId}",
+                            onboardingId, stageId);
+                    }
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Log stage roll back to operation change log
+        /// </summary>
+        private async Task LogStageRollBackAsync(Onboarding entity, Stage stage, string reason)
+        {
+            try
+            {
+                var beforeData = new
+                {
+                    StageId = stage.Id,
+                    StageName = stage.Name,
+                    IsCompleted = true,
+                    Status = "Completed"
+                };
+
+                var afterData = new
+                {
+                    StageId = stage.Id,
+                    StageName = stage.Name,
+                    IsCompleted = false,
+                    Status = "InProgress",
+                    RolledBackBy = GetCurrentUserName(),
+                    RollBackTime = DateTimeOffset.UtcNow
+                };
+
+                var extendedData = new
+                {
+                    WorkflowId = entity.WorkflowId,
+                    Reason = reason,
+                    Source = "manual_roll_back"
+                };
+
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OperationTypeEnum.StageReopen,
+                    businessModule: BusinessModuleEnum.Stage,
+                    businessId: stage.Id,
+                    onboardingId: entity.Id,
+                    stageId: stage.Id,
+                    operationTitle: $"Stage Rolled Back: {stage.Name}",
+                    operationDescription: $"Stage '{stage.Name}' has been rolled back to InProgress by {GetCurrentUserName()}" +
+                        (!string.IsNullOrWhiteSpace(reason) ? $". Reason: {reason}" : ""),
+                    beforeData: JsonSerializer.Serialize(beforeData),
+                    afterData: JsonSerializer.Serialize(afterData),
+                    changedFields: new List<string> { "IsCompleted", "Status", "CompletionTime", "CompletedBy", "IsCurrent" },
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log stage roll back: OnboardingId={OnboardingId}, StageId={StageId}",
+                    entity.Id, stage.Id);
+            }
+        }
+
+        #endregion
     }
 }
