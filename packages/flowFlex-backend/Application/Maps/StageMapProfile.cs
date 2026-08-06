@@ -72,6 +72,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.ViewTeams)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.OperateTeams)))
+                .ForMember(dest => dest.RollBackTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.RollBackTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 .ForMember(dest => dest.ConditionFallbackStageId, opt => opt.MapFrom(src => src.ConditionFallbackStageId))
@@ -104,6 +105,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeTeamList(src.ViewTeams)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeTeamList(src.OperateTeams)))
+                .ForMember(dest => dest.RollBackTeams, opt => opt.MapFrom(src => SerializeTeamList(src.RollBackTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 // Ignore fields that will be set by extension methods or business logic
