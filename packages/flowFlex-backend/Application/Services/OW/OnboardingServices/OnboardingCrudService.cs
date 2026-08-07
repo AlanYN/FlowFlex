@@ -621,7 +621,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Set initial values
             entity.CurrentStageId = firstStage?.Id;
             entity.CurrentStageOrder = firstStage?.Order ?? 0;
-            entity.Status = string.IsNullOrEmpty(entity.Status) ? OnboardingStatusEnum.Inactive.ToDbString() : entity.Status;
+            // OW-691 fix: Status is Ignored in AutoMapper (to protect Edit Case from overwriting it),
+            // so entity.Status is always the C# default "Inactive" here regardless of input.
+            // Explicitly set "Started" as the correct initial status for a newly created case.
+            // Note: "Started" is the historical initial value used throughout the system (not in OnboardingStatusEnum).
+            entity.Status = "Started";
             entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
             entity.CurrentStageStartTime = null;
             entity.CompletionRate = 0;
