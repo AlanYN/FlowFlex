@@ -161,6 +161,47 @@
 										stageId: currentStageId,
 									}"
 								/>
+								<!-- Select Field -->
+								<div class="text-gray-500 mb-1">Select Field</div>
+								<el-select
+									:model-value="getFieldRefKeys(action)"
+									multiple
+									collapse-tags
+									collapse-tags-tooltip
+									placeholder="Select fields"
+									class="w-full mb-2"
+									@update:model-value="
+										(keys) => handleFieldRefsChange(action, keys)
+									"
+								>
+									<el-option-group
+										v-for="group in recipientFieldOptions"
+										:key="group.stageId"
+										:label="group.stageName"
+									>
+										<el-option
+											v-for="field in group.fields"
+											:key="field.key"
+											:label="field.name"
+											:value="field.key"
+										>
+											<span class="mr-2">{{ field.name }}</span>
+											<el-tag
+												size="small"
+												:type="field.dataType === 4 ? 'success' : 'primary'"
+											>
+												{{ field.dataType === 4 ? 'Email' : 'People' }}
+											</el-tag>
+										</el-option>
+									</el-option-group>
+									<!-- 回退选项：已保存但在 staticFieldsMap 中不存在的字段，使用保存的 fieldName 显示 -->
+									<el-option
+										v-for="ghostRef in getFieldRefGhostOptions(action)"
+										:key="`${ghostRef.stageId}_${ghostRef.fieldId}`"
+										:label="ghostRef.fieldName"
+										:value="`${ghostRef.stageId}_${ghostRef.fieldId}`"
+									/>
+								</el-select>
 							</el-form-item>
 
 							<el-form-item
@@ -296,13 +337,18 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import type { ActionFormItem, DynamicFieldConstraints, ConditionActionType } from '#/condition';
+import type {
+	ActionFormItem,
+	DynamicFieldConstraints,
+	ConditionActionType,
+	FieldRefItem,
+} from '#/condition';
 import type { Stage } from '#/onboard';
 import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import DynamicValueInput from './DynamicValueInput.vue';
-import { conditionAction } from '@/apis/ow';
-import { getActiveIntegrations, getActionsByIntegration } from '@/apis/ow';
+import { conditionAction, getActiveIntegrations, getActionsByIntegration } from '@/apis/ow';
+
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
 import { emailBodyMaxLength, inputTextraAutosize } from '@/settings/projectSetting';
@@ -363,14 +409,20 @@ const getActionValidationRules = (action: ActionFormItem): FormRules => {
 			rules['parameters.recipients'] = [
 				{
 					required: true,
-					message: 'Please select at least one user or team',
+					message: 'Please select at least one recipient (user, team, or field)',
 					trigger: [],
 					validator: (_rule: any, _value: any, callback: any) => {
 						const params = action.parameters || {};
 						const hasUsers = params.users && params.users.length > 0;
 						const hasTeams = params.teams && params.teams.length > 0;
-						if (!hasUsers && !hasTeams) {
-							callback(new Error('Please select at least one user or team'));
+						const fieldRefs = params.fieldRefs as FieldRefItem[] | undefined;
+						const hasFields = fieldRefs && fieldRefs.length > 0;
+						if (!hasUsers && !hasTeams && !hasFields) {
+							callback(
+								new Error(
+									'Please select at least one recipient (user, team, or field)'
+								)
+							);
 						} else {
 							callback();
 						}
@@ -604,6 +656,55 @@ const handleAssigneeChange = (action: ActionFormItem, value: string | string[] |
 	params.assigneeIds = Array.isArray(value) ? value : value ? [value] : [];
 };
 
+// 将 fieldRefs 转换为 key 数组用于 el-select v-model
+const getFieldRefKeys = (action: ActionFormItem): string[] => {
+	const refs = getActionParams(action).fieldRefs as FieldRefItem[] | undefined;
+	return refs?.map((r) => `${r.stageId}_${r.fieldId}`) ?? [];
+};
+
+// 获取已保存但在 recipientFieldOptions 中找不到对应 key 的 ghost 选项（回退显示用）
+const getFieldRefGhostOptions = (action: ActionFormItem): FieldRefItem[] => {
+	const refs = getActionParams(action).fieldRefs as FieldRefItem[] | undefined;
+	if (!refs?.length) return [];
+
+	// 收集 recipientFieldOptions 中所有已有的 key
+	const existingKeys = new Set<string>();
+	for (const group of recipientFieldOptions.value) {
+		for (const field of group.fields) {
+			existingKeys.add(field.key);
+		}
+	}
+
+	// 返回 key 不在现有选项中的 fieldRef 条目
+	return refs.filter((r) => !existingKeys.has(`${r.stageId}_${r.fieldId}`));
+};
+
+// 处理 Select Field 选中变化，将 keys 反向映射回 FieldRefItem[]
+const handleFieldRefsChange = (action: ActionFormItem, keys: string[]) => {
+	const params = getActionParams(action);
+	params.fieldRefs = keys.map((key) => {
+		// 查找字段元数据
+		for (const group of recipientFieldOptions.value) {
+			const field = group.fields.find((f) => f.key === key);
+			if (field) {
+				return {
+					stageId: field.stageId,
+					fieldId: field.id,
+					fieldName: field.name,
+					dataType: field.dataType,
+				} as FieldRefItem;
+			}
+		}
+		// 若 staticFieldsMap 尚未加载，回退到已保存的 fieldRefs 中匹配项
+		const existing = (params.fieldRefs as FieldRefItem[] | undefined)?.find(
+			(r) => `${r.stageId}_${r.fieldId}` === key
+		);
+		return (
+			existing ?? ({ stageId: '', fieldId: key, fieldName: key, dataType: 0 } as FieldRefItem)
+		);
+	});
+};
+
 // 添加动作
 const handleAddAction = () => {
 	const newAction: ActionFormItem = {
@@ -732,6 +833,58 @@ const groupedFieldOptions = computed<FieldOptionGroup[]>(() => {
 				stageId: stage.id,
 				fields,
 			});
+		}
+	});
+
+	return groups;
+});
+
+// 收件人字段选项接口
+interface RecipientFieldOption {
+	key: string; // stageId_fieldId
+	id: string; // fieldId
+	name: string; // 字段名称
+	stageId: string;
+	stageName: string;
+	dataType: number; // 4 = Email, 19 = People
+}
+
+interface RecipientFieldOptionGroup {
+	stageName: string;
+	stageId: string;
+	fields: RecipientFieldOption[];
+}
+
+// 按 Stage 分组的字段选项（包含当前 stage 及之前的 stage，筛选 Email/People 类型）
+const recipientFieldOptions = computed<RecipientFieldOptionGroup[]>(() => {
+	const groups: RecipientFieldOptionGroup[] = [];
+
+	// 遍历当前 stage 及之前的 stages（含当前 stage）
+	props.stages.slice(0, props.currentStageIndex + 1).forEach((stage) => {
+		const fieldsComponent = stage.components?.find((c) => c.key === 'fields');
+		if (!fieldsComponent?.staticFields?.length) return;
+
+		const fields: RecipientFieldOption[] = [];
+		fieldsComponent.staticFields.forEach((field) => {
+			const fieldInfo = staticFieldsMap.value.get(field.id);
+			if (
+				fieldInfo &&
+				(fieldInfo.dataType === propertyTypeEnum.Email ||
+					fieldInfo.dataType === propertyTypeEnum.Pepole)
+			) {
+				fields.push({
+					key: `${stage.id}_${field.id}`,
+					id: field.id,
+					name: fieldInfo.fieldName || field.id,
+					stageId: stage.id,
+					stageName: stage.name,
+					dataType: fieldInfo.dataType,
+				});
+			}
+		});
+
+		if (fields.length > 0) {
+			groups.push({ stageName: stage.name, stageId: stage.id, fields });
 		}
 	});
 
