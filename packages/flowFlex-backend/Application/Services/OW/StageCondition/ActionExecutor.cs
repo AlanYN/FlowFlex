@@ -595,11 +595,19 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Validate: must have at least one recipient
-                if (!userIds.Any() && !teamIds.Any())
+                // 解析 fieldRefs
+                var fieldRefs = new List<FieldRefItem>();
+                if (action.Parameters.TryGetValue("fieldRefs", out var fieldRefsObj) && fieldRefsObj != null)
+                {
+                    fieldRefs = JsonConvert.DeserializeObject<List<FieldRefItem>>(fieldRefsObj.ToString())
+                                ?? new List<FieldRefItem>();
+                }
+
+                // Validate: must have at least one recipient (users, teams, or fieldRefs)
+                if (!userIds.Any() && !teamIds.Any() && !fieldRefs.Any())
                 {
                     result.Success = false;
-                    result.ErrorMessage = "Either users or teams array is required for SendNotification action";
+                    result.ErrorMessage = "Either users, teams, or fieldRefs must specify at least one valid recipient";
                     return result;
                 }
 
@@ -691,6 +699,62 @@ namespace FlowFlex.Application.Services.OW
                     successCount += teamResult.SuccessCount;
                     sentEmails.AddRange(teamResult.SentEmails);
                     failedRecipients.AddRange(teamResult.FailedRecipients);
+                }
+
+                // Process fieldRefs
+                if (fieldRefs.Any())
+                {
+                    var allFieldValues = await _staticFieldValueService.GetByOnboardingIdAsync(context.OnboardingId);
+                    var fieldValueDict = allFieldValues?
+                        .Where(fv => fv.FieldId.HasValue)
+                        .ToDictionary(fv => fv.FieldId.Value.ToString(), fv => fv)
+                        ?? new Dictionary<string, FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueOutputDto>();
+
+                    foreach (var fieldRef in fieldRefs)
+                    {
+                        if (!fieldValueDict.TryGetValue(fieldRef.FieldId, out var fieldValue))
+                            continue;
+
+                        var rawValue = fieldValue.FieldValueJson;
+                        if (string.IsNullOrWhiteSpace(rawValue))
+                            continue;
+
+                        if (fieldRef.DataType == 4) // Email
+                        {
+                            var email = rawValue.Trim('"');
+                            if (!string.IsNullOrWhiteSpace(email))
+                            {
+                                var sent = await SendEmailWithRetryAsync(email, context.OnboardingId.ToString(),
+                                    caseName, previousStageName, currentStageName, caseUrl, customSubject, customEmailBody);
+                                if (sent) { successCount++; sentEmails.Add(email); }
+                                else { failedRecipients.Add($"field:{fieldRef.FieldId}(send failed)"); }
+                            }
+                        }
+                        else if (fieldRef.DataType == 19) // People
+                        {
+                            var userIdList = ParsePeopleFieldValue(rawValue);
+                            if (!userIdList.Any()) continue;
+
+                            var parsedIds = userIdList
+                                .Where(id => long.TryParse(id, out _))
+                                .Select(id => long.Parse(id))
+                                .ToList();
+
+                            if (!parsedIds.Any()) continue;
+
+                            var users = await _userService.GetUsersByIdsAsync(parsedIds, context.TenantId);
+                            foreach (var user in users ?? Enumerable.Empty<FlowFlex.Application.Contracts.Dtos.OW.User.UserDto>())
+                            {
+                                if (string.IsNullOrWhiteSpace(user.Email)) continue;
+                                var sent = await SendEmailWithRetryAsync(user.Email, context.OnboardingId.ToString(),
+                                    caseName, previousStageName, currentStageName, caseUrl, customSubject, customEmailBody);
+                                if (sent) { successCount++; sentEmails.Add(user.Email); }
+                                else { failedRecipients.Add($"field:{fieldRef.FieldId}:user:{user.Id}(send failed)"); }
+                            }
+                        }
+                    }
+
+                    result.ResultData["fieldRefsCount"] = fieldRefs.Count;
                 }
 
                 // Set result data
@@ -1665,6 +1729,46 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return null;
+        }
+
+        #endregion
+
+        #region FieldRefs Helpers
+
+        /// <summary>
+        /// 解析 People 字段值，支持单 ID 字符串或 JSON 字符串数组
+        /// </summary>
+        private static List<string> ParsePeopleFieldValue(string rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue)) return new List<string>();
+
+            try
+            {
+                var arr = JsonConvert.DeserializeObject<List<string>>(rawValue);
+                if (arr != null) return arr.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+            }
+            catch { /* 不是 JSON 数组，继续尝试单值 */ }
+
+            var single = rawValue.Trim('"');
+            return string.IsNullOrWhiteSpace(single) ? new List<string>() : new List<string> { single };
+        }
+
+        /// <summary>
+        /// Internal DTO for fieldRefs parameter in SendNotification action
+        /// </summary>
+        private class FieldRefItem
+        {
+            [JsonProperty("stageId")]
+            public string StageId { get; set; } = string.Empty;
+
+            [JsonProperty("fieldId")]
+            public string FieldId { get; set; } = string.Empty;
+
+            [JsonProperty("fieldName")]
+            public string FieldName { get; set; } = string.Empty;
+
+            [JsonProperty("dataType")]
+            public int DataType { get; set; }
         }
 
         #endregion
