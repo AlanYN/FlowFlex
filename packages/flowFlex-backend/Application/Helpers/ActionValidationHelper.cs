@@ -181,16 +181,17 @@ namespace FlowFlex.Application.Helpers
             {
                 var hasUsers = HasNonEmptyArray(action.Parameters, "users");
                 var hasTeams = HasNonEmptyArray(action.Parameters, "teams");
+                var hasFieldRefs = HasNonEmptyArray(action.Parameters, "fieldRefs");
                 var hasLegacyRecipientId = action.Parameters.ContainsKey("recipientId") || 
                                           action.Parameters.ContainsKey("recipientEmail");
                 
-                if (!hasUsers && !hasTeams && !hasLegacyRecipientId && string.IsNullOrEmpty(action.RecipientId))
+                if (!hasUsers && !hasTeams && !hasFieldRefs && !hasLegacyRecipientId && string.IsNullOrEmpty(action.RecipientId))
                 {
                     result.IsValid = false;
                     result.Errors.Add(new ValidationError 
                     { 
                         Code = "SENDNOTIFICATION_RECIPIENT_REQUIRED", 
-                        Message = "SendNotification action requires users[], teams[], recipientId, or recipientEmail" 
+                        Message = "SendNotification action requires users[], teams[], fieldRefs[], recipientId, or recipientEmail" 
                     });
                 }
 

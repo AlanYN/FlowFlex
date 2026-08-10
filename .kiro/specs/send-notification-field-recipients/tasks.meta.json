@@ -1,0 +1,146 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. 补充前端类型定义": [
+      {
+        "executionId": "2670044e-9a11-43e0-8be1-969ab8473f26",
+        "chatSessionId": "sess_94087739-bb43-4a99-ad96-3d188eb08dbc",
+        "timestamp": 1786089888882
+      },
+      {
+        "executionId": "2670044e-9a11-43e0-8be1-969ab8473f26",
+        "chatSessionId": "sess_94087739-bb43-4a99-ad96-3d188eb08dbc",
+        "timestamp": 1786091150457
+      }
+    ],
+    "1.1 在类型文件中新增 `FieldRefItem` 接口": [
+      {
+        "executionId": "2670044e-9a11-43e0-8be1-969ab8473f26",
+        "chatSessionId": "sess_94087739-bb43-4a99-ad96-3d188eb08dbc",
+        "timestamp": 1786089896264
+      },
+      {
+        "executionId": "2670044e-9a11-43e0-8be1-969ab8473f26",
+        "chatSessionId": "sess_94087739-bb43-4a99-ad96-3d188eb08dbc",
+        "timestamp": 1786091150347
+      }
+    ],
+    "2.1 在 `ConditionActionForm.vue` 中添加 `recipientFieldOptions` computed": [
+      {
+        "executionId": "34f8c9ef-39d1-4630-8242-af080c6ef011",
+        "chatSessionId": "sess_8b30fd82-50dd-4239-92a9-1f6e609d8c43",
+        "timestamp": 1786091752918
+      },
+      {
+        "executionId": "34f8c9ef-39d1-4630-8242-af080c6ef011",
+        "chatSessionId": "sess_8b30fd82-50dd-4239-92a9-1f6e609d8c43",
+        "timestamp": 1786091925689
+      }
+    ],
+    "2. 前端 — 构建 recipientFieldOptions 计算属性": [
+      {
+        "executionId": "34f8c9ef-39d1-4630-8242-af080c6ef011",
+        "chatSessionId": "sess_8b30fd82-50dd-4239-92a9-1f6e609d8c43",
+        "timestamp": 1786091925814
+      }
+    ],
+    "3.1 在 `ConditionActionForm.vue` SendNotification 区域新增 Select Field 选择器": [
+      {
+        "executionId": "0dd11998-a2eb-47de-85b6-270ec04c2421",
+        "chatSessionId": "sess_1d7e934f-982e-4979-9611-861425415c15",
+        "timestamp": 1786092702881
+      },
+      {
+        "executionId": "0dd11998-a2eb-47de-85b6-270ec04c2421",
+        "chatSessionId": "sess_1d7e934f-982e-4979-9611-861425415c15",
+        "timestamp": 1786093661511
+      }
+    ],
+    "3.2 实现 `getFieldRefKeys` 和 `handleFieldRefsChange` 方法": [
+      {
+        "executionId": "0dd11998-a2eb-47de-85b6-270ec04c2421",
+        "chatSessionId": "sess_1d7e934f-982e-4979-9611-861425415c15",
+        "timestamp": 1786092708435
+      },
+      {
+        "executionId": "0dd11998-a2eb-47de-85b6-270ec04c2421",
+        "chatSessionId": "sess_1d7e934f-982e-4979-9611-861425415c15",
+        "timestamp": 1786093668244
+      }
+    ],
+    "3. 前端 — 新增 Select Field UI 与数据绑定": [
+      {
+        "executionId": "0dd11998-a2eb-47de-85b6-270ec04c2421",
+        "chatSessionId": "sess_1d7e934f-982e-4979-9611-861425415c15",
+        "timestamp": 1786093668427
+      }
+    ],
+    "4.1 修改 `getActionValidationRules` 中 `parameters.recipients` 的 validator": [
+      {
+        "executionId": "d49c37c0-6b73-4728-99c7-06878f617e4c",
+        "chatSessionId": "sess_b8904119-15a5-49b1-8485-6706d20a2ab2",
+        "timestamp": 1786093759613
+      },
+      {
+        "executionId": "d49c37c0-6b73-4728-99c7-06878f617e4c",
+        "chatSessionId": "sess_b8904119-15a5-49b1-8485-6706d20a2ab2",
+        "timestamp": 1786095075634
+      }
+    ],
+    "4. 前端 — 更新校验逻辑": [
+      {
+        "executionId": "d49c37c0-6b73-4728-99c7-06878f617e4c",
+        "chatSessionId": "sess_b8904119-15a5-49b1-8485-6706d20a2ab2",
+        "timestamp": 1786095075781
+      }
+    ],
+    "5. Checkpoint — 前端基础功能验证": [
+      {
+        "executionId": "0dd99e9d-2f13-44be-a5a0-b73380565f87",
+        "chatSessionId": "sess_19b1f0aa-9713-465f-b296-a4e50f626ff6",
+        "timestamp": 1786097031289
+      },
+      {
+        "executionId": "0dd99e9d-2f13-44be-a5a0-b73380565f87",
+        "chatSessionId": "sess_19b1f0aa-9713-465f-b296-a4e50f626ff6",
+        "timestamp": 1786097959898
+      }
+    ],
+    "6. 后端 — 新增 FieldRefItem 内部 DTO 和辅助方法": [
+      {
+        "executionId": "64020db9-411b-46d7-83f2-95f8f0ae5ee6",
+        "chatSessionId": "sess_5a75ecd7-2106-47e1-bfbd-be33d8b5fb28",
+        "timestamp": 1786098485033
+      },
+      {
+        "executionId": "64020db9-411b-46d7-83f2-95f8f0ae5ee6",
+        "chatSessionId": "sess_5a75ecd7-2106-47e1-bfbd-be33d8b5fb28",
+        "timestamp": 1786098727307
+      }
+    ],
+    "7. 后端 — 扩展 ExecuteSendNotificationAsync": [
+      {
+        "executionId": "1f21e77d-7568-4fe3-af6a-c3caaadfcd38",
+        "chatSessionId": "sess_1ce8ed09-1db0-4c10-a5a2-271f247eebd2",
+        "timestamp": 1786099766560
+      },
+      {
+        "executionId": "1f21e77d-7568-4fe3-af6a-c3caaadfcd38",
+        "chatSessionId": "sess_1ce8ed09-1db0-4c10-a5a2-271f247eebd2",
+        "timestamp": 1786099997815
+      }
+    ],
+    "9. 前端 — 编辑回显支持": [
+      {
+        "executionId": "7e6d0e26-a0f3-42fe-8610-fb9f773e2239",
+        "chatSessionId": "sess_2e9786c6-353d-4d38-b5f1-8eebce9f3b1e",
+        "timestamp": 1786100706980
+      },
+      {
+        "executionId": "7e6d0e26-a0f3-42fe-8610-fb9f773e2239",
+        "chatSessionId": "sess_2e9786c6-353d-4d38-b5f1-8eebce9f3b1e",
+        "timestamp": 1786100849300
+      }
+    ]
+  }
+}

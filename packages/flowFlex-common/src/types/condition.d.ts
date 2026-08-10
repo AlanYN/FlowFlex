@@ -330,6 +330,17 @@ export interface RuleFormItem extends ConditionRule {}
 export interface ActionFormItem extends ConditionAction {}
 
 /**
+ * Field 收件人引用项（用于 SendNotification action 的 fieldRefs 参数）
+ * dataType: 4 = Email, 19 = People
+ */
+export interface FieldRefItem {
+	stageId: string;
+	fieldId: string;
+	fieldName: string;
+	dataType: number; // 4 = Email, 19 = People
+}
+
+/**
  * Condition 编辑器表单数据
  */
 export interface ConditionFormData {
