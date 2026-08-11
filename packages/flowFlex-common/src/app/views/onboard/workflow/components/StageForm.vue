@@ -1,10 +1,12 @@
 <template>
 	<div class="stage-form-container">
 		<PrototypeTabs
+			ref="stageFormTabsRef"
 			v-model="currentTab"
 			:tabs="tabsConfig"
 			class="editor-tabs"
 			content-class="editor-content"
+			data-tour="stage-form-tabs"
 			@tab-change="onTabChange"
 		>
 			<TabPane value="basicInfo">
@@ -16,7 +18,7 @@
 					class="p-1"
 					@submit.prevent
 				>
-					<el-form-item label="Stage Name" prop="name">
+					<el-form-item label="Stage Name" prop="name" data-tour="stage-name-input">
 						<el-input v-model="formData.name" placeholder="Enter stage name" />
 					</el-form-item>
 
@@ -68,6 +70,7 @@
 								:clearable="true"
 								selection-type="user"
 								:choosable-tree-data="availableAssigneeData"
+								data-tour="stage-assignee"
 							/>
 						</el-form-item>
 					</div>
@@ -128,12 +131,14 @@
 							inline-prompt
 							active-text="Yes"
 							inactive-text="No"
+							data-tour="stage-required-toggle"
 						/>
 					</el-form-item>
 				</el-form>
 			</TabPane>
 			<TabPane value="components">
 				<StageComponentsSelector
+					data-tour="stage-components-area"
 					:checklists="checklists"
 					:questionnaires="questionnaires"
 					:quickLinks="quickLinks"
@@ -166,6 +171,7 @@
 				:loading="loading"
 				:disabled="!isFormValid"
 				@click="submitForm"
+				data-tour="stage-save-btn"
 			>
 				{{ isEditing ? 'Update Stage' : 'Add Stage' }}
 			</el-button>
@@ -174,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, PropType, computed } from 'vue';
+import { ref, onMounted, PropType, computed, nextTick } from 'vue';
 import type { FormInstance } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
@@ -319,6 +325,9 @@ const tabsConfig = ref([
 	},
 ]);
 
+// PrototypeTabs 实例引用，用于给 tab 按钮注入 data-tour 锚点
+const stageFormTabsRef = ref<HTMLElement | null>(null);
+
 // 表单数据
 const formData = ref({
 	id: '',
@@ -390,6 +399,16 @@ const onTabChange = (tab: string) => {
 
 // 初始化表单数据
 onMounted(async () => {
+	// 给 Components tab 按钮注入 data-tour 锚点（PrototypeTabs 不支持透传 attr 到按钮）
+	await nextTick();
+	const tabsEl = stageFormTabsRef.value?.$el ?? stageFormTabsRef.value;
+	if (tabsEl) {
+		// PrototypeTabs 内部结构: .tabs-list > .tab-indicator + button.tab-trigger × N
+		const buttons = tabsEl.querySelectorAll<HTMLButtonElement>('.tab-trigger');
+		// tabsConfig: [basicInfo=0, components=1, permissions=2]
+		if (buttons[1]) buttons[1].setAttribute('data-tour', 'stage-components-tab');
+	}
+
 	// 获取用户数据
 	await fetchUserData();
 

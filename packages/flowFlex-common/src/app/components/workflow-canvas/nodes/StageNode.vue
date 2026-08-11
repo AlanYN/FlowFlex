@@ -33,7 +33,10 @@
 		/>
 
 		<!-- 节点内容 -->
-		<div class="stage-node__content">
+		<div
+			class="stage-node__content"
+			:data-tour="data.index === 0 ? 'workflow-stage-node' : undefined"
+		>
 			<!-- 头部 -->
 			<div class="stage-node__header">
 				<div

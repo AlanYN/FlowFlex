@@ -407,6 +407,36 @@ export function conditionAction(): Promise<ApiResponse<TriggerMapping[]>> {
 	});
 }
 
+// ========================= Tour 记录相关接口 =========================
+// 通用接口，适用于所有模块（workflow / checklist / questionnaire 等）
+// tourKey 命名约定："{module}-{context}-tour[-{id}]"
+//   例：workflow-list-tour, workflow-condition-tour-123, checklist-list-tour
+
+/**
+ * 检查当前用户是否已看过某个 tour
+ * GET /ow/tour-records/v1/seen?tourKey=...
+ * @param tourKey tour 唯一标识，与前端 persistKey 一致
+ * @returns true = 已看过，false = 未看过
+ */
+export function checkTourSeen(tourKey: string): Promise<{ code: string; data: boolean }> {
+	return defHttp.get({
+		url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen`,
+		params: { tourKey },
+	});
+}
+
+/**
+ * 标记当前用户已看过某个 tour（幂等）
+ * POST /ow/tour-records/v1/seen?tourKey=...
+ * @param tourKey tour 唯一标识
+ */
+export function markTourSeen(tourKey: string): Promise<{ code: string; data: boolean }> {
+	return defHttp.post({
+		url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen`,
+		params: { tourKey },
+	});
+}
+
 /**
  * Get active integrations list (for Stage Condition TriggerAction integration selection)
  */

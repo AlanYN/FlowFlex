@@ -43,6 +43,7 @@
 				@pane-click="handlePaneClick"
 				@viewport-change="handleViewportChange"
 				@delete-condition="handleDeleteCondition"
+				data-tour="workflow-canvas"
 			/>
 
 			<!-- 侧边面板 -->
@@ -62,16 +63,38 @@
 				@save="handleConditionSaved"
 			/>
 		</template>
+
+		<!-- Tour Guide — Workflow Chart page（Step 6-10，对应 spec Segment 2）
+		     有 condition：引导用户点击条件节点查看 Rules / Actions / Fallback
+		     无 condition：引导用户点击 stage 节点并创建第一个条件 -->
+		<TourGuide
+			:persist-key="`workflow-condition-tour-${workflowId}`"
+			:steps="conditionTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="
+				() => checkTourSeen(`workflow-condition-tour-${workflowId}`).then((r) => r.data)
+			"
+			:mark-seen-remote="
+				() => markTourSeen(`workflow-condition-tour-${workflowId}`).then(() => undefined)
+			"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, useTemplateRef } from 'vue';
+import { onMounted, onBeforeUnmount, useTemplateRef, computed } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import type { ViewportTransform, Node } from '@vue-flow/core';
 import { useWorkflowCanvasStore } from '@/stores/modules/workflowCanvas';
 import { WorkflowCanvas, NodePanel, CanvasToolbar } from '@/components/workflow-canvas';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import {
+	workflowConditionTourSteps,
+	workflowNoConditionTourSteps,
+} from '@/hooks/useWorkflowTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 import { StageConditionEditor } from './components/condition';
 import type { StageNodeData, ConditionNodeData, CanvasNodeData } from '#/workflow-canvas';
 
@@ -82,6 +105,15 @@ const workflowId = route.params.workflowId as string;
 
 // Store
 const store = useWorkflowCanvasStore();
+
+// 根据是否存在 condition 决定使用哪套 tour steps：
+//   - 有 condition → 引导用户点击条件节点查看 Rules / Actions / Fallback
+//   - 无 condition → 引导用户点击 stage 节点并创建第一个条件
+// 注意：store.conditions 在 initCanvas 完成后才有值，所以用 computed 延迟求值。
+// TourGuide 的 autoStart 会等 300ms 再启动，此时 conditions 已加载。
+const conditionTourSteps = computed(() =>
+	store.conditions.length > 0 ? workflowConditionTourSteps : workflowNoConditionTourSteps
+);
 
 // Refs
 const conditionEditorRef = useTemplateRef('conditionEditorRef');

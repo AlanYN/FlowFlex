@@ -303,7 +303,7 @@ export const useWorkflowCanvasStore = defineStore({
 									: 'var(--el-color-success)',
 								strokeDasharray: isLoop ? '5,5' : undefined,
 							},
-							label: isLoop ? '⚠️ Loop' : `Go To `,
+							label: isLoop ? '⚠️ Loop' : 'Go To',
 							labelStyle: {
 								fill: isLoop ? 'var(--el-color-danger)' : 'var(--el-color-success)',
 							},

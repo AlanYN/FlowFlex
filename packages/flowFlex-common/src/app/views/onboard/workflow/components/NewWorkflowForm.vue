@@ -17,7 +17,11 @@
 					@submit.prevent="submitForm"
 				>
 					<el-form-item label="Workflow Name" prop="name">
-						<el-input v-model="formData.name" placeholder="Enter workflow name" />
+						<el-input
+							v-model="formData.name"
+							placeholder="Enter workflow name"
+							data-tour="workflow-form-name-input"
+						/>
 					</el-form-item>
 
 					<el-form-item label="Description" prop="description">
