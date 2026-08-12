@@ -572,9 +572,9 @@
 			</div>
 		</el-dialog>
 
-		<!-- Tour 1: 列表页 tour — 仅在列表视图时挂载 -->
+		<!-- Tour 1: 列表页 tour — 数据加载完成后挂载（确保列表行锚点已渲染） -->
 		<TourGuide
-			v-if="viewMode === 'list'"
+			v-if="viewMode === 'list' && !loading.workflows"
 			:persist-key="`workflow-list-tour`"
 			:steps="workflowListTourSteps"
 			:auto-start="true"

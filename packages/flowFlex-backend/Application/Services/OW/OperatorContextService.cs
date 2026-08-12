@@ -133,7 +133,9 @@ namespace FlowFlex.Application.Services.OW
                     ClaimTypes.NameIdentifier,
                     "sub",
                     "user_id",
-                    "uid"
+                    "uid",
+                    "userId",
+                    "nameid"
                 };
                 foreach (var ct in idClaims)
                 {

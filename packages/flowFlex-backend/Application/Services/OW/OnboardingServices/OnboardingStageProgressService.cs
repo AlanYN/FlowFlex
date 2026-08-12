@@ -1144,13 +1144,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 var validUsers = users.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
                 var allNames = string.Join(", ", validUsers.Select(u => u.Username));
 
+                // Build "What you need to do" section from stage components
+                var whatToDoHtml = BuildWhatToDoHtml(stageProgress.Components);
+
                 var emailTasks = validUsers
                     .Select(async user =>
                     {
                         try
                         {
                             return await _emailService.SendStageAssignedNotificationAsync(
-                                user.Email, allNames, caseName, stageName, priority, caseLink);
+                                user.Email, allNames, caseName, stageName, priority, caseLink, whatToDoHtml);
                         }
                         catch (Exception ex)
                         {
@@ -1166,6 +1169,87 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 _logger.LogError(ex, "Error sending stage assigned notification emails for onboarding {OnboardingId}", onboarding.Id);
             }
+        }
+
+        /// <summary>
+        /// Build the "What you need to do" HTML list from stage components.
+        /// Generates an &lt;ul&gt; with one &lt;li&gt; per enabled component, plus a final
+        /// "Click 'Advance to Next Stage' when done" line.
+        /// Returns null when no components are present.
+        /// </summary>
+        private static string? BuildWhatToDoHtml(IEnumerable<FlowFlex.Domain.Shared.Models.StageComponent>? components)
+        {
+            if (components == null) return null;
+
+            var items = new List<string>();
+
+            foreach (var component in components)
+            {
+                if (!component.IsEnabled) continue;
+
+                switch (component.Key)
+                {
+                    case "checklist":
+                        if (component.ChecklistNames?.Count > 0)
+                        {
+                            foreach (var name in component.ChecklistNames)
+                            {
+                                items.Add($"Complete the <strong>{System.Net.WebUtility.HtmlEncode(name)}</strong> checklist");
+                            }
+                        }
+                        else if (component.ChecklistIds?.Count > 0)
+                        {
+                            items.Add($"Complete the assigned checklist{(component.ChecklistIds.Count > 1 ? "s" : string.Empty)}");
+                        }
+                        break;
+
+                    case "questionnaires":
+                        if (component.QuestionnaireNames?.Count > 0)
+                        {
+                            foreach (var name in component.QuestionnaireNames)
+                            {
+                                items.Add($"Fill out the <strong>{System.Net.WebUtility.HtmlEncode(name)}</strong> questionnaire");
+                            }
+                        }
+                        else if (component.QuestionnaireIds?.Count > 0)
+                        {
+                            items.Add($"Fill out the assigned questionnaire{(component.QuestionnaireIds.Count > 1 ? "s" : string.Empty)}");
+                        }
+                        break;
+
+                    case "fields":
+                        items.Add("Fill in the required fields");
+                        break;
+
+                    case "quickLink":
+                        if (component.QuickLinkNames?.Count > 0)
+                        {
+                            foreach (var name in component.QuickLinkNames)
+                            {
+                                items.Add($"Complete the action at: <strong>{System.Net.WebUtility.HtmlEncode(name)}</strong>");
+                            }
+                        }
+                        else if (component.QuickLinkIds?.Count > 0)
+                        {
+                            items.Add("Complete the required external action");
+                        }
+                        break;
+
+                    case "files":
+                        items.Add("Upload the required documents");
+                        break;
+                }
+            }
+
+            if (items.Count == 0) return null;
+
+            // Always append the final "advance" instruction
+            items.Add("Click <strong>'Advance to Next Stage'</strong> when done");
+
+            var liItems = string.Join("\n", items.Select(i =>
+                $"    <li style=\"margin-bottom: 6px;\">{i}</li>"));
+
+            return $"<ul style=\"margin: 0; padding-left: 20px; list-style-type: disc;\">\n{liItems}\n</ul>";
         }
 
         private string GetPortalBaseUrl()
@@ -1483,5 +1567,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var id = _operatorContextService.GetOperatorId();
             return id == 0 ? null : id;
         }
+
+        #endregion
     }
 }

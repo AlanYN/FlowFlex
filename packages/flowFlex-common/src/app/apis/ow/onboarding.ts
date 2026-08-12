@@ -882,9 +882,12 @@ export function updateStageFields(
  * @returns { seen: boolean }
  */
 export function getTourSeen(onboardingId: string | number, stageId: string | number) {
-	return defHttp.get<{ seen: boolean }>({
-		url: Api(onboardingId).onboardingTourSeen(stageId),
-	});
+	return defHttp.get<{ code?: string; success?: boolean; msg?: string; data?: boolean }>(
+		{
+			url: Api(onboardingId).onboardingTourSeen(stageId),
+		},
+		{ errorMessageMode: 'none' }
+	);
 }
 
 /**
@@ -893,7 +896,10 @@ export function getTourSeen(onboardingId: string | number, stageId: string | num
  * @param stageId 阶段 ID
  */
 export function markTourSeen(onboardingId: string | number, stageId: string | number) {
-	return defHttp.post({
-		url: Api(onboardingId).onboardingTourSeen(stageId),
-	});
+	return defHttp.post(
+		{
+			url: Api(onboardingId).onboardingTourSeen(stageId),
+		},
+		{ errorMessageMode: 'none' }
+	);
 }

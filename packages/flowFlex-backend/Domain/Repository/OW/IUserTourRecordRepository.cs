@@ -1,8 +1,9 @@
 using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository;
 
 namespace FlowFlex.Domain.Repository.OW
 {
-    public interface IUserTourRecordRepository : IOwBaseRepository<UserTourRecord>
+    public interface IUserTourRecordRepository : IBaseRepository<UserTourRecord>
     {
         /// <summary>
         /// Returns true if the user has already seen the specified tour.

@@ -26,7 +26,11 @@
 		<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
 			<!-- System Name & Endpoint URL (两列布局) -->
 			<div class="grid grid-cols-2 gap-6">
-				<el-form-item label="System Name" prop="systemName">
+				<el-form-item
+					label="System Name"
+					prop="systemName"
+					data-tour="integration-system-name"
+				>
 					<el-input
 						v-model="formData.systemName"
 						placeholder="BNP"
@@ -34,7 +38,11 @@
 					/>
 				</el-form-item>
 
-				<el-form-item label="Endpoint URL" prop="endpointUrl">
+				<el-form-item
+					label="Endpoint URL"
+					prop="endpointUrl"
+					data-tour="integration-endpoint-url"
+				>
 					<el-input
 						v-model="formData.endpointUrl"
 						placeholder="https://api.example.com"
@@ -60,6 +68,7 @@
 				label="Authentication Method"
 				prop="authMethod"
 				placeholder="Select authentication method"
+				data-tour="integration-auth-method"
 			>
 				<el-select v-model="formData.authMethod" @change="handleAuthMethodChange">
 					<el-option :value="AuthMethod.ApiKey" label="API Key" />
@@ -206,6 +215,7 @@
 					:loading="isSaving"
 					:disabled="!isFormValid"
 					@click="handleSave"
+					data-tour="integration-create-btn"
 				>
 					Create Integration
 				</el-button>

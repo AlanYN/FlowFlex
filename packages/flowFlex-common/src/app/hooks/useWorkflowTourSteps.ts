@@ -7,10 +7,12 @@
  *
  *  Tour 1 — 列表页 (persistKey: "workflow-list-tour")
  *    Step 1  workflow-page-header      普通高亮，Next 推进
- *    Step 2  workflow-new-btn          普通高亮，Next 推进
- *    Step 3  workflow-list-row         普通高亮，Next 推进
- *    Step 4  workflow-row-more-btn     waitForUserClick → 用户点击 ⋯ 打开行内 dropdown
- *    Step 5  workflow-row-chart-btn    lazyElement，waitForUserClick → 用户点击跳转 Chart 页
+ *    Step 2  workflow-new-btn          waitForUserClick → 用户点击打开 New Workflow 弹窗
+ *    Step 3  workflow-form-name-input  lazyElement，弹窗内 Workflow Name 输入框
+ *    Step 4  workflow-form-submit-btn  lazyElement，弹窗内 Create Workflow 按钮
+ *    Step 5  workflow-list-row         lazyElement，已有 workflow 行（有数据时显示）
+ *    Step 6  workflow-row-more-btn     lazyElement + waitForUserClick → 用户点击 ⋯ 打开行内 dropdown
+ *    Step 7  workflow-row-chart-btn    lazyElement，waitForUserClick → 用户点击跳转 Chart 页
  *
  *  Tour 2 — Chart 页 (persistKey: "workflow-condition-tour-{id}")
  *    Step 1  workflow-canvas                   普通高亮，Next 推进
@@ -22,7 +24,7 @@
  * 交互原则（与 workflow-tour-interaction-spec.md 一致）：
  *   - 用户主导：所有需要切换状态（打开 dropdown / 抽屉 / 跳转页面）的步骤都由用户主动点击触发
  *   - waitForUserClick 步骤只高亮目标元素并等待用户点击，不模拟点击
- *   - lazyElement 步骤的元素在用户点击后才进入 DOM（dropdown 菜单项 / 抽屉内容）
+ *   - lazyElement 步骤的元素在用户点击后才进入 DOM（弹窗内容 / dropdown 菜单项 / 抽屉内容）
  */
 
 import { TourStep } from '#/config';
@@ -49,11 +51,12 @@ function waitForElement(selector: string, timeout = 2500): Promise<void> {
 // ─── Tour 1: 列表页 ───────────────────────────────────────────────────────────
 
 /**
- * 列表页 tour — 挂载在 index.vue 的 v-if="viewMode === 'list'" 区域
+ * 列表页 tour — 挂载在 index.vue 的 v-if="viewMode === 'list' && !loading.workflows" 区域
  * persistKey: "workflow-list-tour"
  *
- * 对应原型 Step 1-4：列表总览 → New Workflow → 已有 workflow 行 → 行内 ⋯ → Workflow Chart 跳转。
- * 弹窗（New Workflow / Add Stage）不在引导主流程内，保持与原型一致。
+ * 流程：页面总览 → New Workflow 按钮（waitForUserClick）→
+ *        弹窗内 Name 输入框 → Create 按钮 →
+ *        已有行（有数据时）→ ⋯ 按钮 → Workflow Chart 菜单项
  */
 export const workflowListTourSteps: TourStep[] = [
 	// ── Step 1: 页面总览 ───────────────────────────────────────────────────
@@ -66,17 +69,76 @@ export const workflowListTourSteps: TourStep[] = [
 		align: 'start',
 	},
 
-	// ── Step 2: New Workflow 按钮 ──────────────────────────────────────────
+	// ── Step 2: New Workflow 按钮 — 用户必须点击打开弹窗 ─────────────────
 	{
 		element: '[data-tour="workflow-new-btn"]',
 		title: 'Create a new workflow',
 		description:
-			'Click <strong>New Workflow</strong> to start from a blank template. You’ll give it a name and description, then build it up stage by stage.',
+			'Click <strong>New Workflow</strong> to create a workflow. A dialog will open where you can set the name and configure permissions.',
 		side: 'bottom',
 		align: 'end',
+		waitForUserClick: true,
+		afterUserClick: async () => {
+			await waitForElement('[data-tour="workflow-form-name-input"]', 2000);
+		},
 	},
 
-	// ── Step 3: 已有 workflow 行 ───────────────────────────────────────────
+	// ── Step 3: 弹窗内 — Workflow Name (lazyElement) ─────────────────────
+	{
+		element: '[data-tour="workflow-form-name-input"]',
+		title: 'Workflow Name',
+		description:
+			'Give the workflow a clear name that reflects the business process it manages — e.g. <strong>Customer Onboarding</strong> or <strong>Contract Renewal</strong>.',
+		side: 'bottom',
+		align: 'start',
+		lazyElement: true,
+	},
+
+	// ── Step 4: 弹窗内 — Create Workflow 按钮 (lazyElement) ──────────────
+	{
+		element: '[data-tour="workflow-form-submit-btn"]',
+		title: 'Create Workflow',
+		description:
+			'Click <strong>Create Workflow</strong> to save. Once created, you can add Stages to define each step of the process.',
+		side: 'top',
+		align: 'end',
+		lazyElement: true,
+	},
+
+	// ── Step 5: 弹窗内 — Cancel 按钮（lazyElement + waitForUserClick）────
+	// 仅当有列表数据时后续步骤（Step 6-8）才存在，引擎会自动决定在用户关闭弹窗后
+	// 继续展示列表行步骤（有数据）或直接结束（无数据）。
+	{
+		element: '[data-tour="workflow-form-cancel-btn"]',
+		title: 'Close the dialog',
+		description:
+			'Click <strong>Cancel</strong> to close this dialog and return to the workflow list — where you can explore existing workflows.',
+		side: 'top',
+		align: 'start',
+		lazyElement: true,
+		waitForUserClick: true,
+		afterUserClick: async () => {
+			// 等弹窗关闭动画完成，确保列表行锚点可见
+			await new Promise<void>((resolve) => {
+				const deadline = Date.now() + 1500;
+				const check = () => {
+					const dlg = document.querySelector<HTMLElement>(
+						'.workflow-form-dialog .el-dialog'
+					);
+					if (!dlg || dlg.getBoundingClientRect().height === 0) {
+						resolve();
+					} else if (Date.now() < deadline) {
+						requestAnimationFrame(check);
+					} else {
+						resolve();
+					}
+				};
+				setTimeout(check, 100);
+			});
+		},
+	},
+
+	// ── Step 6: 已有 workflow 行（有数据时出现，无数据时自动跳过）──────────
 	{
 		element: '[data-tour="workflow-list-row"]',
 		title: 'Open an existing workflow',
@@ -84,9 +146,10 @@ export const workflowListTourSteps: TourStep[] = [
 			'Each row is a workflow. Status and stage count are shown here, and the <strong>Default</strong> tag marks the template new cases use automatically. Click a row to configure its stages.',
 		side: 'top',
 		align: 'start',
+		lazyElement: true,
 	},
 
-	// ── Step 4: 行内 ⋯ 按钮 — 用户必须点击打开 dropdown ─────────────────────
+	// ── Step 7: 行内 ⋯ 按钮 — 用户必须点击打开 dropdown ─────────────────
 	{
 		element: '[data-tour="workflow-row-more-btn"]',
 		title: 'Row actions',
@@ -94,6 +157,7 @@ export const workflowListTourSteps: TourStep[] = [
 			'The actions menu on each row lets you edit, duplicate, or export a workflow — and open its visual <strong>Workflow Chart</strong> to set up conditional routing. Click <strong>⋯</strong> to open the menu.',
 		side: 'left',
 		align: 'start',
+		lazyElement: true,
 		waitForUserClick: true,
 		afterUserClick: async () => {
 			// 等待 dropdown 打开，直到 Workflow Chart 菜单项出现在 DOM 中
@@ -101,7 +165,7 @@ export const workflowListTourSteps: TourStep[] = [
 		},
 	},
 
-	// ── Step 5: Workflow Chart 菜单项 — 用户必须点击跳转 ────────────────────
+	// ── Step 8: Workflow Chart 菜单项 — 用户必须点击跳转 ─────────────────
 	{
 		element: '[data-tour="workflow-row-chart-btn"]',
 		title: 'Workflow Chart',
@@ -156,7 +220,7 @@ export const workflowConditionTourSteps: TourStep[] = [
 		element: '[data-tour="workflow-condition-rules"]',
 		title: 'Build the condition rules',
 		description:
-			'A rule compares a value to what’s expected. You can reference any component from the current stage or any previous stage — pick the stage, the component, and the value to match. Add multiple rules to require them all.',
+			"A rule compares a value to what's expected. You can reference any component from the current stage or any previous stage — pick the stage, the component, and the value to match. Add multiple rules to require them all.",
 		side: 'bottom',
 		align: 'start',
 		lazyElement: true,
@@ -178,7 +242,7 @@ export const workflowConditionTourSteps: TourStep[] = [
 		element: '[data-tour="workflow-condition-fallback"]',
 		title: 'Set the fallback path',
 		description:
-			'If none of the conditions match, the fallback decides where the case goes — continue to the next stage in order, or jump to a specific stage. <strong>Save</strong> when you’re done.',
+			"If none of the conditions match, the fallback decides where the case goes — continue to the next stage in order, or jump to a specific stage. <strong>Save</strong> when you're done.",
 		side: 'top',
 		align: 'start',
 		lazyElement: true,
@@ -393,7 +457,7 @@ export const workflowStageFormTourSteps: TourStep[] = [
 		element: '[data-tour="stage-save-btn"]',
 		title: 'Save the stage',
 		description:
-			'When you’re done, click <strong>Save</strong> to add the stage to the workflow. You can come back anytime to edit it.',
+			"When you're done, click <strong>Save</strong> to add the stage to the workflow. You can come back anytime to edit it.",
 		side: 'top',
 		align: 'start',
 	},
@@ -406,7 +470,7 @@ export const workflowStageFormTourSteps: TourStep[] = [
  *
  * 补充流程：用户在列表页点击某行进入详情后自动引导（或通过右下角 "?" 重播）。
  * 覆盖详情页核心操作：Workflow 卡片总览 → Add Stage 按钮 → Stages 列表区域。
- * ⋯ 菜单与 Workflow Chart 跳转已在列表页 tour（Step 4-5）覆盖，此处不重复。
+ * ⋯ 菜单与 Workflow Chart 跳转已在列表页 tour（Step 6-7）覆盖，此处不重复。
  */
 export const workflowDetailTourSteps: TourStep[] = [
 	// ── Step 1: Workflow 卡片总览 ────────────────────────────────────────

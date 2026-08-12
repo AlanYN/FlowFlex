@@ -84,8 +84,16 @@
 
 		<!-- 表单操作按钮移到 tabs 外面 -->
 		<div class="form-actions">
-			<el-button @click="$emit('cancel')">Cancel</el-button>
-			<el-button type="primary" :loading="loading" :disabled="loading" @click="submitForm">
+			<el-button @click="$emit('cancel')" data-tour="workflow-form-cancel-btn">
+				Cancel
+			</el-button>
+			<el-button
+				type="primary"
+				:loading="loading"
+				:disabled="loading"
+				@click="submitForm"
+				data-tour="workflow-form-submit-btn"
+			>
 				{{ isEditing ? 'Update Workflow' : 'Create Workflow' }}
 			</el-button>
 		</div>

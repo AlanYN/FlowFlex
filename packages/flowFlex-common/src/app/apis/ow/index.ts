@@ -419,10 +419,13 @@ export function conditionAction(): Promise<ApiResponse<TriggerMapping[]>> {
  * @returns true = 已看过，false = 未看过
  */
 export function checkTourSeen(tourKey: string): Promise<{ code: string; data: boolean }> {
-	return defHttp.get({
-		url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen`,
-		params: { tourKey },
-	});
+	return defHttp.get(
+		{
+			url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen`,
+			params: { tourKey },
+		},
+		{ errorMessageMode: 'none' }
+	);
 }
 
 /**
@@ -431,10 +434,12 @@ export function checkTourSeen(tourKey: string): Promise<{ code: string; data: bo
  * @param tourKey tour 唯一标识
  */
 export function markTourSeen(tourKey: string): Promise<{ code: string; data: boolean }> {
-	return defHttp.post({
-		url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen`,
-		params: { tourKey },
-	});
+	return defHttp.post(
+		{
+			url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen?tourKey=${encodeURIComponent(tourKey)}`,
+		},
+		{ errorMessageMode: 'none' }
+	);
 }
 
 /**

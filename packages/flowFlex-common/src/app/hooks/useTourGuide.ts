@@ -2,22 +2,8 @@ import { ref, type Ref } from 'vue';
 import { TourStep, UseTourGuideOptions } from '#/config';
 
 // ═══════════════════════════════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════════════════════════════
-
-const STORAGE_PREFIX = 'ff_tour_done_';
-
-// ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
-
-function _readCompleted(key: string): boolean {
-	try {
-		return !!localStorage.getItem(key);
-	} catch {
-		return false;
-	}
-}
 
 /**
  * Return the first VISIBLE element matching a selector.
@@ -71,11 +57,10 @@ function _stepElementReady(step: TourStep): boolean {
 // ═══════════════════════════════════════════════════════════════════
 
 export function useTourGuide(options: UseTourGuideOptions) {
-	const { persistKey, onComplete, onSkip, getScrollContainer, checkSeenRemote, markSeenRemote } =
-		options;
-	const storageKey = `${STORAGE_PREFIX}${persistKey}`;
+	const { onComplete, onSkip, getScrollContainer, checkSeenRemote, markSeenRemote } = options;
 
-	const isCompleted: Ref<boolean> = ref(_readCompleted(storageKey));
+	// Completion state is driven entirely by the backend — no localStorage cache.
+	const isCompleted: Ref<boolean> = ref(false);
 	const isRunning = ref(false);
 	// In-memory flag: remote check already done this session — skip subsequent requests.
 	let _remoteCheckDone = false;
@@ -643,31 +628,31 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	}
 
 	async function startTour(steps: TourStep[]): Promise<boolean> {
-		// Priority 1: If we have a remote check function, let the backend decide.
-		// localStorage is only used as a cache AFTER the backend has confirmed seen.
-		// This ensures the "once only" guarantee holds across devices/browsers.
+		// Seen state is determined solely by the backend.
 		if (checkSeenRemote) {
-			// Fast-path: localStorage already confirmed (backend was queried before).
+			// In-memory fast-path: already confirmed seen this session.
 			if (isCompleted.value) return false;
-			// Fast-path 2: remote check already done this session (e.g. retry after DOM miss)
+			// Remote check (once per session).
 			if (!_remoteCheckDone) {
 				try {
 					const seen = await checkSeenRemote();
 					if (seen) {
-						markCompleted(); // cache in localStorage for subsequent same-session checks
+						isCompleted.value = true;
 						return false;
 					}
 				} catch {
-					// Network error — fall back to localStorage state and let the tour run
-					if (isCompleted.value) return false;
+					// The seen check failed (network / HTTP error). Never auto-start the tour
+					// in that case: it would re-trigger on every page load while the endpoint
+					// is unavailable. The "?" FAB replay is still available.
+					isCompleted.value = true;
+					return false;
 				}
 				_remoteCheckDone = true;
 			}
 			return _runTour(steps);
 		}
 
-		// No remote check — rely solely on localStorage
-		if (isCompleted.value) return false;
+		// No remote check configured — run unconditionally (useful for forced replays).
 		return _runTour(steps);
 	}
 
@@ -689,14 +674,9 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	}
 
 	function markCompleted(): void {
-		try {
-			localStorage.setItem(storageKey, new Date().toISOString());
-		} catch {
-			// fail silently
-		}
 		isCompleted.value = true;
 
-		// Best-effort: persist to backend so the record survives browser/device changes.
+		// Persist to backend so the record survives browser/device changes.
 		if (markSeenRemote) {
 			markSeenRemote().catch(() => {
 				// Swallow errors — tour marking is non-critical
@@ -705,12 +685,9 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	}
 
 	function resetCompleted(): void {
-		try {
-			localStorage.removeItem(storageKey);
-		} catch {
-			// fail silently
-		}
 		isCompleted.value = false;
+		// Reset the session flag so the remote check fires again on next startTour call.
+		_remoteCheckDone = false;
 	}
 
 	return {

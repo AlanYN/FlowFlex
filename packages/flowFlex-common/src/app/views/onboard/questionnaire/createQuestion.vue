@@ -19,6 +19,7 @@
 							? functionPermission(ProjectPermissionEnum.question.update)
 							: functionPermission(ProjectPermissionEnum.question.create)
 					"
+					data-tour="questionnaire-save-btn"
 				>
 					{{ isEditMode ? 'Update Questionnaire' : 'Save Questionnaire' }}
 				</el-button>
@@ -34,47 +35,60 @@
 					<el-scrollbar ref="configScrollbarRef">
 						<el-card class="config-card">
 							<!-- 基本信息 -->
-							<QuestionnaireBasicInfo
-								ref="questionnaireBasicInfoRef"
-								:questionnaire="{
-									name: questionnaire.name,
-									description: questionnaire.description,
-								}"
-								@update-questionnaire="updateBasicInfo"
-							/>
+							<div data-tour="questionnaire-name-input">
+								<QuestionnaireBasicInfo
+									ref="questionnaireBasicInfoRef"
+									:questionnaire="{
+										name: questionnaire.name,
+										description: questionnaire.description,
+									}"
+									@update-questionnaire="updateBasicInfo"
+								/>
+							</div>
 
 							<el-divider />
 
 							<!-- 分区管理 -->
-							<SectionManager
-								v-if="showSectionManagement"
-								:sections="questionnaire.sections"
-								:current-section-index="currentSectionIndex"
-								@add-section="handleAddSection"
-								@remove-section="handleRemoveSection"
-								@set-current-section="setCurrentSection"
-								@drag-end="handleSectionDragEnd"
-								@question-drop="handleQuestionDropToSection"
-								@update-section="handleUpdateSection"
-							/>
+							<div data-tour="questionnaire-sections-area">
+								<SectionManager
+									v-if="showSectionManagement"
+									:sections="questionnaire.sections"
+									:current-section-index="currentSectionIndex"
+									@add-section="handleAddSection"
+									@remove-section="handleRemoveSection"
+									@set-current-section="setCurrentSection"
+									@drag-end="handleSectionDragEnd"
+									@question-drop="handleQuestionDropToSection"
+									@update-section="handleUpdateSection"
+								/>
 
-							<!-- 添加分区按钮（仅在简单模式下显示） -->
-							<div v-else class="add-section-simple">
-								<el-button
-									type="primary"
-									:icon="Plus"
-									@click="handleAddSection"
-									class="w-full"
-									v-if="functionPermission(ProjectPermissionEnum.question.create)"
-								>
-									Add Section
-								</el-button>
-								<p
-									class="text-xs section-hint mt-2 text-center"
-									v-if="functionPermission(ProjectPermissionEnum.question.create)"
-								>
-									Organize your questions into sections
-								</p>
+								<!-- 添加分区按钮（仅在简单模式下显示） -->
+								<div v-else class="add-section-simple">
+									<el-button
+										type="primary"
+										:icon="Plus"
+										@click="handleAddSection"
+										class="w-full"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.create
+											)
+										"
+										data-tour="questionnaire-add-section-btn"
+									>
+										Add Section
+									</el-button>
+									<p
+										class="text-xs section-hint mt-2 text-center"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.create
+											)
+										"
+									>
+										Organize your questions into sections
+									</p>
+								</div>
 							</div>
 
 							<el-divider />
@@ -116,7 +130,10 @@
 												class="ml-2"
 												round
 											>
-												<Icon icon="mdi:repeat" class="mr-1 inline-block align-middle" />
+												<Icon
+													icon="mdi:repeat"
+													class="mr-1 inline-block align-middle"
+												/>
 												<span class="align-middle">Repeatable</span>
 											</el-tag>
 											<el-button
@@ -207,19 +224,21 @@
 									</el-form>
 
 									<!-- 问题列表 -->
-									<QuestionsList
-										:questions="currentSection.questions"
-										:question-types="questionTypes"
-										:sections="sectionsForJumpRules"
-										:current-section-index="currentSectionIndex"
-										:setGoToSection="showSectionManagement"
-										@remove-question="handleRemoveQuestion"
-										@edit-question="handleEditQuestion"
-										@drag-end="handleQuestionDragEnd"
-										@drag-start="handleQuestionDragStart"
-										@update-jump-rules="handleUpdateJumpRules"
-										@update-question="handleUpdateQuestionFromList"
-									/>
+									<div data-tour="questionnaire-questions-area">
+										<QuestionsList
+											:questions="currentSection.questions"
+											:question-types="questionTypes"
+											:sections="sectionsForJumpRules"
+											:current-section-index="currentSectionIndex"
+											:setGoToSection="showSectionManagement"
+											@remove-question="handleRemoveQuestion"
+											@edit-question="handleEditQuestion"
+											@drag-end="handleQuestionDragEnd"
+											@drag-start="handleQuestionDragStart"
+											@update-jump-rules="handleUpdateJumpRules"
+											@update-question="handleUpdateQuestionFromList"
+										/>
+									</div>
 
 									<el-divider />
 
@@ -256,6 +275,20 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Questionnaire 编辑页 tour -->
+		<TourGuide
+			:persist-key="'questionnaire-editor-tour'"
+			:steps="questionnaireEditorTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="
+				() => checkTourSeen('questionnaire-editor-tour').then((r) => r.data)
+			"
+			:mark-seen-remote="
+				() => markTourSeen('questionnaire-editor-tour').then(() => undefined)
+			"
+		/>
 	</div>
 </template>
 
@@ -269,6 +302,9 @@ import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { questionnaireEditorTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
