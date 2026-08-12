@@ -2,22 +2,8 @@ import { ref, type Ref } from 'vue';
 import { TourStep, UseTourGuideOptions } from '#/config';
 
 // ═══════════════════════════════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════════════════════════════
-
-const STORAGE_PREFIX = 'ff_tour_done_';
-
-// ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
-
-function _readCompleted(key: string): boolean {
-	try {
-		return !!localStorage.getItem(key);
-	} catch {
-		return false;
-	}
-}
 
 /**
  * Return the first VISIBLE element matching a selector.
@@ -34,17 +20,36 @@ function _findVisibleElement(selector: string): Element | null {
 }
 
 /**
- * Find the scrollable el-scrollbar wrap that contains the element.
- * The detail page has two independent el-scrollbar columns (left content /
- * right progress), so we must scroll the one that actually holds the target.
+ * Find the scrollable container that contains the element.
+ * Prefers the nearest el-scrollbar wrap (custom scroll container), then falls
+ * back to the nearest native scrollable ancestor (e.g. .el-drawer__body for
+ * the condition editor drawer) so highlighted steps inside dialogs/drawers
+ * actually scroll their content into view.
  */
 function _findScrollContainer(el: Element): HTMLElement | null {
 	let node = el.parentElement;
 	while (node) {
 		if (node.classList.contains('el-scrollbar__wrap')) return node;
+		// Native scroll container: must actually allow vertical scrolling and
+		// have overflowing content (otherwise scrolling it is a no-op).
+		const overflowY = window.getComputedStyle(node).overflowY;
+		if (
+			(overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+			node.scrollHeight > node.clientHeight
+		) {
+			return node;
+		}
 		node = node.parentElement;
 	}
 	return null;
+}
+
+/**
+ * Whether the step's target element is currently present and visible.
+ * disableHighlight steps don't need a target at all.
+ */
+function _stepElementReady(step: TourStep): boolean {
+	return !!step.disableHighlight || _findVisibleElement(step.element) !== null;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -52,11 +57,10 @@ function _findScrollContainer(el: Element): HTMLElement | null {
 // ═══════════════════════════════════════════════════════════════════
 
 export function useTourGuide(options: UseTourGuideOptions) {
-	const { persistKey, onComplete, onSkip, getScrollContainer, checkSeenRemote, markSeenRemote } =
-		options;
-	const storageKey = `${STORAGE_PREFIX}${persistKey}`;
+	const { onComplete, onSkip, getScrollContainer, checkSeenRemote, markSeenRemote } = options;
 
-	const isCompleted: Ref<boolean> = ref(_readCompleted(storageKey));
+	// Completion state is driven entirely by the backend — no localStorage cache.
+	const isCompleted: Ref<boolean> = ref(false);
 	const isRunning = ref(false);
 	// In-memory flag: remote check already done this session — skip subsequent requests.
 	let _remoteCheckDone = false;
@@ -83,14 +87,40 @@ export function useTourGuide(options: UseTourGuideOptions) {
 
 		// Drop steps whose target is missing or not visible (collapsed/disabled).
 		// disableHighlight steps only need a visible anchor to decide inclusion.
-		// lazyElement steps bypass the filter entirely — their element appears
-		// dynamically (e.g. after a dialog opens in beforeHighlight).
-		const activeSteps = steps.filter(
-			(step) =>
-				step.disableHighlight ||
-				step.lazyElement ||
-				_findVisibleElement(step.element) !== null
-		);
+		//
+		// lazyElement steps depend on a preceding waitForUserClick step — the
+		// user opens the drawer/dropdown that reveals them. If that prerequisite
+		// was itself filtered out (e.g. no condition node on the canvas), the
+		// lazy step can never appear either, so it is dropped too; otherwise it
+		// would inflate the step counter and end in an un-highlighted popover.
+		const activeSteps: TourStep[] = [];
+		let hasLiveWaitStep = false;
+		for (const step of steps) {
+			if (step.disableHighlight) {
+				activeSteps.push(step);
+				continue;
+			}
+			const visible = _findVisibleElement(step.element) !== null;
+			if (step.lazyElement) {
+				// Lazy steps appear after a preceding waitForUserClick step
+				// opens the drawer/dropdown (some are themselves wait steps,
+				// e.g. the Workflow Chart menu item). Keep them when already
+				// visible or when that prerequisite is live.
+				if (visible || hasLiveWaitStep) {
+					activeSteps.push(step);
+					if (step.waitForUserClick && visible) {
+						hasLiveWaitStep = true;
+					}
+				}
+			} else if (step.waitForUserClick) {
+				if (visible) {
+					activeSteps.push(step);
+					hasLiveWaitStep = true;
+				}
+			} else if (visible) {
+				activeSteps.push(step);
+			}
+		}
 
 		if (activeSteps.length === 0) {
 			console.warn('[useTourGuide] No tour elements found in DOM. Tour aborted.');
@@ -241,6 +271,102 @@ export function useTourGuide(options: UseTourGuideOptions) {
 		let _removeUserClickListener: (() => void) | null = null;
 
 		/**
+		 * Advance to the next step whose target element is actually in the DOM.
+		 * Missing-element steps are skipped so we never show an un-highlighted
+		 * popover. If no steps remain, the tour finishes quietly.
+		 */
+		function _advanceFrom(fromIndex: number): void {
+			let nextIdx = fromIndex;
+			while (nextIdx < activeSteps.length && !_stepElementReady(activeSteps[nextIdx])) {
+				nextIdx++;
+			}
+			if (nextIdx >= activeSteps.length) {
+				markCompleted();
+				onComplete?.();
+				_finish();
+				return;
+			}
+			currentStepIdx = nextIdx;
+			driverInstance?.moveTo(nextIdx);
+		}
+
+		/**
+		 * Poll briefly for the step at `index`'s target to appear in the DOM.
+		 * Used after a waitForUserClick step opens a dialog/drawer so lazy
+		 * steps aren't skipped just because their content is still mounting.
+		 */
+		function _waitForStepElement(index: number, timeout = 600): Promise<void> {
+			const step = activeSteps[index];
+			if (!step || _stepElementReady(step)) return Promise.resolve();
+			const deadline = Date.now() + timeout;
+			return new Promise<void>((resolve) => {
+				const check = () => {
+					if (_stepElementReady(step) || Date.now() >= deadline) resolve();
+					else requestAnimationFrame(check);
+				};
+				check();
+			});
+		}
+
+		/**
+		 * Go back to the previous step whose target element is in the DOM.
+		 * Skips missing-element steps; stays on the current step if none exist.
+		 */
+		function _goBackFrom(fromIndex: number): void {
+			let prevIdx = fromIndex;
+			while (prevIdx >= 0 && !_stepElementReady(activeSteps[prevIdx])) {
+				prevIdx--;
+			}
+			if (prevIdx < 0) return;
+			currentStepIdx = prevIdx;
+			driverInstance?.moveTo(prevIdx);
+		}
+
+		/**
+		 * Watch a lazyElement step's target — if it disappears from the DOM
+		 * (e.g. the dropdown is closed by an overlay click) automatically fall
+		 * back to the nearest preceding non-lazy step so the user can re-open it.
+		 * Returns a cleanup function that stops watching.
+		 */
+		function _watchElementDisappear(targetEl: Element, stepIndex: number): () => void {
+			let stopped = false;
+			const step = activeSteps[stepIndex];
+			// Only apply to lazyElement steps — normal steps' targets are always present.
+			if (!step?.lazyElement) return () => {};
+
+			// Find the nearest preceding step whose element is always in DOM
+			// (i.e. not lazyElement), so we can fall back to it.
+			let fallbackIdx = stepIndex - 1;
+			while (fallbackIdx >= 0 && activeSteps[fallbackIdx]?.lazyElement) {
+				fallbackIdx--;
+			}
+			if (fallbackIdx < 0) return () => {};
+
+			const check = () => {
+				if (stopped) return;
+				// If the target is gone and tour is still on this step, fall back.
+				if (!document.contains(targetEl) || _findVisibleElement(step.element) === null) {
+					stopped = true;
+					_removeUserClickListener?.();
+					_removeUserClickListener = null;
+					_removeUserClickListenerOuter = null;
+					// Small delay so the dropdown close animation finishes first.
+					setTimeout(() => {
+						if (currentStepIdx === stepIndex) {
+							_goBackFrom(fallbackIdx);
+						}
+					}, 80);
+					return;
+				}
+				requestAnimationFrame(check);
+			};
+			requestAnimationFrame(check);
+			return () => {
+				stopped = true;
+			};
+		}
+
+		/**
 		 * Set up a one-shot click listener on the highlighted element.
 		 * When the user clicks it, advance to the next step (or finish if last).
 		 */
@@ -250,10 +376,16 @@ export function useTourGuide(options: UseTourGuideOptions) {
 			_removeUserClickListener = null;
 			_removeUserClickListenerOuter = null;
 
+			// For lazy steps (e.g. dropdown menu items): watch for the element
+			// disappearing due to an overlay/outside click, and fall back automatically.
+			const stopWatching = _watchElementDisappear(targetEl, stepIndex);
+
 			const handler = async (e: Event) => {
 				// Don't intercept clicks on the popover itself
 				const popover = document.querySelector('.ff-tour-popover');
 				if (popover?.contains(e.target as Node)) return;
+
+				stopWatching();
 
 				// Clean up immediately so the real click fires through
 				_removeUserClickListener?.();
@@ -289,15 +421,20 @@ export function useTourGuide(options: UseTourGuideOptions) {
 					onComplete?.();
 					_finish();
 				} else {
-					currentStepIdx = stepIndex + 1;
-					driverInstance?.moveNext();
+					// Give the next step's target a moment to mount after the
+					// dialog/drawer finishes opening, then advance (skipping
+					// any steps whose targets never appear).
+					await _waitForStepElement(stepIndex + 1);
+					_advanceFrom(stepIndex + 1);
 				}
 			};
 
 			// Use capture phase so we react before other handlers (e.g. Element Plus dialog)
 			targetEl.addEventListener('click', handler, { capture: false });
-			const cleanup = () =>
+			const cleanup = () => {
+				stopWatching();
 				targetEl.removeEventListener('click', handler, { capture: false });
+			};
 			_removeUserClickListener = cleanup;
 			_removeUserClickListenerOuter = cleanup;
 		}
@@ -350,7 +487,15 @@ export function useTourGuide(options: UseTourGuideOptions) {
 					}
 				}
 
-				if (!highlightedEl) return;
+				if (!highlightedEl) {
+					// Target not in the DOM — driver.js would otherwise show a
+					// centered popover with no highlight. Skip ahead instead.
+					// Defer one frame so driver finishes rendering the dummy
+					// overlay before we re-drive to the next available step.
+					await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+					_advanceFrom(currentStepIdx + 1);
+					return;
+				}
 
 				const container =
 					_findScrollContainer(highlightedEl) ??
@@ -364,8 +509,17 @@ export function useTourGuide(options: UseTourGuideOptions) {
 					const fullyVisible =
 						elRect.top >= containerRect.top && elRect.bottom <= containerRect.bottom;
 					if (!fullyVisible) {
+						// Bring the element fully into view with a comfortable margin.
+						// For elements taller than the container, align the top instead.
 						const relativeTop = elRect.top - containerRect.top + container.scrollTop;
-						container.scrollTop = Math.max(0, relativeTop - 80);
+						const relativeBottom =
+							elRect.bottom - containerRect.top + container.scrollTop;
+						let target = Math.max(0, relativeTop - 80);
+						if (elRect.height <= containerRect.height) {
+							const bottomAligned = relativeBottom - containerRect.height + 80;
+							target = Math.min(target, Math.max(0, bottomAligned));
+						}
+						container.scrollTop = target;
 					}
 				}
 
@@ -428,11 +582,9 @@ export function useTourGuide(options: UseTourGuideOptions) {
 					const action = target.dataset.action;
 
 					if (action === 'next') {
-						currentStepIdx = Math.min(currentStepIdx + 1, activeSteps.length - 1);
-						driverInstance?.moveNext();
+						_advanceFrom(currentStepIdx + 1);
 					} else if (action === 'prev') {
-						currentStepIdx = Math.max(currentStepIdx - 1, 0);
-						driverInstance?.movePrevious();
+						_goBackFrom(currentStepIdx - 1);
 					} else if (action === 'done') {
 						markCompleted();
 						onComplete?.();
@@ -461,36 +613,46 @@ export function useTourGuide(options: UseTourGuideOptions) {
 		});
 
 		activeDriver = driverInstance;
-		driverInstance.drive();
+
+		// Start from the first step whose target is actually present — steps
+		// whose targets never appear (e.g. lazyElement steps on a workflow
+		// without conditions) must not show an un-highlighted popover.
+		const startIndex = activeSteps.findIndex((step) => _stepElementReady(step));
+		if (startIndex === -1) {
+			_finish();
+			return false;
+		}
+		currentStepIdx = startIndex;
+		driverInstance.drive(startIndex);
 		return true;
 	}
 
 	async function startTour(steps: TourStep[]): Promise<boolean> {
-		// Priority 1: If we have a remote check function, let the backend decide.
-		// localStorage is only used as a cache AFTER the backend has confirmed seen.
-		// This ensures the "once only" guarantee holds across devices/browsers.
+		// Seen state is determined solely by the backend.
 		if (checkSeenRemote) {
-			// Fast-path: localStorage already confirmed (backend was queried before).
+			// In-memory fast-path: already confirmed seen this session.
 			if (isCompleted.value) return false;
-			// Fast-path 2: remote check already done this session (e.g. retry after DOM miss)
+			// Remote check (once per session).
 			if (!_remoteCheckDone) {
 				try {
 					const seen = await checkSeenRemote();
 					if (seen) {
-						markCompleted(); // cache in localStorage for subsequent same-session checks
+						isCompleted.value = true;
 						return false;
 					}
 				} catch {
-					// Network error — fall back to localStorage state and let the tour run
-					if (isCompleted.value) return false;
+					// The seen check failed (network / HTTP error). Never auto-start the tour
+					// in that case: it would re-trigger on every page load while the endpoint
+					// is unavailable. The "?" FAB replay is still available.
+					isCompleted.value = true;
+					return false;
 				}
 				_remoteCheckDone = true;
 			}
 			return _runTour(steps);
 		}
 
-		// No remote check — rely solely on localStorage
-		if (isCompleted.value) return false;
+		// No remote check configured — run unconditionally (useful for forced replays).
 		return _runTour(steps);
 	}
 
@@ -512,14 +674,9 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	}
 
 	function markCompleted(): void {
-		try {
-			localStorage.setItem(storageKey, new Date().toISOString());
-		} catch {
-			// fail silently
-		}
 		isCompleted.value = true;
 
-		// Best-effort: persist to backend so the record survives browser/device changes.
+		// Persist to backend so the record survives browser/device changes.
 		if (markSeenRemote) {
 			markSeenRemote().catch(() => {
 				// Swallow errors — tour marking is non-critical
@@ -528,12 +685,9 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	}
 
 	function resetCompleted(): void {
-		try {
-			localStorage.removeItem(storageKey);
-		} catch {
-			// fail silently
-		}
 		isCompleted.value = false;
+		// Reset the session flag so the remote check fires again on next startTour call.
+		_remoteCheckDone = false;
 	}
 
 	return {

@@ -90,8 +90,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageName">Stage name</param>
         /// <param name="priority">Case priority (or "N/A" if not set)</param>
         /// <param name="caseLink">URL to view case details</param>
+        /// <param name="whatToDoHtml">Optional pre-rendered HTML for "What you need to do" section</param>
         /// <returns>Whether the email was sent successfully</returns>
-        Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink);
+        Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink, string? whatToDoHtml = null);
 
         /// <summary>
         /// Send @mention notification email

@@ -26,6 +26,7 @@
 							link
 							:icon="ArrowDownBold"
 							:loading="isWorkflowActionLoading(row.id)"
+							data-tour="workflow-row-more-btn"
 						/>
 
 						<template #dropdown>
@@ -84,6 +85,7 @@
 										hasPermission(row.id, ProjectPermissionEnum.workflow.read)
 									"
 									@click="$emit('command', 'workflowChart', row)"
+									data-tour="workflow-row-chart-btn"
 								>
 									<el-icon>
 										<Connection />
@@ -121,7 +123,7 @@
 			</el-table-column>
 			<el-table-column prop="name" label="Name" min-width="280" fixed="left">
 				<template #default="{ row }">
-					<div class="workflow-name-cell">
+					<div class="workflow-name-cell" data-tour="workflow-list-row">
 						<!-- 名称区域（左侧，可收缩） -->
 						<div
 							class="workflow-name-link table-cell-link"

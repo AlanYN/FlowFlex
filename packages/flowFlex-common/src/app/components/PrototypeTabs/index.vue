@@ -19,6 +19,7 @@
 						},
 					]"
 					:disabled="tab.disabled"
+					:data-tour="tab.tourAnchor || undefined"
 					@click="handleTabClick(tab[keys.value], index)"
 				>
 					<component v-if="tab.icon" :is="tab.icon" class="tab-icon" />

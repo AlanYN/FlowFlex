@@ -2,12 +2,13 @@
 	<div>
 		<!-- 页面标题 -->
 		<PageHeader
+			data-tour="integration-page-header"
 			title="Integration Settings"
 			description="Connect external systems and configure data exchange with WFE workflows"
 		/>
 
 		<!-- 卡片网格布局 -->
-		<div class="integration-grid">
+		<div class="integration-grid" data-tour="integration-card-list">
 			<!-- 加载骨架屏 -->
 			<template v-if="isLoading">
 				<!-- Add New 卡片骨架 -->
@@ -78,6 +79,7 @@
 					class="bg-white integration-card border-2 border-dashed rounded-xl p-6 hover:border-primary hover:shadow-md transition-all cursor-pointer group flex flex-col items-center justify-center"
 					@click="handleAddIntegration"
 					v-permission="ProjectPermissionEnum.integration.create"
+					data-tour="integration-add-new-card"
 				>
 					<div
 						class="w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
@@ -98,6 +100,20 @@
 				</template>
 			</template>
 		</div>
+
+		<!-- Integration Settings Tour -->
+		<TourGuide
+			:persist-key="'integration-settings-tour'"
+			:steps="integrationSettingsTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="
+				() => checkTourSeen('integration-settings-tour').then((r) => r.data)
+			"
+			:mark-seen-remote="
+				() => markTourSeen('integration-settings-tour').then(() => undefined)
+			"
+		/>
 	</div>
 </template>
 
@@ -110,6 +126,9 @@ import { getIntegrations } from '@/apis/integration';
 import type { IIntegrationConfig } from '#/integration';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { integrationSettingsTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 
 const router = useRouter();
 

@@ -296,7 +296,7 @@ namespace FlowFlex.Application.Services.MessageCenter
         /// <summary>
         /// Send stage assigned notification email
         /// </summary>
-        public async Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink)
+        public async Task<bool> SendStageAssignedNotificationAsync(string to, string assigneeName, string caseName, string stageName, string priority, string caseLink, string? whatToDoHtml = null)
         {
             try
             {
@@ -308,7 +308,9 @@ namespace FlowFlex.Application.Services.MessageCenter
                     ["stageName"] = stageName ?? string.Empty,
                     ["priority"] = priority ?? "N/A",
                     ["caseLink"] = caseLink ?? GetRequestOrigin(),
-                    ["year"] = DateTime.UtcNow.Year.ToString()
+                    ["year"] = DateTime.UtcNow.Year.ToString(),
+                    ["whatToDoHtml"] = whatToDoHtml ?? string.Empty,
+                    ["hasWhatToDo"] = !string.IsNullOrEmpty(whatToDoHtml)
                 });
 
                 return await SendEmailAsync(to, subject, body);

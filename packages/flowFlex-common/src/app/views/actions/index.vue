@@ -2,6 +2,7 @@
 	<div class="">
 		<!-- Header and Action Area -->
 		<PageHeader
+			data-tour="tools-page-header"
 			title="Tools"
 			description="Configure and manage automation tools to streamline your business processes"
 		>
@@ -32,6 +33,7 @@
 					@click="handleCreateAction"
 					:icon="Plus"
 					v-if="functionPermission(ProjectPermissionEnum.tool.create)"
+					data-tour="tools-new-btn"
 				>
 					<span>New Tool</span>
 				</el-button>
@@ -231,6 +233,20 @@
 			ref="actionConfigDialogRef"
 			:triggerSourceId="currentEditAction?.id"
 			@save-success="onActionSave"
+			@close="toolsDrawerVisible = false"
+			@opened="handleToolsDrawerOpened"
+		/>
+
+		<!-- Tools drawer tour（drawer opened 后强制重播，绕开 seen 状态） -->
+		<TourGuide
+			v-if="toolsDrawerVisible"
+			ref="toolsFormTourRef"
+			:persist-key="'tools-form-tour'"
+			:steps="toolsFormTourSteps"
+			:auto-start="false"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('tools-form-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('tools-form-tour').then(() => undefined)"
 		/>
 
 		<!-- Change History Dialog -->
@@ -347,15 +363,28 @@
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- Tools 列表页 tour -->
+		<TourGuide
+			:persist-key="'tools-list-tour'"
+			:steps="toolsListTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('tools-list-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('tools-list-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, markRaw, computed, useTemplateRef } from 'vue';
+import { ref, onMounted, markRaw, computed, useTemplateRef, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { toolsListTourSteps, toolsFormTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import {
@@ -384,7 +413,25 @@ const selectedActions = ref<any[]>([]);
 
 // Action 弹窗相关状态
 const actionConfigDialogRef = useTemplateRef('actionConfigDialogRef');
+const toolsFormTourRef = useTemplateRef('toolsFormTourRef');
 const currentEditAction = ref<ActionDefinition | null>(null);
+const toolsDrawerVisible = ref(false);
+
+// 每次 drawer opened（toolsDrawerVisible 从 false → true）就强制重播 tour，
+// 绕开 persistKey seen 状态，确保 "?" 重播列表页引导后打开 drawer 仍能继续引导
+watch(toolsDrawerVisible, async (opened) => {
+	if (opened) {
+		// 等 v-if 渲染完成 + drawer 内容挂载
+		await nextTick();
+		await new Promise((r) => setTimeout(r, 300));
+		toolsFormTourRef.value?.replayTour();
+	}
+});
+
+// drawer opened 事件处理：标记 drawer 已打开（步骤通过 lazyElement 统一处理 HTTP/Python 分支）
+const handleToolsDrawerOpened = () => {
+	toolsDrawerVisible.value = true;
+};
 
 // Change History 弹窗相关状态
 const showChangeHistoryDialog = ref(false);
@@ -673,6 +720,7 @@ const handleLimitUpdate = () => {
 
 // Action 保存成功回调
 const onActionSave = async (actionResult) => {
+	toolsDrawerVisible.value = false;
 	if (actionResult.id) {
 		// 重新加载列表数据
 		await loadActionsList();

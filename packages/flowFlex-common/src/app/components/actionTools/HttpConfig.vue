@@ -17,7 +17,12 @@
 			@submit.prevent
 		>
 			<!-- Request URL with Test Button -->
-			<el-form-item label="Request URL" required class="request-url-input">
+			<el-form-item
+				label="Request URL"
+				required
+				class="request-url-input"
+				data-tour="tools-request-url"
+			>
 				<div class="w-full flex flex-col gap-2">
 					<div class="url-input-container">
 						<el-input
@@ -59,7 +64,11 @@
 			</el-form-item>
 
 			<!-- Tabs Section: Params, Headers, Body -->
-			<el-tabs v-model="activeRequestTab" class="http-request-tabs">
+			<el-tabs
+				v-model="activeRequestTab"
+				class="http-request-tabs"
+				data-tour="tools-request-tabs"
+			>
 				<!-- Params Tab -->
 				<el-tab-pane label="Params" name="params">
 					<div class="params-section-enhanced">
@@ -322,7 +331,7 @@
 			</el-tabs>
 
 			<!-- Response Section -->
-			<div>
+			<div data-tour="tools-test-send">
 				<el-divider class="mb-2" />
 				<text class="font-bold">Response:</text>
 				<div v-if="testResult" class="w-full">

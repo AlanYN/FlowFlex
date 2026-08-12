@@ -1,12 +1,24 @@
 <template>
 	<div class="w-full h-full wfe-global-block-bg p-4" ref="scrollbarRef">
-		<iframe
-			ref="iframeRef"
-			:src="iframeUrl"
-			frameborder="0"
-			id="permission-iframe"
-			class="w-full h-full border-none"
-		></iframe>
+		<div data-tour="teams-iframe-container" class="w-full h-full">
+			<iframe
+				ref="iframeRef"
+				:src="iframeUrl"
+				frameborder="0"
+				id="permission-iframe"
+				class="w-full h-full border-none"
+			></iframe>
+		</div>
+
+		<!-- Manage Teams tour（iframe 外框引导） -->
+		<TourGuide
+			:persist-key="'manage-teams-tour'"
+			:steps="manageTeamsTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('manage-teams-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('manage-teams-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 <script setup lang="ts">
@@ -18,6 +30,9 @@ import { useGlobSetting } from '@/settings/';
 import { ProjectEnum } from '@/enums/appEnum';
 import { useIframeMessage } from '@/hooks/useIframeMessage';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { manageTeamsTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 
 const { scrollbarRef } = useAdaptiveScrollbar();
 

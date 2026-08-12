@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<!-- Python Script Editor -->
-		<div>
+		<div data-tour="tools-python-editor">
 			<CodeEditor
 				v-if="isReady"
 				ref="codeEditorRef"
@@ -15,7 +15,7 @@
 		</div>
 
 		<!-- Test Run Section -->
-		<div class="test-section">
+		<div class="test-section" data-tour="tools-python-test">
 			<div class="flex items-center justify-between mb-3">
 				<h5 class="font-medium"></h5>
 				<div class="button-group">

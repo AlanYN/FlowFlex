@@ -416,7 +416,25 @@ export function useOnboardTourSteps(options: UseOnboardTourStepsOptions) {
 			}
 		}
 
-		// ── Last steps: Save + Complete buttons ───────────────────────
+		// ── Last steps: Internal Notes + Save + Complete buttons ────────
+		// Internal Notes — always shown (it's always in the right column)
+		steps.push({
+			element: '[data-tour="internal-notes-header"]',
+			title: 'Internal Notes',
+			description:
+				'Internal Notes are for <strong>team-internal</strong> communication about this case. This area is <strong>only visible to team members</strong>.',
+			side: 'left',
+			align: 'start',
+		});
+		steps.push({
+			element: '[data-tour="internal-notes-input"]',
+			title: '@mention &amp; notify',
+			description:
+				'Type <strong>@</strong> followed by an email to send a notification. The @mentioned person gets an email reminder to review this stage — even someone who isn\'t in the system user list can still receive the notification.<br><br><span style="color:var(--el-color-warning);font-size:12px">Note: external recipients only get the email; without a WFE account they can\'t log in to view the case.</span>',
+			side: 'left',
+			align: 'start',
+		});
+
 		if (activeStage.value && !stageCanCompleted.value) {
 			steps.push({
 				element: '[data-tour="save-btn"]',
