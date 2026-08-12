@@ -38,6 +38,7 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
+        private readonly IOnboardingRepository _onboardingRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<WorkflowService> _logger;
@@ -49,10 +50,11 @@ namespace FlowFlex.Application.Services.OW
         private readonly IPermissionService _permissionService;
         private readonly IUserService _userService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, IUserService userService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IOnboardingRepository onboardingRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, IUserService userService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
+            _onboardingRepository = onboardingRepository;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -458,11 +460,18 @@ namespace FlowFlex.Application.Services.OW
                 return false;
             }
 
-            // Check if there are associated stages
-            var stages = await _stageRepository.GetByWorkflowIdAsync(id);
-            if (stages.Any())
+            // Check if there are cases using this workflow
+            var cases = await _onboardingRepository.GetListByWorkflowIdAsync(id);
+            if (cases.Any())
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete workflow with existing stages");
+                throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot delete workflow that is in use by existing cases");
+            }
+
+            // Cascade delete associated stages before deleting the workflow
+            var stages = await _stageRepository.GetByWorkflowIdAsync(id);
+            foreach (var stage in stages)
+            {
+                await _stageRepository.DeleteAsync(stage);
             }
 
             var workflowName = entity.Name; // Store name before deletion
@@ -595,8 +604,34 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
+        /// <summary>
+        /// Get workflows for Case filter dropdown:
+        /// All Active + Inactive workflows that have at least one case
+        /// </summary>
+        public async Task<List<WorkflowOutputDto>> GetForCaseFilterAsync()
         {
+            // Get all workflows (permission-filtered)
+            var allWorkflows = await _workflowRepository.GetAllOptimizedAsync();
+            allWorkflows = await FilterWorkflowsByPermissionAsync(allWorkflows);
+
+            // Get workflow IDs that have at least one case
+            var workflowIdsWithCases = await _onboardingRepository.GetWorkflowIdsWithCasesAsync();
+
+            // Keep: all Active, plus Inactive ones that have cases
+            var filtered = allWorkflows
+                .Where(w => w.IsActive || workflowIdsWithCases.Contains(w.Id))
+                .ToList();
+
+            var result = _mapper.Map<List<WorkflowOutputDto>>(filtered);
+            foreach (var workflow in result)
+            {
+                workflow.Stages = new List<StageOutputDto>();
+            }
+
+            return result;
+        }
+
+        public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)        {
             // Step 1: Get workflows with a reasonable limit for permission filtering
             // Use a larger page size to allow for permission filtering, but not int.MaxValue
             const int MaxWorkflowsForFiltering = 1000;

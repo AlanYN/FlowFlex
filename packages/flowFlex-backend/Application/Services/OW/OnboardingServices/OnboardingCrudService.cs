@@ -621,7 +621,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Set initial values
             entity.CurrentStageId = firstStage?.Id;
             entity.CurrentStageOrder = firstStage?.Order ?? 0;
-            entity.Status = string.IsNullOrEmpty(entity.Status) ? OnboardingStatusEnum.Inactive.ToDbString() : entity.Status;
+            // OW-691 fix: Status is Ignored in AutoMapper (to protect Edit Case from overwriting it),
+            // so entity.Status is always the C# default "Inactive" here regardless of input.
+            // Explicitly set "Started" as the correct initial status for a newly created case.
+            // Note: "Started" is the historical initial value used throughout the system (not in OnboardingStatusEnum).
+            entity.Status = "Started";
             entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
             entity.CurrentStageStartTime = null;
             entity.CompletionRate = 0;
@@ -1237,6 +1241,23 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 actionsDict = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
             }
 
+            // Batch query stage entities for CanRollBack computation
+            var stageDict = new Dictionary<long, Stage>();
+            try
+            {
+                var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id) && s.IsValid);
+                stageDict = stages.ToDictionary(s => s.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to batch query stage entities for CanRollBack computation");
+            }
+
+            // Compute isAdmin and userTeamIds once for all stages
+            var isAdmin = _userContext?.IsSystemAdmin == true
+                || (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId));
+            var userTeamIds = hasUserId ? _permissionService.GetUserTeamIds() : new List<string>();
+
             foreach (var stageProgress in result.StagesProgress)
             {
                 // Get actions for this stage from batch result
@@ -1258,6 +1279,43 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         ErrorMessage = "User not authenticated"
                     };
                 }
+
+                // Compute CanRollBack: admin always true, others check RollBackTeams whitelist
+                if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
+                {
+                    stageProgress.CanRollBack = isAdmin || ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Determines whether the current user has permission to roll back a stage.
+        /// Returns true only when the user belongs to at least one team in the whitelist.
+        /// </summary>
+        private static bool ComputeCanRollBack(string rollBackTeamsJson, List<string> userTeamIds)
+        {
+            if (string.IsNullOrWhiteSpace(rollBackTeamsJson))
+                return false;
+
+            if (userTeamIds == null || userTeamIds.Count == 0)
+                return false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(rollBackTeamsJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                    return false;
+
+                var rollBackTeamIds = doc.RootElement.EnumerateArray()
+                    .Select(e => e.GetString())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                return userTeamIds.Any(t => rollBackTeamIds.Contains(t));
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -31,6 +31,7 @@ const Api = (id?: string | number) => {
 
 		allWorkflows: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/all`,
 		allStages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/all`,
+		workflowsForCaseFilter: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/for-case-filter`,
 
 		// 权限检查API
 		permissionCheck: `${globSetting.apiProName}/ow/permissions/${globSetting.apiVersion}/check`,
@@ -106,6 +107,16 @@ export function queryWorkflows(params: any) {
  */
 export function deactivateWorkflow(id: string | number) {
 	return defHttp.post({ url: `${Api(id).workflowDeactivate}` });
+}
+
+/**
+ * 删除工作流 [W06-D]
+ * 仅允许删除没有 Stage 且没有 Case 在使用的 Workflow
+ * @param id 工作流ID
+ * @returns bool
+ */
+export function deleteWorkflow(id: string | number) {
+	return defHttp.delete({ url: `${Api(id).workflow}?confirm=true` });
 }
 
 /**
@@ -241,6 +252,16 @@ export function deleteStage(id: string | number, confirm: boolean) {
  */
 export function getWorkflows() {
 	return defHttp.get({ url: `${Api().allWorkflows}` });
+}
+
+/**
+ * 获取 Case 筛选用的工作流列表 [W-CF]
+ * 返回所有 Active 的 Workflow + 有 Case 在使用的 Inactive Workflow
+ * 用于 Case 列表页的 Workflow 筛选下拉
+ * @returns List<WorkflowOutputDto>
+ */
+export function getWorkflowsForCaseFilter() {
+	return defHttp.get({ url: `${Api().workflowsForCaseFilter}` });
 }
 
 /**

@@ -130,5 +130,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// 定义Stage包含的组件及其顺序
         /// </summary>
         public List<FlowFlex.Domain.Shared.Models.StageComponent> Components { get; set; }
+
+        /// <summary>
+        /// Roll Back Teams - JSONB array of team IDs allowed to roll back completed stages.
+        /// NULL or empty means no one can roll back (security default).
+        /// </summary>
+        public List<string> RollBackTeams { get; set; }
     }
 }

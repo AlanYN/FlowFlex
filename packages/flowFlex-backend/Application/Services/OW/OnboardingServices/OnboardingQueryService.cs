@@ -954,11 +954,25 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     actionsDict = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
                 }
 
+                // Build stage lookup and get user teams once for CanRollBack computation
+                var stageDict = stages.ToDictionary(s => s.Id);
+                var userTeamIds = _permissionService.GetUserTeamIds();
+
+                // Admin bypass: System Admin and Tenant Admin can always roll back
+                var isAdmin = _userContext?.IsSystemAdmin == true
+                    || (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId));
+
                 foreach (var stageProgress in stagesProgressDto)
                 {
                     stageProgress.Actions = actionsDict.TryGetValue(stageProgress.StageId, out var actions)
                         ? actions
                         : new List<ActionTriggerMappingWithActionInfo>();
+
+                    // Compute CanRollBack: admin always true, others check RollBackTeams whitelist
+                    if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
+                    {
+                        stageProgress.CanRollBack = isAdmin || ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                    }
                 }
             }
 
@@ -1102,6 +1116,46 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 stream.Dispose();
                 throw;
+            }
+        }
+
+        #endregion
+
+        #region Private Helpers
+
+        /// <summary>
+        /// Determines whether the current user has permission to roll back a stage,
+        /// based on the stage's RollBackTeams whitelist (JSON array of team IDs).
+        /// Returns false if RollBackTeams is null/empty (security default).
+        /// Returns true only when the user belongs to at least one team in the whitelist.
+        /// </summary>
+        private static bool ComputeCanRollBack(string rollBackTeamsJson, List<string> userTeamIds)
+        {
+            if (string.IsNullOrWhiteSpace(rollBackTeamsJson))
+                return false;
+
+            if (userTeamIds == null || userTeamIds.Count == 0)
+                return false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(rollBackTeamsJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                    return false;
+
+                var rollBackTeamIds = doc.RootElement.EnumerateArray()
+                    .Select(e => e.GetString())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                if (rollBackTeamIds.Count == 0)
+                    return false;
+
+                return userTeamIds.Any(t => rollBackTeamIds.Contains(t));
+            }
+            catch
+            {
+                return false;
             }
         }
 

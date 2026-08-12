@@ -32,6 +32,12 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Onboarding>> GetListByWorkflowIdAsync(long workflowId);
 
         /// <summary>
+        /// Get distinct workflow IDs that have at least one active case
+        /// Used for Case filter dropdown to show relevant inactive workflows
+        /// </summary>
+        Task<HashSet<long>> GetWorkflowIdsWithCasesAsync();
+
+        /// <summary>
         /// Get onboarding list by stage ID
         /// </summary>
         Task<List<Onboarding>> GetListByStageIdAsync(long stageId);

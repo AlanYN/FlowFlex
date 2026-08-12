@@ -277,6 +277,24 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get distinct workflow IDs that have at least one case
+        /// </summary>
+        public async Task<HashSet<long>> GetWorkflowIdsWithCasesAsync()
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            var ids = await db.Queryable<Onboarding>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .Select(x => x.WorkflowId)
+                .Distinct()
+                .ToListAsync();
+
+            return new HashSet<long>(ids);
+        }
+
+        /// <summary>
         /// Get onboarding list by stage ID
         /// </summary>
         public async Task<List<Onboarding>> GetListByStageIdAsync(long stageId)
