@@ -10,6 +10,7 @@
 		append-to-body
 		:before-close="handleCancel"
 		destroy-on-close
+		data-tour="workflow-condition-editor"
 	>
 		<template #header>
 			<div class="drawer-header">
@@ -52,6 +53,7 @@
 				class="add-condition-btn"
 				:disabled="localConditions.length >= maxConditions"
 				@click="handleAddCondition"
+				data-tour="workflow-editor-add-condition-btn"
 			>
 				<el-icon><Plus /></el-icon>
 				Add Condition
@@ -61,7 +63,7 @@
 			</div>
 
 			<!-- Fallback Stage Section -->
-			<div class="fallback-section">
+			<div class="fallback-section" data-tour="workflow-condition-fallback">
 				<div class="fallback-title">Fallback Stage</div>
 				<div class="fallback-subtitle">
 					Applies when none of the conditions above are met
@@ -136,7 +138,6 @@ import {
 	reorderConditions,
 	updateConditionFallback,
 } from '@/apis/ow';
-import { getDefaultActionType } from '@/utils/actionTypeUtils';
 
 // Props
 const props = defineProps<{

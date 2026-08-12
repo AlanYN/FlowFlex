@@ -73,7 +73,11 @@
 					@submit.prevent
 				>
 					<!-- Basic Information -->
-					<el-form-item label="Condition Name" prop="name">
+					<el-form-item
+						label="Condition Name"
+						prop="name"
+						data-tour="workflow-condition-name"
+					>
 						<el-input
 							v-model="localData.name"
 							placeholder="Enter condition name"
@@ -93,24 +97,28 @@
 					</el-form-item>
 
 					<!-- Condition Rules -->
-					<div class="section-title">Condition Rules</div>
-					<ConditionRuleForm
-						ref="ruleFormRef"
-						v-model="localData.rules"
-						v-model:logic="localData.logic"
-						:stages="availableSourceStages"
-						:current-stage-index="currentStageIndex"
-					/>
+					<div class="condition-rules-section" data-tour="workflow-condition-rules">
+						<div class="section-title">Condition Rules</div>
+						<ConditionRuleForm
+							ref="ruleFormRef"
+							v-model="localData.rules"
+							v-model:logic="localData.logic"
+							:stages="availableSourceStages"
+							:current-stage-index="currentStageIndex"
+						/>
+					</div>
 
 					<!-- Actions -->
-					<div class="section-title">Actions</div>
-					<ConditionActionForm
-						ref="actionFormRef"
-						v-model="localData.actions"
-						:stages="stages"
-						:current-stage-index="currentStageIndex"
-						:currentStageId="currentStageId"
-					/>
+					<div class="condition-actions-section" data-tour="workflow-condition-actions">
+						<div class="section-title">Actions</div>
+						<ConditionActionForm
+							ref="actionFormRef"
+							v-model="localData.actions"
+							:stages="stages"
+							:current-stage-index="currentStageIndex"
+							:currentStageId="currentStageId"
+						/>
+					</div>
 				</el-form>
 			</div>
 		</el-collapse-transition>

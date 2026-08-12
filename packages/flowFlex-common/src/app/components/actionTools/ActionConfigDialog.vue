@@ -117,7 +117,11 @@
 							label-width="120px"
 						>
 							<!-- Basic Info -->
-							<el-form-item label="Action Name" prop="name">
+							<el-form-item
+								label="Action Name"
+								prop="name"
+								data-tour="tools-action-name"
+							>
 								<el-input
 									v-model="formData.name"
 									placeholder="Enter action name"
@@ -152,7 +156,11 @@
 								/>
 							</el-form-item>
 
-							<el-form-item label="Action Type" prop="actionType">
+							<el-form-item
+								label="Action Type"
+								prop="actionType"
+								data-tour="tools-action-type"
+							>
 								<el-radio-group
 									v-model="formData.actionType"
 									@change="(value) => handleActionTypeChange(value as ActionType)"
@@ -186,7 +194,11 @@
 							</el-form-item>
 
 							<!-- Action Configuration -->
-							<div v-if="formData.actionType" class="">
+							<div
+								v-if="formData.actionType"
+								class=""
+								data-tour="tools-http-config-area"
+							>
 								<!-- Python Script Configuration -->
 								<PythonConfig
 									v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
@@ -529,7 +541,12 @@
 			<template #footer>
 				<div class="dialog-footer">
 					<el-button @click="onCancel">Cancel</el-button>
-					<el-button type="primary" @click="onSave" :loading="saving">
+					<el-button
+						type="primary"
+						@click="onSave"
+						:loading="saving"
+						data-tour="tools-save-btn"
+					>
 						{{ !!currentActionId ? 'Update' : 'Add' }} Action
 					</el-button>
 				</div>
@@ -590,7 +607,7 @@ const props = withDefaults(defineProps<Props>(), {
 	mappingRequired: false,
 });
 
-const emit = defineEmits(['saveSuccess']);
+const emit = defineEmits(['saveSuccess', 'close', 'opened']);
 
 // 内部状态
 const visible = ref(false);
@@ -1375,6 +1392,7 @@ const onSave = async () => {
 const onCancel = () => {
 	visible.value = false;
 	resetForm();
+	emit('close');
 };
 
 const opened = () => {
@@ -1383,6 +1401,7 @@ const opened = () => {
 			changeConfigModeChange(configMode.value);
 		}
 	});
+	emit('opened', formData.value.actionType);
 };
 
 /**

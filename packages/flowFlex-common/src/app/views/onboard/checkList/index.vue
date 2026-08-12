@@ -4,6 +4,7 @@
 		<div>
 			<!-- 页面头部 -->
 			<PageHeader
+				data-tour="checklist-page-header"
 				title="Checklist Management"
 				description="Task checklists for different teams during the onboarding process"
 			>
@@ -24,6 +25,7 @@
 						size="default"
 						class="page-header-btn page-header-btn-primary"
 						:icon="Plus"
+						data-tour="checklist-new-btn"
 					>
 						New Checklist
 					</el-button>
@@ -132,6 +134,7 @@
 			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 			@close="closeTaskDialog"
+			class="checklist-task-dialog"
 		>
 			<template #header>
 				<div class="w-[750px] truncate text-2xl font-bold">
@@ -140,7 +143,7 @@
 			</template>
 			<el-scrollbar max-height="70vh">
 				<!-- Task列表内容 -->
-				<div v-if="currentChecklist">
+				<div v-if="currentChecklist" data-tour="checklist-tasks-area">
 					<TaskList ref="taskListRef" :checklist="currentChecklist" />
 				</div>
 			</el-scrollbar>
@@ -167,7 +170,11 @@
 
 			<el-form :model="formData" label-position="top" class="space-y-4 p-1" @submit.prevent>
 				<el-form-item label="Checklist Name" required>
-					<el-input v-model="formData.name" :placeholder="dialogConfig.namePlaceholder" />
+					<el-input
+						v-model="formData.name"
+						:placeholder="dialogConfig.namePlaceholder"
+						data-tour="checklist-name-input"
+					/>
 				</el-form-item>
 
 				<el-form-item label="Description">
@@ -186,6 +193,7 @@
 						placeholder="Select team"
 						:clearable="true"
 						:max-count="1"
+						data-tour="checklist-team-dropdown"
 					/>
 				</el-form-item>
 			</el-form>
@@ -198,12 +206,35 @@
 						type="primary"
 						:disabled="!formData.name || !formData.team"
 						:loading="dialogConfig.loading"
+						data-tour="checklist-save-btn"
 					>
 						{{ dialogConfig.submitText }}
 					</el-button>
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- Checklist 列表页 tour -->
+		<TourGuide
+			:persist-key="'checklist-list-tour'"
+			:steps="checklistListTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('checklist-list-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('checklist-list-tour').then(() => undefined)"
+		/>
+
+		<!-- Checklist Tasks 弹窗 tour -->
+		<TourGuide
+			v-if="showTaskDialog"
+			:persist-key="'checklist-tasks-tour'"
+			:steps="checklistTasksTourSteps"
+			:auto-start="false"
+			:show-fab="true"
+			:fab-container="getChecklistTasksOverlay"
+			:check-seen-remote="() => checkTourSeen('checklist-tasks-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('checklist-tasks-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
@@ -217,7 +248,7 @@ import {
 	duplicateChecklist,
 	getChecklistTasks,
 } from '@/apis/ow/checklist';
-import { getWorkflows, getAllStages } from '@/apis/ow';
+import { getWorkflows, getAllStages, checkTourSeen, markTourSeen } from '@/apis/ow';
 import { useI18n } from '@/hooks/useI18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { exportChecklistToPdf } from '@/utils/pdfExport';
@@ -237,6 +268,8 @@ import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { menuRoles } from '@/stores/modules/menuFunction';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { checklistListTourSteps, checklistTasksTourSteps } from '@/hooks/useAdminTourSteps';
 
 interface Workflow {
 	id: string;
@@ -264,6 +297,11 @@ const activeDropdown = ref(null);
 // Task弹窗状态
 const showTaskDialog = ref(false);
 const currentChecklist = ref<Checklist | null>(null);
+
+// Tour FAB 挂载点 getters
+const getChecklistTasksOverlay = () =>
+	document.querySelector<HTMLElement>('.checklist-task-dialog')?.closest('.el-overlay-dialog') ??
+	null;
 
 // 视图切换
 const activeView = ref('list');

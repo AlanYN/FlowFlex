@@ -191,6 +191,7 @@
 								v-model="newTaskText"
 								placeholder="Enter task name..."
 								@keyup.enter="addTask(props.checklist.id)"
+								data-tour="checklist-task-input"
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">

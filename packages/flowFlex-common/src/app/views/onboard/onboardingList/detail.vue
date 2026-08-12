@@ -315,7 +315,7 @@
 				() => (leftScrollbarRef as any)?.$el?.querySelector('.el-scrollbar__wrap') ?? null
 			"
 			:check-seen-remote="
-				() => getTourSeen(onboardingId, activeStage).then((r) => r?.seen ?? false)
+				() => getTourSeen(onboardingId, activeStage).then((r) => r?.data ?? false)
 			"
 			:mark-seen-remote="() => markTourSeen(onboardingId, activeStage).then()"
 		/>

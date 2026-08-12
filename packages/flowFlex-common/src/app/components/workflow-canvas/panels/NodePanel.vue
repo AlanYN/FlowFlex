@@ -9,6 +9,7 @@
 		append-to-body
 		:before-close="handleCancel"
 		destroy-on-close
+		data-tour="workflow-node-panel"
 	>
 		<template #header>
 			<div class="node-panel__header">

@@ -27,75 +27,111 @@
 
 		<!-- 详情内容 -->
 		<div v-else class="space-y-6 pb-8">
-			<connection-auth
-				:integration-id="integrationId"
-				:connection-data="integrationData || undefined"
-				:integrationStatus="integrationStatus"
-				:testErrorMsg="testErrorMsg"
-				@created="handleIntegrationCreated"
-				@updated="handleIntegrationUpdated"
-				@test="handleTestConnection"
-			/>
+			<div data-tour="integration-connection-auth">
+				<connection-auth
+					:integration-id="integrationId"
+					:connection-data="integrationData || undefined"
+					:integrationStatus="integrationStatus"
+					:testErrorMsg="testErrorMsg"
+					@created="handleIntegrationCreated"
+					@updated="handleIntegrationUpdated"
+					@test="handleTestConnection"
+				/>
+			</div>
 
 			<!-- 只有当集成已保存（有真实 ID）时才显示其他模块 -->
 			<template v-if="integrationId && integrationId !== 'new' && integrationData">
 				<!-- Entity Type Mapping -->
-				<entity-type
-					v-if="integrationData"
-					:integration-id="integrationId"
-					:entity-mappings="integrationData.entityMappings || []"
-					:all-workflows="workflows"
-					@refresh="loadIntegrationData"
-				/>
+				<div data-tour="integration-entity-mapping">
+					<entity-type
+						v-if="integrationData"
+						:integration-id="integrationId"
+						:entity-mappings="integrationData.entityMappings || []"
+						:all-workflows="workflows"
+						@refresh="loadIntegrationData"
+					/>
+				</div>
 
 				<!-- Tabs -->
-				<div class="wfe-global-block-bg p-4">
+				<div class="wfe-global-block-bg p-4" data-tour="integration-detail-tabs">
 					<PrototypeTabs v-model="activeTab" :tabs="tabsConfig" class="">
 						<TabPane value="inbound">
-							<inbound-settings
-								:integration-id="integrationId"
-								:attachmentApiMd="attachmentInboundApiMd"
-								:loading="isLoadingAttachmentApiMd"
-								:integration-name="integrationName"
-								:workflows="workflows"
-								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
-								:actions="actions"
-								@refresh="loadIntegrationData"
-							/>
+							<div data-tour="integration-content-inbound">
+								<inbound-settings
+									:integration-id="integrationId"
+									:attachmentApiMd="attachmentInboundApiMd"
+									:loading="isLoadingAttachmentApiMd"
+									:integration-name="integrationName"
+									:workflows="workflows"
+									:inboundFieldMappings="
+										integrationData?.inboundFieldMappings || []
+									"
+									:actions="actions"
+									@refresh="loadIntegrationData"
+								/>
+							</div>
 						</TabPane>
 
 						<TabPane value="outbound">
-							<outbound-settings
-								:integration-id="integrationId"
-								:attachmentApiMd="attachmentOutboundApiMd"
-								:loading="isLoadingAttachmentApiMd"
-								:integration-name="integrationName"
-								:workflows="workflows"
-								:outboundFieldMappings="
-									integrationData?.outboundFieldMappings || []
-								"
-								@refresh="loadIntegrationData"
-							/>
+							<div data-tour="integration-content-outbound">
+								<outbound-settings
+									:integration-id="integrationId"
+									:attachmentApiMd="attachmentOutboundApiMd"
+									:loading="isLoadingAttachmentApiMd"
+									:integration-name="integrationName"
+									:workflows="workflows"
+									:outboundFieldMappings="
+										integrationData?.outboundFieldMappings || []
+									"
+									@refresh="loadIntegrationData"
+								/>
+							</div>
 						</TabPane>
 
 						<TabPane value="actions">
-							<actions-list
-								:integration-id="String(integrationId)"
-								:integration-name="integrationName"
-								:all-workflows="workflows"
-								:actions="actions"
-								:is-loading="actionsLoading"
-								@refresh="loadIntegrationData"
-							/>
+							<div data-tour="integration-content-actions">
+								<actions-list
+									:integration-id="String(integrationId)"
+									:integration-name="integrationName"
+									:all-workflows="workflows"
+									:actions="actions"
+									:is-loading="actionsLoading"
+									@refresh="loadIntegrationData"
+								/>
+							</div>
 						</TabPane>
 
 						<TabPane value="quickLinks">
-							<quick-links :integration-id="String(integrationId)" />
+							<div data-tour="integration-content-quicklinks">
+								<quick-links :integration-id="String(integrationId)" />
+							</div>
 						</TabPane>
 					</PrototypeTabs>
 				</div>
 			</template>
 		</div>
+
+		<!-- Integration 详情页 tour：已保存集成进入详情时自动启动 -->
+		<TourGuide
+			v-if="!isLoading && integrationId !== 'new' && !!integrationData"
+			:persist-key="'integration-detail-tour'"
+			:steps="integrationDetailTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('integration-detail-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('integration-detail-tour').then(() => undefined)"
+		/>
+
+		<!-- Integration 新建页 tour：新建集成时自动启动 -->
+		<TourGuide
+			v-if="!isLoading && integrationId === 'new'"
+			:persist-key="'integration-new-tour'"
+			:steps="integrationNewTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('integration-new-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('integration-new-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
@@ -115,6 +151,9 @@ import { getWorkflowList } from '@/apis/ow';
 import { getActionDefinitions } from '@/apis/action';
 import type { IIntegrationConfig } from '#/integration';
 import PageHeader from '@/components/global/PageHeader/index.vue';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { integrationDetailTourSteps, integrationNewTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 
 const route = useRoute();
 const router = useRouter();
@@ -138,18 +177,22 @@ const tabsConfig = [
 	{
 		value: 'inbound',
 		label: 'Inbound Settings',
+		tourAnchor: 'integration-tab-inbound',
 	},
 	{
 		value: 'outbound',
 		label: 'Outbound Settings',
+		tourAnchor: 'integration-tab-outbound',
 	},
 	{
 		value: 'actions',
 		label: 'Actions',
+		tourAnchor: 'integration-tab-actions',
 	},
 	{
 		value: 'quickLinks',
 		label: 'Quick Links',
+		tourAnchor: 'integration-tab-quicklinks',
 	},
 ];
 

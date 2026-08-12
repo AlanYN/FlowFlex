@@ -1,6 +1,6 @@
 <template>
-	<!-- FAB replay button — fixed bottom-right, rendered in body via Teleport -->
-	<Teleport to="body">
+	<!-- FAB replay button — fixed bottom-right, rendered via Teleport -->
+	<Teleport :to="fabTarget">
 		<Transition name="ff-tour-fab">
 			<el-tooltip
 				v-if="showFab"
@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useTourGuide, type TourStep } from '@/hooks/useTourGuide';
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
@@ -45,6 +45,13 @@ interface Props {
 	autoStart?: boolean;
 	/** Show the floating "?" replay button at bottom-right. @default true */
 	showFab?: boolean;
+	/**
+	 * Teleport target for the "?" FAB — CSS selector, element, or a getter
+	 * function returning either. Defaults to `body`. Pass a getter that
+	 * resolves to the specific dialog's overlay so the FAB renders inside
+	 * that dialog and stays below the dialog's own z-index layer.
+	 */
+	fabContainer?: string | HTMLElement | (() => string | HTMLElement | null);
 	/** Custom label for the FAB hover tooltip. Falls back to i18n key. */
 	fabTooltip?: string;
 	/**
@@ -71,7 +78,21 @@ const props = withDefaults(defineProps<Props>(), {
 	autoStart: true,
 	showFab: true,
 	fabTooltip: '',
+	fabContainer: 'body',
 });
+
+// Resolve the Teleport target for the "?" FAB. Getter-based targets are
+// resolved after mount (and re-resolved a tick later) so the FAB lands in the
+// dialog's overlay even if the dialog content mounts slightly after this
+// component; non-function targets are used as-is.
+const fabTarget = ref<string | HTMLElement | null>(
+	typeof props.fabContainer === 'function' ? 'body' : props.fabContainer
+);
+
+function _resolveFabTarget() {
+	if (typeof props.fabContainer !== 'function') return;
+	fabTarget.value = props.fabContainer() ?? 'body';
+}
 
 // ─── Emits ─────────────────────────────────────────────────────────────────────
 
@@ -150,6 +171,14 @@ onBeforeUnmount(() => {
 	_tourInstance.stopTour();
 });
 
+// Re-resolve getter-based FAB targets after mount: the dialog content may
+// mount one tick later, and the FAB must still land inside its overlay.
+onMounted(() => {
+	if (typeof props.fabContainer === 'function') {
+		nextTick(_resolveFabTarget);
+	}
+});
+
 // ─── Handlers ──────────────────────────────────────────────────────────────────
 
 function handleFabClick() {
@@ -187,6 +216,9 @@ defineExpose({
 	position: fixed;
 	bottom: 24px;
 	right: 68px;
+	// 保持低于 Element Plus 弹窗/抽屉遮罩（useZIndex 默认从 2000 起递增），
+	// 弹窗打开时 "?" 被遮罩盖住，符合"弹窗层级更高"的交互原则；
+	// 同时低于 driver.js overlay（z-index: 10000），不会遮挡引导层。
 	z-index: 2000;
 
 	display: flex;

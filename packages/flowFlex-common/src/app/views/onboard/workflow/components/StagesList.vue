@@ -342,7 +342,7 @@
 													Assignee:
 												</div>
 												<FlowflexUserAssign
-													v-model="element.defaultAssignee"
+													v-model="element.coAssignees"
 													selection-type="user"
 													readonly
 													:max-show-count="10"

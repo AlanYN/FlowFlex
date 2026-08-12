@@ -107,6 +107,9 @@
 				</template>
 			</el-table-column>
 			<el-table-column prop="assignments" label="Assignments" min-width="300">
+				<template #header>
+					<span data-tour="checklist-assignments-col">Assignments</span>
+				</template>
 				<template #default="{ row }">
 					<div class="flex items-center gap-1 max-w-full">
 						<!-- 只显示第一个assignment -->
