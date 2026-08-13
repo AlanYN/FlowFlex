@@ -139,6 +139,9 @@
     border-radius: 50%;
     background: hsl(var(--muted-foreground));
     opacity: 0.3;
+    padding: 0;
+    border: none;
+    cursor: pointer;
     transition: opacity 0.2s, width 0.2s;
 
     &--active {
@@ -146,6 +149,11 @@
         border-radius: 4px;
         opacity: 1;
         background: hsl(var(--muted-foreground));
+        cursor: default;
+    }
+
+    &:hover:not(.ff-tour-dot--active) {
+        opacity: 0.6;
     }
 }
 
