@@ -72,6 +72,10 @@ export function useTourGuide(options: UseTourGuideOptions) {
 	let unlockScroll: (() => void) | null = null;
 	// Cleanup for the current waitForUserClick listener (hoisted so stopTour can clear it).
 	let _removeUserClickListenerOuter: (() => void) | null = null;
+	// Capture-phase click interceptor that keeps popover clicks away from
+	// Element Plus's window-level click-outside handler (hoisted so _finish
+	// can unregister it).
+	let _popoverClickInterceptor: ((e: MouseEvent) => void) | null = null;
 
 	async function _runTour(steps: TourStep[]): Promise<boolean> {
 		// Never run two tours at the same time (e.g. auto-start racing replay).
@@ -205,9 +209,14 @@ export function useTourGuide(options: UseTourGuideOptions) {
 			return Array.from({ length: totalCount })
 				.map((_, i) => {
 					const active = i === current;
-					return `<span class="ff-tour-dot ${
-						active ? 'ff-tour-dot--active' : ''
-					}"></span>`;
+					return `<button
+						type="button"
+						class="ff-tour-dot ${active ? 'ff-tour-dot--active' : ''}"
+						data-action="go"
+						data-index="${i}"
+						aria-label="Go to step ${i + 1}"
+						${active ? 'aria-current="step"' : ''}
+					></button>`;
 				})
 				.join('');
 		}
@@ -260,6 +269,10 @@ export function useTourGuide(options: UseTourGuideOptions) {
 			_removeUserClickListener?.();
 			_removeUserClickListener = null;
 			_removeUserClickListenerOuter = null;
+			if (_popoverClickInterceptor) {
+				window.removeEventListener('click', _popoverClickInterceptor, true);
+				_popoverClickInterceptor = null;
+			}
 			if (driverInstance?.isActive?.()) driverInstance.destroy();
 		};
 
@@ -269,6 +282,8 @@ export function useTourGuide(options: UseTourGuideOptions) {
 		let currentStepIdx = 0;
 		// Cleanup handle for the current waitForUserClick listener
 		let _removeUserClickListener: (() => void) | null = null;
+		// Guards re-entrant progress-dot jumps while skipped-step actions run.
+		let _autoExecuting = false;
 
 		/**
 		 * Advance to the next step whose target element is actually in the DOM.
@@ -323,6 +338,195 @@ export function useTourGuide(options: UseTourGuideOptions) {
 		}
 
 		/**
+		 * Index of the next waitForUserClick step at or after `fromIdx`
+		 * (within [fromIdx, toIdx)), or -1 when none exists.
+		 */
+		function _nextWaitStepIndex(fromIdx: number, toIdx: number): number {
+			for (let i = fromIdx; i < toIdx; i++) {
+				if (activeSteps[i]?.waitForUserClick) return i;
+			}
+			return -1;
+		}
+
+		/**
+		 * Replay the actions of steps that a forward dot-jump skips over.
+		 * waitForUserClick steps are the only ones that mutate UI state (open
+		 * a dialog / dropdown / switch a tab); we programmatically click their
+		 * target and run their afterUserClick so the requested step's
+		 * prerequisites are actually in place before the tour moves there.
+		 * Returns the indices whose actions were actually replayed so the
+		 * caller can avoid landing back on them.
+		 */
+		async function _executeSkippedSteps(fromIdx: number, toIdx: number): Promise<Set<number>> {
+			const executed = new Set<number>();
+			for (let i = fromIdx; i < toIdx; i++) {
+				const step = activeSteps[i];
+				if (!step?.waitForUserClick) continue;
+
+				const el = _findVisibleElement(step.element);
+				if (!el) continue;
+				// Don't re-click an already-open toggle trigger (e.g. an Element
+				// Plus dropdown whose menu is already showing) — clicking it
+				// would CLOSE it. Treat the step as done so we don't land back
+				// on it.
+				if (el.getAttribute('aria-expanded') === 'true') {
+					executed.add(i);
+					continue;
+				}
+
+				// Simulate the user's click on the highlighted element.
+				el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+				executed.add(i);
+
+				// Let the UI react (open dialog / dropdown / tab) before
+				// continuing to the next action.
+				if (step.afterUserClick) {
+					await step.afterUserClick();
+				} else {
+					await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+				}
+
+				// Dialogs/dropdowns mount their content first, then transition
+				// in — afterUserClick only checks presence, so wait for the
+				// next action's element to actually be visible before clicking
+				// it, otherwise the chain breaks mid-way.
+				const nextWaitIdx = _nextWaitStepIndex(i + 1, toIdx);
+				if (nextWaitIdx !== -1) {
+					await _waitForStepElement(nextWaitIdx, 1200);
+				}
+			}
+			return executed;
+		}
+
+		/**
+		 * Jump to a specific step (progress-dot click). Skipped waitForUserClick
+		 * steps' actions (open dialog / dropdown / switch tab) are replayed
+		 * automatically so the target step's UI state is set up. If the target
+		 * still isn't present, fall back to the nearest ready step in that
+		 * direction so we never show an un-highlighted popover.
+		 */
+		async function _goToStep(index: number): Promise<void> {
+			if (index < 0 || index >= activeSteps.length) return;
+			if (index === currentStepIdx) return;
+			if (_autoExecuting) return;
+
+			// Indices whose waitForUserClick actions were replayed below.
+			const executed = new Set<number>();
+
+			// Jumping forward: replay skipped actions so the requested step's
+			// prerequisites (open dialogs / dropdowns) are actually in place.
+			if (index > currentStepIdx) {
+				_autoExecuting = true;
+				// Temporarily hide the popover/overlay while dialogs open/close.
+				const popoverEl = document.querySelector<HTMLElement>('.driver-popover');
+				const overlayEl = document.querySelector<SVGElement>('.driver-overlay');
+				const stageEl = document.querySelector<SVGElement>(
+					'.driver-stage-wrap, #driver-highlighted-element-stage'
+				);
+				try {
+					// Detach the current waitForUserClick listener first so our
+					// synthetic clicks don't trigger the normal advance flow.
+					_removeUserClickListener?.();
+					_removeUserClickListener = null;
+					_removeUserClickListenerOuter = null;
+
+					if (popoverEl) popoverEl.style.visibility = 'hidden';
+					if (overlayEl) (overlayEl as unknown as HTMLElement).style.opacity = '0';
+					if (stageEl) (stageEl as unknown as HTMLElement).style.opacity = '0';
+
+					const replayed = await _executeSkippedSteps(currentStepIdx, index);
+					replayed.forEach((i) => executed.add(i));
+
+					// Give the target's element a moment to become visible —
+					// dialogs/dropdowns mount their content first, then
+					// transition in, so presence and visibility can briefly
+					// diverge and wrongly trigger the fallback below.
+					await _waitForStepElement(index, 1200);
+				} finally {
+					_autoExecuting = false;
+					if (popoverEl) popoverEl.style.visibility = '';
+					if (overlayEl) (overlayEl as unknown as HTMLElement).style.opacity = '';
+					if (stageEl) (stageEl as unknown as HTMLElement).style.opacity = '';
+				}
+			}
+
+			// The tour may have been stopped by a navigation during replay.
+			if (!driverInstance?.isActive?.()) return;
+
+			// Move to the requested step; fall back to the nearest ready step
+			// when the target's element still isn't present. Steps whose action
+			// was just replayed are excluded — landing on them would expect a
+			// click that toggles the state they already set up.
+			let nextIdx = index;
+			if (!_stepElementReady(activeSteps[nextIdx])) {
+				// Walk toward the requested index first, then the other way.
+				let found = -1;
+				for (let i = index; i < activeSteps.length; i++) {
+					if (!executed.has(i) && _stepElementReady(activeSteps[i])) {
+						found = i;
+						break;
+					}
+				}
+				if (found === -1) {
+					for (let i = index - 1; i >= 0; i--) {
+						if (!executed.has(i) && _stepElementReady(activeSteps[i])) {
+							found = i;
+							break;
+						}
+					}
+				}
+				if (found === -1 || found === currentStepIdx) return;
+				nextIdx = found;
+			}
+
+			currentStepIdx = nextIdx;
+			driverInstance?.moveTo(nextIdx);
+		}
+
+		/**
+		 * Intercept clicks that land inside the tour popover before they reach
+		 * Element Plus's window-level click-outside handler. Without this, a
+		 * click on a progress dot (or any popover button) while a dropdown /
+		 * select / popover is open behind the tour bubbles to window and closes
+		 * that menu — which then makes the tour fall back to an earlier step.
+		 * The native click is stopped here and the popover action (next / prev /
+		 * skip / go-to-step) is executed directly.
+		 */
+		_popoverClickInterceptor = (e: MouseEvent) => {
+			const popover = document.querySelector<HTMLElement>('.driver-popover');
+			if (!popover || !popover.contains(e.target as Node)) return;
+
+			// Keep Element Plus's capture-phase click-outside listener from
+			// seeing the click (it runs later on the same window node).
+			e.stopImmediatePropagation();
+			e.stopPropagation();
+
+			const target = (e.target as HTMLElement).closest('[data-action]') as HTMLElement | null;
+			if (!target) return;
+			const action = target.dataset.action;
+
+			if (action === 'next') {
+				_advanceFrom(currentStepIdx + 1);
+			} else if (action === 'prev') {
+				_goBackFrom(currentStepIdx - 1);
+			} else if (action === 'done') {
+				markCompleted();
+				onComplete?.();
+				_finish();
+			} else if (action === 'skip') {
+				markCompleted();
+				onSkip?.();
+				_finish();
+			} else if (action === 'go') {
+				const index = Number(target.dataset.index);
+				if (Number.isInteger(index)) {
+					void _goToStep(index);
+				}
+			}
+		};
+		window.addEventListener('click', _popoverClickInterceptor, true);
+
+		/**
 		 * Watch a lazyElement step's target — if it disappears from the DOM
 		 * (e.g. the dropdown is closed by an overlay click) automatically fall
 		 * back to the nearest preceding non-lazy step so the user can re-open it.
@@ -334,10 +538,13 @@ export function useTourGuide(options: UseTourGuideOptions) {
 			// Only apply to lazyElement steps — normal steps' targets are always present.
 			if (!step?.lazyElement) return () => {};
 
-			// Find the nearest preceding step whose element is always in DOM
-			// (i.e. not lazyElement), so we can fall back to it.
+			// Find the nearest preceding waitForUserClick step — the step whose
+			// action revealed this lazy content — so we can fall back to
+			// re-opening it (e.g. the row ⋯ button that opens the Workflow Chart
+			// dropdown) instead of jumping to the start of the tour. _goBackFrom
+			// skips any of those whose target isn't currently ready.
 			let fallbackIdx = stepIndex - 1;
-			while (fallbackIdx >= 0 && activeSteps[fallbackIdx]?.lazyElement) {
+			while (fallbackIdx >= 0 && !activeSteps[fallbackIdx]?.waitForUserClick) {
 				fallbackIdx--;
 			}
 			if (fallbackIdx < 0) return () => {};
@@ -536,6 +743,14 @@ export function useTourGuide(options: UseTourGuideOptions) {
 			onPopoverRender: (popoverEl: any) => {
 				// popoverEl is Driver.js's PopoverDOM — access the wrapper HTMLElement.
 				const el: HTMLElement = popoverEl.wrapper ?? popoverEl;
+				// Stop propagation so interacting with the tour popover (progress
+				// dots, nav buttons, skip) doesn't reach document-level "click
+				// outside" handlers (Element Plus dropdowns / popovers / selects)
+				// that would close open menus behind the tour while the user
+				// clicks a progress dot.
+				for (const evt of ['mousedown', 'mouseup', 'click', 'touchstart']) {
+					el.addEventListener(evt, (e: Event) => e.stopPropagation());
+				}
 
 				// Remove any blue border on Driver.js SVG stage elements
 				const svgStage = document.querySelector<SVGElement>(
@@ -593,6 +808,11 @@ export function useTourGuide(options: UseTourGuideOptions) {
 						markCompleted();
 						onSkip?.();
 						_finish();
+					} else if (action === 'go') {
+						const index = Number(target.dataset.index);
+						if (Number.isInteger(index)) {
+							void _goToStep(index);
+						}
 					}
 				});
 			},
