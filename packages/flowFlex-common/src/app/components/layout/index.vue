@@ -30,7 +30,7 @@
 
 				<el-scrollbar class="h-full p-4">
 					<router-view v-slot="{ Component }">
-						<keep-alive :max="10" :include="cachedViews">
+						<keep-alive :max="20" :include="cachedViews">
 							<component :is="Component" />
 						</keep-alive>
 					</router-view>
@@ -43,7 +43,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, provide, onMounted } from 'vue';
+import { ref, computed, provide, watch } from 'vue';
 import sidebar from '@/components/sidebar/index.vue';
 import navbar from './components/navbar.vue';
 import { useUserStore } from '@/stores/modules/user';
@@ -121,9 +121,15 @@ const initCachedViews = () => {
 	console.log('需要缓存的组件：', cacheNames);
 };
 
-onMounted(() => {
-	initCachedViews();
-});
+watch(
+	() => permissionStore.getFrontMenuList,
+	(list) => {
+		if (list && list.length > 0) {
+			initCachedViews();
+		}
+	},
+	{ immediate: true, deep: true }
+);
 </script>
 
 <style lang="scss" scoped>

@@ -193,6 +193,8 @@ import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
+defineOptions({ name: 'Questionnaire' });
+
 const router = useRouter();
 
 // 使用自适应滚动条 hook，设置底部留白为 80px（为分页组件预留空间）

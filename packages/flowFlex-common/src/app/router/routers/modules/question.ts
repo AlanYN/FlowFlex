@@ -30,6 +30,7 @@ const leads: AppRouteModule = {
 				ordinal: 1,
 				hidden: false,
 				status: true,
+				keepAlive: true,
 			},
 		},
 		{
