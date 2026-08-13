@@ -130,6 +130,8 @@ import TourGuide from '@/components/global/TourGuide/index.vue';
 import { integrationSettingsTourSteps } from '@/hooks/useAdminTourSteps';
 import { checkTourSeen, markTourSeen } from '@/apis/ow';
 
+defineOptions({ name: 'Integration' });
+
 const router = useRouter();
 
 // 状态管理

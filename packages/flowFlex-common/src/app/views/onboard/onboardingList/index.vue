@@ -712,6 +712,8 @@ import StageCardList from './components/StageCardList.vue';
 import { functionPermission } from '@/hooks';
 import { WFEMoudels } from '@/enums/appEnum';
 
+defineOptions({ name: 'OnboardList' });
+
 type RuleType =
 	| 'string'
 	| 'number'
@@ -2151,6 +2153,15 @@ watch(
 		}
 	},
 	{ immediate: true }
+);
+
+watch(
+	() => route.query?.newOnboarding,
+	(newVal) => {
+		if (newVal && functionPermission(ProjectPermissionEnum.case.create)) {
+			handleNewOnboarding();
+		}
+	}
 );
 
 // 初始化

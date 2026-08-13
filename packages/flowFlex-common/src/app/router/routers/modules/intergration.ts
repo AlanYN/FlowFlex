@@ -30,6 +30,7 @@ const intergration: AppRouteModule = {
 				ordinal: 1,
 				hidden: false,
 				status: true,
+				keepAlive: true,
 			},
 		},
 		{

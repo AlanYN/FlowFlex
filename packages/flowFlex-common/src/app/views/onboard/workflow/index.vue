@@ -692,6 +692,8 @@ import {
 	workflowStageFormTourSteps,
 } from '@/hooks/useWorkflowTourSteps';
 
+defineOptions({ name: 'OnboardWorkflow' });
+
 const { t } = useI18n();
 
 // Router instance
