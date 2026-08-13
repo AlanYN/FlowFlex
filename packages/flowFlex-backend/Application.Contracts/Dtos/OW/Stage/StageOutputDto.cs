@@ -135,6 +135,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool UseSameTeamForOperate { get; set; }
 
         /// <summary>
+        /// Roll Back Teams - List of team IDs allowed to roll back completed stages.
+        /// NULL or empty means no one can roll back (security default).
+        /// </summary>
+        public List<string> RollBackTeams { get; set; }
+
+        /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         public bool AttachmentManagementNeeded { get; set; }

@@ -350,6 +350,7 @@ const formData = ref({
 	useSameTeamForOperate: true,
 	coAssignees: [] as string[],
 	required: false,
+	rollBackTeams: [] as string[],
 });
 
 // 表单验证规则
@@ -376,17 +377,20 @@ const permissionsData = computed({
 		viewTeams: formData.value.viewTeams,
 		useSameTeamForOperate: formData.value.useSameTeamForOperate,
 		operateTeams: formData.value.operateTeams,
+		rollBackTeams: formData.value.rollBackTeams,
 	}),
 	set: (value: {
 		viewPermissionMode: number;
 		viewTeams: string[];
 		useSameTeamForOperate: boolean;
 		operateTeams: string[];
+		rollBackTeams: string[];
 	}) => {
 		formData.value.viewPermissionMode = value.viewPermissionMode;
 		formData.value.viewTeams = value.viewTeams;
 		formData.value.useSameTeamForOperate = value.useSameTeamForOperate;
 		formData.value.operateTeams = value.operateTeams;
+		formData.value.rollBackTeams = value.rollBackTeams;
 	},
 });
 
@@ -435,6 +439,8 @@ onMounted(async () => {
 				formData.value[key] = (props.stage as any)?.operateTeams || [];
 			} else if (key === 'useSameTeamForOperate') {
 				formData.value[key] = (props.stage as any)?.useSameTeamForOperate ?? true;
+			} else if (key === 'rollBackTeams') {
+				formData.value[key] = (props.stage as any)?.rollBackTeams || [];
 			} else if (key === 'defaultAssignee') {
 				// 处理 defaultAssignee 数组类型
 				const value = (props.stage as any)?.defaultAssignee;

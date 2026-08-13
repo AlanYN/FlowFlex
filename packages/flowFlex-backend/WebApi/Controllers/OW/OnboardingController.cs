@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Domain.Shared.Attr;
 using Item.Internal.StandardApi.Response;
@@ -32,10 +33,14 @@ namespace FlowFlex.WebApi.Controllers.OW
     public class OnboardingController : Controllers.ControllerBase
     {
         private readonly IOnboardingService _onboardingService;
+        private readonly IOnboardingStageManagementService _stageManagementService;
 
-        public OnboardingController(IOnboardingService onboardingService)
+        public OnboardingController(
+            IOnboardingService onboardingService,
+            IOnboardingStageManagementService stageManagementService)
         {
             _onboardingService = onboardingService;
+            _stageManagementService = stageManagementService;
         }
 
         /// <summary>
@@ -484,6 +489,24 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             await _onboardingService.MarkTourSeenAsync(id, stageId);
             return Success(true);
+        }
+
+        /// <summary>
+        /// Roll back a completed stage to InProgress state.
+        /// Only stages with status Completed can be rolled back.
+        /// The caller must belong to a team listed in the stage's RollBackTeams whitelist.
+        /// Requires CASE:UPDATE permission.
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">ID of the completed stage to roll back</param>
+        /// <param name="input">Roll back input (optional reason)</param>
+        [HttpPost("{onboardingId}/stages/{stageId}/roll-back")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> RollBackStageAsync(long onboardingId, long stageId, [FromBody] RollBackStageInput input)
+        {
+            bool result = await _stageManagementService.RollBackStageAsync(onboardingId, stageId, input);
+            return Success(result);
         }
     }
 }

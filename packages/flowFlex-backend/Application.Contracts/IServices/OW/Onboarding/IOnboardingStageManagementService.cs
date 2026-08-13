@@ -55,5 +55,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// <param name="stageId">Completed stage ID</param>
         /// <returns>True if condition actions were executed</returns>
         Task<bool> EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Roll back a completed stage to InProgress state
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID to roll back</param>
+        /// <param name="input">Roll back input (optional reason)</param>
+        /// <returns>True if successful</returns>
+        Task<bool> RollBackStageAsync(long onboardingId, long stageId, RollBackStageInput input);
     }
 }
