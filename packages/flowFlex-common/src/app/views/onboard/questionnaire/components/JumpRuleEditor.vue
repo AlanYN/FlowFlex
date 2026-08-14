@@ -49,10 +49,10 @@
 					>
 						<div class="w-full flex flex-col gap-y-2">
 							<div>
-								<div v-if="option.isOther" class="option-label w-[100px] truncate">
+								<div v-if="option.isOther" class="option-label truncate">
 									<el-tag type="warning">Other</el-tag>
 								</div>
-								<div v-else class="option-label w-[100px] truncate">
+								<div v-else class="option-label truncate">
 									{{ option.label }}
 								</div>
 							</div>
