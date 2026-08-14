@@ -648,7 +648,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onActivated, markRaw, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
@@ -773,7 +773,7 @@ const formData = reactive({
 	ContactPerson: '',
 	ContactEmail: '',
 	workFlowId: '',
-		// OW-691: 保留 status 字段，编辑时回显原值，避免保存时被重置
+	// OW-691: 保留 status 字段，编辑时回显原值，避免保存时被重置
 	status: '',
 	// 新增权限字段
 	ownership: '',
@@ -2178,6 +2178,10 @@ onMounted(async () => {
 	}
 	// 默认选中所有阶段
 	selectedStages.value = [...getAllAvailableStages.value];
+});
+
+onActivated(async () => {
+	await loadOnboardingList();
 });
 </script>
 
