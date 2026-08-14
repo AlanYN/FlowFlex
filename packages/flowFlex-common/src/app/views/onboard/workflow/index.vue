@@ -614,7 +614,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, markRaw } from 'vue';
+import { ref, reactive, onMounted, onActivated, computed, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
@@ -1945,6 +1945,10 @@ onMounted(async () => {
 	if (routeWorkflowId.value) {
 		await loadWorkflowDetail(routeWorkflowId.value);
 	}
+});
+
+onActivated(async () => {
+	await fetchWorkflows();
 });
 </script>
 
