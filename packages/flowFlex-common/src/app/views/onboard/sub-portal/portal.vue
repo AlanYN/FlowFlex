@@ -198,17 +198,6 @@
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
 								<div class="space-y-4 my-4">
-									<!-- AI Summary 组件 -->
-									<AISummary
-										:show-a-i-summary-section="showAISummarySection"
-										:loading="aiSummaryLoading"
-										:loading-text="aiSummaryLoadingText"
-										:current-a-i-summary="currentAISummary"
-										:current-a-i-summary-generated-at="
-											currentAISummaryGeneratedAt
-										"
-										@refresh="refreshAISummary"
-									/>
 									<!-- Stage Details 加载状态 -->
 									<div
 										v-if="stageDataLoading"
@@ -434,9 +423,6 @@ import { OnboardingItem, Stage, StageComponentData, SectionAnswer } from '#/onbo
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
-import { getTokenobj } from '@/utils/auth';
-import { getTimeZoneInfo } from '@/hooks/time';
-import { useGlobSetting } from '@/settings';
 import { useUserStore } from '@/stores/modules/user';
 // 导入组件
 import OnboardingProgress from '../onboardingList/components/OnboardingProgress.vue';
@@ -445,16 +431,13 @@ import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
 import QuickLink from '../onboardingList/components/QuickLink.vue';
 import StaticForm from '../onboardingList/components/StaticForm.vue';
-import AISummary from '../onboardingList/components/AISummary.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { StageComponentPortal } from '@/enums/appEnum';
 import GradientTag from '@/components/global/GradientTag/index.vue';
 import { PortalPermissionEnum } from '@/enums/portalPermissionEnum';
-import { getAppCode } from '@/utils/threePartyLogin';
 
 const { t } = useI18n();
 const userStore = useUserStore();
-const globSetting = useGlobSetting();
 
 // 常量定义
 const router = useRouter();
@@ -733,163 +716,6 @@ const allComponents = computed(() => {
 		.filter((component) => component.isEnabled)
 		.sort((a, b) => a.order - b.order);
 });
-
-// AI Summary相关状态
-const aiSummaryLoading = ref(false);
-const aiSummaryLoadingText = ref('Generating AI summary...');
-const currentAISummary = ref('');
-const currentAISummaryGeneratedAt = ref('');
-const showAISummarySection = ref(true);
-// 用于取消AI摘要请求的AbortController
-let aiSummaryAbortController: AbortController | null = null;
-
-const updateAISummaryFromStageInfo = () => {
-	if (onboardingActiveStageInfo.value?.aiSummary) {
-		currentAISummary.value = (onboardingActiveStageInfo.value as any).aiSummary;
-		currentAISummaryGeneratedAt.value =
-			(onboardingActiveStageInfo.value as any).aiSummaryGeneratedAt || '';
-	} else {
-		currentAISummary.value = '';
-		currentAISummaryGeneratedAt.value = '';
-	}
-};
-
-const refreshAISummary = async () => {
-	if (!activeStage.value) {
-		ElMessage.error('No active stage selected');
-		return;
-	}
-
-	// 取消之前的请求（如果存在）
-	if (aiSummaryAbortController) {
-		aiSummaryAbortController.abort();
-	}
-
-	// 创建新的AbortController
-	aiSummaryAbortController = new AbortController();
-	const currentStageId = activeStage.value; // 保存当前阶段ID，用于验证
-
-	// 重置状态，开始流式生成
-	aiSummaryLoading.value = true;
-	aiSummaryLoadingText.value = 'Starting AI summary generation...';
-	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-
-	try {
-		// 获取认证信息
-		const tokenObj = getTokenobj();
-		const userInfo = userStore.getUserInfo;
-
-		// 构建请求头
-		const headers: Record<string, string> = {
-			'Content-Type': 'application/json',
-			Accept: 'text/plain',
-			'Time-Zone': getTimeZoneInfo().timeZone,
-			'Application-code': globSetting?.ssoCode || '',
-		};
-
-		// 添加认证头
-		if (tokenObj?.accessToken?.token) {
-			const token = tokenObj.accessToken.token;
-			const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-			headers.Authorization = `${tokenType} ${token}`;
-		}
-
-		// 添加用户相关头信息
-		headers['X-App-Code'] = getAppCode();
-		if (userInfo?.tenantId) {
-			headers['X-Tenant-Id'] = String(userInfo.tenantId);
-		}
-
-		// 使用fetch进行POST流式请求
-		const url = `/api/ow/stages/v1/${currentStageId}/ai-summary/stream?onboardingId=${onboardingId.value}`;
-		const response = await fetch(url, {
-			method: 'POST',
-			headers,
-			signal: aiSummaryAbortController.signal,
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
-		}
-
-		const reader = response.body?.getReader();
-		const decoder = new TextDecoder();
-
-		if (!reader) {
-			throw new Error('Response body is not readable');
-		}
-
-		// 直接处理纯文本流式响应
-		for (let done = false; !done; ) {
-			const { value, done: isDone } = await reader.read();
-			done = isDone;
-			if (done) break;
-
-			// 检查当前阶段是否已经改变
-			if (activeStage.value !== currentStageId) {
-				aiSummaryLoading.value = false;
-				return;
-			}
-
-			const chunk = decoder.decode(value, { stream: true });
-
-			// 检查是否是错误信息
-			if (chunk.startsWith('Error:')) {
-				ElMessage.error(chunk.replace('Error: ', '') || 'Failed to generate AI summary');
-				aiSummaryLoading.value = false;
-				return;
-			}
-
-			// 直接将文本内容添加到AI Summary中
-			if (chunk.trim()) {
-				currentAISummary.value += chunk;
-			}
-		}
-
-		// 最终验证阶段是否仍然是开始时的阶段
-		if (activeStage.value !== currentStageId) {
-			aiSummaryLoading.value = false;
-			return;
-		}
-
-		// 流结束，设置状态
-		currentAISummaryGeneratedAt.value = new Date().toISOString();
-		aiSummaryLoading.value = false;
-		//ElMessage.success('AI Summary generated successfully');
-
-		// 更新本地stage信息 - 再次验证阶段
-		if (onboardingActiveStageInfo.value && activeStage.value === currentStageId) {
-			(onboardingActiveStageInfo.value as any).aiSummary = currentAISummary.value;
-			(onboardingActiveStageInfo.value as any).aiSummaryGeneratedAt =
-				currentAISummaryGeneratedAt.value;
-		}
-	} catch (error: any) {
-		// 检查是否是用户取消的请求
-		if (error.name === 'AbortError') {
-			aiSummaryLoading.value = false;
-			return;
-		}
-
-		aiSummaryLoading.value = false;
-		ElMessage.error('Failed to generate AI summary');
-	} finally {
-		// 清理AbortController引用
-		aiSummaryAbortController = null;
-	}
-};
-
-const checkAndGenerateAISummary = async () => {
-	// 检查当前阶段是否有AI Summary，如果没有则自动生成
-	// 只有在stagesProgress中确实没有aiSummary时才自动生成
-	if (
-		!onboardingActiveStageInfo.value?.aiSummary &&
-		!aiSummaryLoading.value &&
-		onboardingActiveStageInfo.value &&
-		activeStage.value
-	) {
-		await refreshAISummary();
-	}
-};
 
 const validateField = async () => {
 	// 表单验证方法
@@ -1357,9 +1183,6 @@ const processOnboardingData = (responseData: any) => {
 		(stage) => stage.stageId === newStageId
 	);
 
-	// 更新AI Summary显示
-	updateAISummaryFromStageInfo();
-
 	return newStageId;
 };
 
@@ -1377,7 +1200,6 @@ const loadOnboardingDetail = async () => {
 				activeStage.value = newStageId;
 				// 设置 activeStage 后，加载当前阶段的基础数据
 				await loadCurrentStageData();
-				await checkAndGenerateAISummary();
 			}
 		}
 	} finally {
@@ -1654,27 +1476,16 @@ const setActiveStageWithData = async (stageId: string) => {
 
 	// Removed stage access restriction - allow access to all stages
 
-	// 取消当前正在进行的AI摘要生成（如果有）
-	if (aiSummaryAbortController) {
-		aiSummaryAbortController.abort();
-		aiSummaryLoading.value = false;
-	}
-
 	activeStage.value = stageId;
 	onboardingActiveStageInfo.value = workflowStages.value.find(
 		(stage) => stage.stageId === stageId
 	);
-
-	// 更新AI Summary显示
-	updateAISummaryFromStageInfo();
 
 	// 重新加载依赖stageId的数据
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues();
 
 	refreshChangeLog();
-	// 自动检查并生成AI Summary（如果不存在）
-	await checkAndGenerateAISummary();
 };
 
 // 保存所有表单数据的函数
