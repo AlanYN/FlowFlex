@@ -164,7 +164,6 @@ const expandConditionId = ref<string | null>(null); // which condition to auto-e
 
 // Condition list state
 const localConditions = ref<StageCondition[]>([]);
-const originalConditions = ref<StageCondition[]>([]); // snapshot for diff
 const deletedConditionIds = ref<string[]>([]);
 
 // Fallback state
@@ -194,10 +193,8 @@ const open = async (
 		const res = await getConditionsByStage(stageId);
 		const conditions = (res as any)?.data || res || [];
 		localConditions.value = Array.isArray(conditions) ? [...conditions] : [];
-		originalConditions.value = JSON.parse(JSON.stringify(localConditions.value));
 	} catch {
 		localConditions.value = [];
-		originalConditions.value = [];
 	}
 
 	// Load stage fallback (from stage data)
@@ -350,14 +347,9 @@ const handleSave = async () => {
 					})
 				);
 			} else {
-				// Check if changed
-				const original = originalConditions.value.find((c) => c.id === condition.id);
-				if (
-					original &&
-					JSON.stringify(payload) !== JSON.stringify(buildConditionPayload(original))
-				) {
-					createUpdatePromises.push(updateCondition(condition.id, payload));
-				}
+				// Always update existing conditions — diff check was unreliable due to
+				// actionsJson type mismatch (string from API vs object after user edits)
+				createUpdatePromises.push(updateCondition(condition.id, payload));
 			}
 		}
 
@@ -370,7 +362,6 @@ const handleSave = async () => {
 				const res = await getConditionsByStage(currentStageId.value);
 				const conditions = (res as any)?.data || res || [];
 				localConditions.value = Array.isArray(conditions) ? [...conditions] : [];
-				originalConditions.value = JSON.parse(JSON.stringify(localConditions.value));
 				deletedConditionIds.value = [];
 				return;
 			}
