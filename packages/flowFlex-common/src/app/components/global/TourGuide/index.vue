@@ -2,21 +2,19 @@
 	<!-- FAB replay button — fixed bottom-right, rendered via Teleport -->
 	<Teleport :to="fabTarget">
 		<Transition name="ff-tour-fab">
-			<el-tooltip
-				v-if="showFab"
-				content="View guided tour"
-				placement="left"
-				:show-after="300"
-			>
-				<button
-					class="ff-tour-fab"
-					:class="{ 'ff-tour-fab--running': isRunning }"
-					aria-label="View guided tour"
-					@click="handleFabClick"
-				>
-					<span class="ff-tour-fab__icon">?</span>
-				</button>
-			</el-tooltip>
+			<!-- 用单元素 div 包裹，避免 el-tooltip (fragment) 直接作为 Transition 子节点触发警告 -->
+			<div v-if="showFab" class="ff-tour-fab-wrapper">
+				<el-tooltip content="View guided tour" placement="left" :show-after="300">
+					<button
+						class="ff-tour-fab"
+						:class="{ 'ff-tour-fab--running': isRunning }"
+						aria-label="View guided tour"
+						@click="handleFabClick"
+					>
+						<span class="ff-tour-fab__icon">?</span>
+					</button>
+				</el-tooltip>
+			</div>
 		</Transition>
 	</Teleport>
 </template>

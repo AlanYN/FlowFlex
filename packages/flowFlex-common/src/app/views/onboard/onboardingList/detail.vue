@@ -39,7 +39,7 @@
 						"
 						:icon="Document"
 						class="page-header-btn page-header-btn-primary"
-					    data-tour="save-btn"
+						data-tour="save-btn"
 						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 					>
 						Save
@@ -97,6 +97,7 @@
 			<!-- 左侧阶段详情 (2/3 宽度) -->
 			<div class="flex-[2] min-w-0 overflow-hidden flex flex-col">
 				<EditableStageHeader
+					ref="stageHeaderRef"
 					:current-stage="onboardingActiveStageInfo"
 					:disabled="
 						isAbortedReadonly ||
@@ -104,6 +105,7 @@
 						onboardingData?.isDisabled ||
 						!hasCasePermission(ProjectPermissionEnum.case.update)
 					"
+					:saving="stageSaving"
 					:onboardingId="onboardingId"
 					@update:stage-data="handleStageDataUpdate"
 				/>
@@ -1239,6 +1241,9 @@ const refreshChangeLog = () => {
 };
 
 // 处理阶段数据更新
+const stageSaving = ref(false);
+const stageHeaderRef = ref<{ closeSaving: () => void } | null>(null);
+
 const handleStageDataUpdate = async (updateData: {
 	stageId: string;
 	customEstimatedDays: number;
@@ -1246,12 +1251,12 @@ const handleStageDataUpdate = async (updateData: {
 	assignee: string[];
 	coAssignees: string[];
 }) => {
+	stageSaving.value = true;
 	try {
-		// 这里应该调用API来更新阶段数据
-		// 暂时先更新本地数据，实际项目中需要调用相应的API
 		const res = await updateStageFields(onboardingId.value, updateData);
 		if (res.code === '200') {
 			ElMessage.success('Stage data updated successfully');
+			stageHeaderRef.value?.closeSaving();
 			loadOnboardingDetail();
 		} else {
 			ElMessage.error(res.msg || 'Failed to update stage data');
@@ -1259,6 +1264,8 @@ const handleStageDataUpdate = async (updateData: {
 	} catch (error) {
 		console.error('Error updating stage data:', error);
 		ElMessage.error('Failed to update stage data');
+	} finally {
+		stageSaving.value = false;
 	}
 };
 

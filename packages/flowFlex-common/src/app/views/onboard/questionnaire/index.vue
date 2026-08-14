@@ -164,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, markRaw } from 'vue';
+import { ref, onMounted, onActivated, watch, markRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
@@ -258,6 +258,10 @@ onMounted(async () => {
 	} finally {
 		loading.value = false;
 	}
+});
+
+onActivated(async () => {
+	await fetchQuestionnaires();
 });
 
 // 获取工作流列表

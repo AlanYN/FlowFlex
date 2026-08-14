@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onActivated } from 'vue';
 import { useRouter } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import IntegrationListCard from './components/integration-list-card.vue';
@@ -163,6 +163,10 @@ function handleAddIntegration() {
 
 // 初始化
 onMounted(() => {
+	loadIntegrations();
+});
+
+onActivated(() => {
 	loadIntegrations();
 });
 </script>
