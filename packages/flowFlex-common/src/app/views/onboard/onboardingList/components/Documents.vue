@@ -17,10 +17,17 @@
 						</el-icon>
 						<h3 class="case-component-title">
 							{{ component.title || 'Documents' }}
-							<span v-if="component.isRequired || documentIsRequired" class="text-red-300 ml-1">*</span>
+							<span
+								v-if="component.isRequired || documentIsRequired"
+								class="text-red-300 ml-1"
+							>
+								*
+							</span>
 						</h3>
 					</div>
-					<p v-if="component.description" class="text-xs text-gray-400 mt-1">{{ component.description }}</p>
+					<p v-if="component.description" class="text-xs text-gray-400 mt-1">
+						{{ component.description }}
+					</p>
 					<div class="case-component-subtitle">
 						{{ documents.length }}
 						{{ documents.length === 1 ? 'file' : 'files' }} uploaded
@@ -238,6 +245,36 @@
 							</template>
 						</el-table-column>
 
+						<el-table-column label="Status" width="220">
+							<template #default="{ row }">
+								<div v-if="row.isSigned" class="flex flex-col gap-1">
+									<el-tag
+										type="success"
+										size="small"
+										effect="plain"
+										class="w-fit"
+									>
+										Signed
+									</el-tag>
+									<div
+										v-if="row.signerName"
+										class="text-xs text-gray-500 dark:text-gray-400 truncate"
+										:title="row.signerName"
+									>
+										{{ row.signerName }}
+									</div>
+									<div
+										v-if="row.signTime"
+										class="text-xs text-gray-400 dark:text-gray-500 truncate"
+										:title="row.signTime"
+									>
+										{{ timeZoneConvert(row.signTime) }}
+									</div>
+								</div>
+								<span v-else class="text-xs text-gray-400">—</span>
+							</template>
+						</el-table-column>
+
 						<el-table-column label="Actions" width="80" fixed="right">
 							<template #default="{ row }">
 								<div class="flex items-center space-x-2">
@@ -250,6 +287,7 @@
 										:icon="View"
 									/>
 									<el-button
+										v-if="!row.isSigned"
 										type="danger"
 										link
 										:disabled="viewDocumentIds.includes(row.id) || disabled"
@@ -279,8 +317,23 @@
 			:type="fileType"
 			:isShow="perviewFileShow"
 			:offloading="offloading"
+			:allow-sign="true"
+			:is-signed="signingPreviewIsSigned"
+			:file-id="signingPreviewFileId"
 			@close-office="closeOffice"
 			@rendered-office="offloading = false"
+			@sign-document="handleSignDocument"
+		/>
+
+		<!-- 签署弹窗 -->
+		<DocumentSigningDialog
+			:visible="signingDialogVisible"
+			:file-id="signingFileId"
+			:onboarding-id="props.onboardingId"
+			:file-url="signingFileUrl"
+			:file-name="signingFileName"
+			@update:visible="signingDialogVisible = $event"
+			@refresh-documents="handleRefreshDocuments"
 		/>
 
 		<!-- Import Attachments Dialog -->
@@ -328,6 +381,7 @@ import { DocumentItem, StageComponentData } from '#/onboard';
 import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
+import DocumentSigningDialog from './signing/DocumentSigningDialog.vue';
 import { useI18n } from '@/hooks/useI18n';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import { formatFileSize, getMimeType } from '@/utils/format';
@@ -385,6 +439,12 @@ const fileUrl = ref('');
 const fileType = ref('');
 const offloading = ref(false);
 const perviewFileShow = ref(false);
+
+// 签署弹窗状态
+const signingDialogVisible = ref(false);
+const signingFileId = ref<string | number>('');
+const signingFileUrl = ref('');
+const signingFileName = ref('');
 
 // 事件定义
 const emit = defineEmits<{
@@ -561,9 +621,16 @@ const handleFileChange = async (file: any) => {
 	}
 };
 
+// 当前预览文件的签署状态（用于传递给 previewFile 组件）
+const signingPreviewIsSigned = ref(false);
+const signingPreviewFileId = ref<string | number>('');
+
 // 文档操作
 const viewDocumentIds = ref<string[]>([]);
 const handleViewDocument = async (document: DocumentItem) => {
+	// 记录当前预览文件的签署信息
+	signingPreviewIsSigned.value = !!document.isSigned;
+	signingPreviewFileId.value = document.id;
 	try {
 		// 获取文件扩展名
 		const fileExt = document.originalFileName.split('.').pop()?.toLowerCase() || '';
@@ -581,7 +648,7 @@ const handleViewDocument = async (document: DocumentItem) => {
 		} else {
 			// 支持预览的文件类型，使用正确的MIME类型
 			const mimeType = document?.contentType || getMimeType(fileExt);
-			const blob = new Blob([res], { type: mimeType });
+			const blob = res instanceof Blob ? res : new Blob([res], { type: mimeType });
 			fileUrl.value = URL.createObjectURL(blob);
 		}
 	} finally {
@@ -596,6 +663,27 @@ const closeOffice = () => {
 	offloading.value = false;
 	fileUrl.value = '';
 	fileType.value = '';
+};
+
+// 处理签署文档事件（从 previewFile 的 @sign-document 事件触发）
+const handleSignDocument = ({
+	fileId,
+	fileUrl: url,
+}: {
+	fileId: string | number;
+	fileUrl: string;
+}) => {
+	// 找到对应文档，获取文件名
+	const doc = documents.value.find((d) => String(d.id) === String(fileId));
+	signingFileId.value = fileId;
+	signingFileUrl.value = url;
+	signingFileName.value = doc?.originalFileName || '';
+	signingDialogVisible.value = true;
+};
+
+// 签署成功后刷新文件列表
+const handleRefreshDocuments = async () => {
+	await refreshDocumentsSilently();
 };
 
 // 下载文件
@@ -645,7 +733,10 @@ const handleDeleteDocument = async (documentId: string) => {
 
 const vailComponent = () => {
 	try {
-		if ((props?.documentIsRequired || props.component?.isRequired) && documents?.value?.length <= 0) {
+		if (
+			(props?.documentIsRequired || props.component?.isRequired) &&
+			documents?.value?.length <= 0
+		) {
 			ElMessage.warning('Please upload at least one document');
 			return false;
 		}
