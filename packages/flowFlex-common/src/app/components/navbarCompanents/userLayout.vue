@@ -32,6 +32,14 @@
 					<el-tag>{{ userStore.getUserInfo.email }}</el-tag>
 				</div>
 
+				<div
+					class="flex items-center my-3 cursor-pointer hover:text-primary"
+					@click="goToProfile"
+				>
+					<el-icon class="mr-2"><User /></el-icon>
+					<span class="text-sm">My Profile</span>
+				</div>
+
 				<div class="flex justify-end">
 					<el-button text :icon="LogoutIcon" @click="logout">
 						{{ t('sys.app.logout') }}
@@ -44,14 +52,17 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/modules/user';
 import { useI18n } from '@/hooks/useI18n';
 import { getAvatarColor } from '@/utils';
+import { User } from '@element-plus/icons-vue';
 
 import LogoutIcon from '@assets/svg/global/logout.svg';
 
 const userStore = useUserStore();
 const { t } = useI18n();
+const router = useRouter();
 
 const userName = computed(() => {
 	const { userName = '' } = userStore.getUserInfo || {};
@@ -66,5 +77,9 @@ const avatar = ref('');
 
 const logout = () => {
 	userStore.confirmLoginOut();
+};
+
+const goToProfile = () => {
+	router.push('/profile');
 };
 </script>

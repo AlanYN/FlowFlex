@@ -802,6 +802,15 @@ export function previewOnboardingFile(
 	});
 }
 
+/**
+ * Returns the preview URL for a file without fetching it.
+ * Used by DocumentSigningDialog to load the PDF directly via HTTP
+ * (PDF.js Web Worker can fetch HTTP URLs; it cannot access blob: URLs).
+ */
+export function getPreviewFileUrl(onboardingId: string | number, fileId: string | number): string {
+	return `${Api(onboardingId).perviewOnboardingFile}/${fileId}/preview`;
+}
+
 export function getCheckListIds(params: any) {
 	return defHttp.post({ url: `${Api().ckeckListIds}`, params });
 }

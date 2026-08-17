@@ -126,5 +126,20 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// Source of the file (e.g., CRM, Portal, Manual)
         /// </summary>
         public string Source { get; set; }
+
+        /// <summary>
+        /// Whether this file has been digitally signed
+        /// </summary>
+        public bool IsSigned { get; set; }
+
+        /// <summary>
+        /// Name of the person who signed the document (null when IsSigned=false)
+        /// </summary>
+        public string SignerName { get; set; }
+
+        /// <summary>
+        /// UTC timestamp of when the document was signed (null when IsSigned=false)
+        /// </summary>
+        public DateTimeOffset? SignTime { get; set; }
     }
 }
