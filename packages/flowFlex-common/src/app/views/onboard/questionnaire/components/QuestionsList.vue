@@ -41,7 +41,12 @@
 								<div class="question-left">
 									<div class="question-info">
 										<div class="flex items-center gap-2 truncate">
-											{{ currentSectionIndex + 1 }}.{{ index + 1 }}.
+											{{
+												sections?.length > 1
+													? `${currentSectionIndex + 1}.`
+													: ''
+											}}{{ index + 1 }}.
+
 											<el-tag size="small" class="card-tag">
 												{{ getQuestionTypeName(item.type) }}
 											</el-tag>

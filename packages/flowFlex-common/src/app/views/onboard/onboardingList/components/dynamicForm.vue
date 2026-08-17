@@ -376,9 +376,8 @@
 						<div class="mb-2" v-if="question.type !== 'page_break'">
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-medium form-question-number">
-									{{ currentSectionIndex + 1 }}-{{
-										getQuestionNumber(+questionIndex)
-									}}.
+									{{ totalSections > 1 ? `${currentSectionIndex + 1}-` : ''
+									}}{{ getQuestionNumber(+questionIndex) }}.
 									{{ question.title }}
 									<span
 										v-if="question.required && !isQuestionSkipped(question)"
@@ -1083,8 +1082,14 @@
 							type="primary"
 							:icon="Document"
 							:loading="loading || fileUploadStore.uploadingCount > 0"
-							:disabled="!isSubmitEnabled || disabled || fileUploadStore.uploadingCount > 0"
-							:title="fileUploadStore.uploadingCount > 0 ? 'File upload in progress, please wait...' : ''"
+							:disabled="
+								!isSubmitEnabled || disabled || fileUploadStore.uploadingCount > 0
+							"
+							:title="
+								fileUploadStore.uploadingCount > 0
+									? 'File upload in progress, please wait...'
+									: ''
+							"
 						>
 							Submit
 						</el-button>
@@ -2735,7 +2740,7 @@ const Reopen = () => {
 
 // 组件卸载时重置上传计数，防止路由切换后 uploadingCount 残留导致按钮永久 loading
 onUnmounted(() => {
-    fileUploadStore.reset();
+	fileUploadStore.reset();
 });
 
 defineExpose({
