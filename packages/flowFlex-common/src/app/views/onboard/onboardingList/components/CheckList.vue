@@ -1,8 +1,13 @@
 <template>
-	<div class="wfe-global-block-bg" v-if="checklistData && checklistData.length > 0">
+	<div
+		class="wfe-global-block-bg"
+		v-bind="tourId ? { 'data-tour': tourId } : {}"
+		v-if="checklistData && checklistData.length > 0"
+	>
 		<div
 			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
+			v-bind="props.tourId ? { 'data-tour': props.tourId } : {}"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
@@ -26,7 +31,7 @@
 				</div>
 			</div>
 			<!-- 统一进度条 -->
-			<div class="case-component-bar-container">
+			<div class="case-component-bar-container" data-tour="checklist-progress">
 				<div class="case-component-bar rounded-xl">
 					<div
 						class="case-component-fill rounded-xl"
@@ -115,6 +120,11 @@
 							<div class="task-actions">
 								<el-button
 									class="action-button details-button"
+									:data-tour="
+										task.id === firstTaskId
+											? 'checklist-task-details'
+											: undefined
+									"
 									@click.stop="openTaskDetails(task)"
 								>
 									Details
@@ -122,6 +132,9 @@
 								<el-button
 									:type="task.isCompleted ? 'danger' : 'success'"
 									class="action-button complete-button"
+									:data-tour="
+										task.id === firstTaskId ? 'checklist-task-done' : undefined
+									"
 									@click.stop="toggleTask(task)"
 									:disabled="disabled"
 								>
@@ -167,6 +180,8 @@ interface Props {
 	onboardingId: string;
 	stageId: string;
 	disabled?: boolean;
+	/** data-tour anchor id applied to the header element for guided tour */
+	tourId?: string;
 }
 
 const props = defineProps<Props>();
@@ -212,6 +227,15 @@ watchEffect(() => {
 const totalTasks = computed(() => statsCache.value.totalTasks);
 const totalCompletedTasks = computed(() => statsCache.value.completedTasks);
 const overallCompletionRate = computed(() => statsCache.value.completionRate);
+// The very first task across all checklists — used as the guided-tour anchor
+// so duplicate data-tour attributes never appear on later checklist groups.
+const firstTaskId = computed<string | null>(() => {
+	for (const checklist of props.checklistData ?? []) {
+		const first = checklist.tasks?.find((task) => task.id);
+		if (first) return first.id;
+	}
+	return null;
+});
 
 // 任务详情弹窗相关
 const dialogVisible = ref(false);

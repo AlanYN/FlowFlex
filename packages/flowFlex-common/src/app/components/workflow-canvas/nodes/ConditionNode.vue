@@ -1,7 +1,11 @@
 <template>
 	<div class="condition-node-wrapper">
 		<!-- 主节点内容 -->
-		<div class="condition-node" :class="{ 'condition-node--selected': selected }">
+		<div
+			class="condition-node"
+			:class="{ 'condition-node--selected': selected }"
+			data-tour="workflow-condition-node"
+		>
 			<!-- 左侧 Handle（输入） -->
 			<Handle type="target" :position="Position.Left" id="left-in" class="condition-handle" />
 
@@ -18,6 +22,19 @@
 					{{ rulesCount }} {{ rulesCount > 1 ? 'rules' : 'rule' }}
 					<span v-if="actionsCount > 0">
 						· {{ actionsCount }} {{ actionsCount > 1 ? 'actions' : 'action' }}
+					</span>
+				</div>
+
+				<!-- 动作类型标记 -->
+				<div v-if="parsedActions.length > 0" class="condition-node__tags">
+					<span
+						v-for="(action, index) in parsedActions"
+						:key="index"
+						class="condition-node__tag"
+						:class="`condition-node__tag--${getActionTagKey(action.type)}`"
+						:title="getActionTitle(action)"
+					>
+						{{ getActionLabel(action) }}
 					</span>
 				</div>
 			</div>
@@ -73,6 +90,7 @@ import { computed } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 import { Share, Delete } from '@element-plus/icons-vue';
 import type { ConditionNodeData } from '#/workflow-canvas';
+import { allActionTypes } from '@/utils/actionTypeUtils';
 
 interface Props {
 	id: string;
@@ -131,34 +149,52 @@ const actionsCount = computed(() => {
 	return parsedActions.value.length;
 });
 
-// // 获取 action 的显示标签
-// const getActionLabel = (action: any): string => {
-// 	if (!action || !action.type) return 'Action';
+// 获取 action 的显示标签（与条件编辑器中的动作类型名称保持一致）
+const getActionLabel = (action: any): string => {
+	if (!action || !action.type) return 'Action';
 
-// 	switch (action.type) {
-// 		case 'EndWorkflow':
-// 			return 'End';
-// 		case 'GoToStage':
-// 			// 使用 stagesMap 查找目标 stage 名称
-// 			if (action.targetStageId && props.data.stagesMap) {
-// 				const stageName = props.data.stagesMap[action.targetStageId];
-// 				return stageName ? `Go: ${stageName}` : 'Go To';
-// 			}
-// 			return 'Go To';
-// 		case 'SkipStage':
-// 			return 'Skip';
-// 		case 'SendNotification':
-// 			return 'Notify';
-// 		case 'UpdateField':
-// 			return 'Update';
-// 		case 'TriggerAction':
-// 			return 'Trigger';
-// 		case 'AssignUser':
-// 			return 'Assign';
-// 		default:
-// 			return action.type;
-// 	}
-// };
+	// 从 allActionTypes 中取官方名称，保证与 ConditionActionForm 的选项一致
+	const config = allActionTypes.find((t) => t.value === action.type);
+	const baseLabel = config?.label || action.type;
+
+	// GoToStage 额外带上目标 stage 名称，便于在画布上一眼看出跳转去向
+	if (action.type === 'GoToStage' && action.targetStageId && props.data.stagesMap) {
+		const stageName = props.data.stagesMap[action.targetStageId];
+		return stageName ? `Go to ${stageName}` : baseLabel;
+	}
+	return baseLabel;
+};
+
+// 获取 action 标签的样式 key（用于颜色区分）
+const getActionTagKey = (type: string): string => {
+	switch (type) {
+		case 'GoToStage':
+			return 'goto';
+		case 'SkipStage':
+			return 'skip';
+		case 'EndWorkflow':
+			return 'end';
+		case 'SendNotification':
+			return 'notify';
+		case 'UpdateField':
+			return 'update';
+		case 'TriggerAction':
+			return 'trigger';
+		case 'AssignUser':
+			return 'assign';
+		default:
+			return 'default';
+	}
+};
+
+// 获取 action 标签的完整提示（tooltip）
+const getActionTitle = (action: any): string => {
+	if (action?.type === 'GoToStage' && action.targetStageId && props.data.stagesMap) {
+		const stageName = props.data.stagesMap[action.targetStageId];
+		if (stageName) return `Go to Stage: ${stageName}`;
+	}
+	return getActionLabel(action);
+};
 
 const handleDelete = () => {
 	emit('delete');
@@ -237,6 +273,72 @@ const handleDelete = () => {
 .condition-node__summary {
 	font-size: 11px;
 	color: var(--el-color-primary-light-3);
+}
+
+/* 动作类型标记 */
+.condition-node__tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.condition-node__tag {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	line-height: 1.5;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	background: var(--el-color-success-light-9);
+	color: var(--el-color-success);
+	border: 1px solid var(--el-color-success-light-5);
+}
+
+.condition-node__tag--goto {
+	background: var(--el-color-success-light-9);
+	color: var(--el-color-success);
+	border-color: var(--el-color-success-light-5);
+}
+
+.condition-node__tag--skip {
+	background: var(--el-color-success-light-9);
+	color: var(--el-color-success);
+	border-color: var(--el-color-success-light-5);
+}
+
+.condition-node__tag--end {
+	background: var(--el-color-danger-light-9);
+	color: var(--el-color-danger);
+	border-color: var(--el-color-danger-light-5);
+}
+
+.condition-node__tag--notify {
+	background: var(--el-color-primary-light-9);
+	color: var(--el-color-primary);
+	border-color: var(--el-color-primary-light-5);
+}
+
+.condition-node__tag--update {
+	background: #f3e8ff;
+	color: #7c3aed;
+	border-color: #d8b4fe;
+}
+
+.condition-node__tag--trigger {
+	background: var(--el-color-warning-light-9);
+	color: var(--el-color-warning);
+	border-color: var(--el-color-warning-light-5);
+}
+
+.condition-node__tag--assign {
+	background: var(--el-color-info-light-9);
+	color: var(--el-color-info);
+	border-color: var(--el-color-info-light-5);
 }
 
 /* 底部 Actions 区域 */

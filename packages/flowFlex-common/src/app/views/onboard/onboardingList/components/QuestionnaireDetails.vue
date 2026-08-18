@@ -1,9 +1,14 @@
 <template>
-	<div class="wfe-global-block-bg" v-if="hasQuestionnaireData">
+	<div
+		class="wfe-global-block-bg"
+		v-if="hasQuestionnaireData"
+		v-bind="tourId ? { 'data-tour': tourId } : {}"
+	>
 		<!-- 统一的头部卡片 -->
 		<div
 			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
+			v-bind="tourId ? { 'data-tour': tourId } : {}"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
@@ -106,6 +111,8 @@ interface Props {
 	disabled?: boolean;
 	loading?: boolean;
 	currentstageCanCompleted: boolean;
+	/** data-tour anchor id applied to the header element for guided tour */
+	tourId?: string;
 }
 
 const props = defineProps<Props>();
@@ -646,7 +653,10 @@ const completionStats = computed(() => {
 					}
 				} else {
 					const value = group[questionId];
-					isAnswered = value !== null && value !== undefined && value !== '' &&
+					isAnswered =
+						value !== null &&
+						value !== undefined &&
+						value !== '' &&
 						!(Array.isArray(value) && value.length === 0);
 				}
 			}

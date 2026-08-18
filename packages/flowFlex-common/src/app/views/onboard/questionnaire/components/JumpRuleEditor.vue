@@ -47,60 +47,66 @@
 						:key="option.temporaryId"
 						class="rule-item"
 					>
-						<div v-if="option.isOther" class="option-label w-[100px] truncate">
-							<el-tag type="warning">Other</el-tag>
-						</div>
-						<div v-else class="option-label w-[100px] truncate">
-							{{ option.label }}
-						</div>
-						<div class="jump-selectors">
-							<!-- 选择Section（如果有可用section则显示） -->
-							<el-select
-								v-if="availableSections.length > 0"
-								v-model="selectedSections[option.temporaryId]"
-								placeholder="Select section"
-								class="flex-1"
-								clearable
-								@change="(value) => handleSectionChange(option.temporaryId, value)"
-							>
-								<el-option
-									v-for="section in availableSections"
-									:key="section.temporaryId"
-									:label="section.name"
-									:value="section.temporaryId"
-								/>
-							</el-select>
-							<!-- 第二步：选择Question（仅单选题显示，可选） -->
-							<el-select
-								v-if="isMultipleChoice"
-								v-model="jumpRules[option.temporaryId]"
-								:placeholder="
-									availableSections.length > 0
-										? 'Select question (optional)'
-										: 'Select question'
-								"
-								class="flex-1"
-								clearable
-								:disabled="
-									!selectedSections[option.temporaryId] &&
-									availableSections.length > 0
-								"
-								@change="(value) => handleRuleChange(option.temporaryId, value)"
-							>
-								<el-option
-									v-for="targetQuestion in getAvailableQuestions(
-										selectedSections[option.temporaryId]
-									)"
-									:key="targetQuestion.temporaryId"
-									:label="
-										getQuestionDisplayLabel(
-											targetQuestion,
-											selectedSections[option.temporaryId]
-										)
+						<div class="w-full flex flex-col gap-y-2">
+							<div>
+								<div v-if="option.isOther" class="option-label truncate">
+									<el-tag type="warning">Other</el-tag>
+								</div>
+								<div v-else class="option-label truncate">
+									{{ option.label }}
+								</div>
+							</div>
+							<div class="jump-selectors">
+								<!-- 选择Section（如果有可用section则显示） -->
+								<el-select
+									v-if="availableSections.length > 0"
+									v-model="selectedSections[option.temporaryId]"
+									placeholder="Select section"
+									class="flex-1"
+									clearable
+									@change="
+										(value) => handleSectionChange(option.temporaryId, value)
 									"
-									:value="targetQuestion.temporaryId"
-								/>
-							</el-select>
+								>
+									<el-option
+										v-for="section in availableSections"
+										:key="section.temporaryId"
+										:label="section.name"
+										:value="section.temporaryId"
+									/>
+								</el-select>
+								<!-- 第二步：选择Question（仅单选题显示，可选） -->
+								<el-select
+									v-if="isMultipleChoice"
+									v-model="jumpRules[option.temporaryId]"
+									:placeholder="
+										availableSections.length > 0
+											? 'Select question (optional)'
+											: 'Select question'
+									"
+									class="flex-1"
+									clearable
+									:disabled="
+										!selectedSections[option.temporaryId] &&
+										availableSections.length > 0
+									"
+									@change="(value) => handleRuleChange(option.temporaryId, value)"
+								>
+									<el-option
+										v-for="targetQuestion in getAvailableQuestions(
+											selectedSections[option.temporaryId]
+										)"
+										:key="targetQuestion.temporaryId"
+										:label="
+											getQuestionDisplayLabel(
+												targetQuestion,
+												selectedSections[option.temporaryId]
+											)
+										"
+										:value="targetQuestion.temporaryId"
+									/>
+								</el-select>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -4,6 +4,7 @@
 		<PageHeader
 			title="Workflows"
 			description="Design and manage business workflows with customizable stages and automated processes"
+			data-tour="workflow-page-header"
 		>
 			<template #actions>
 				<TabButtonGroup
@@ -20,6 +21,7 @@
 					@click="showNewWorkflowDialog"
 					:disabled="loading.createWorkflow"
 					class="page-header-btn page-header-btn-primary"
+					data-tour="workflow-new-btn"
 				>
 					<el-icon v-if="loading.createWorkflow">
 						<Loading />
@@ -138,6 +140,7 @@
 					>
 						<div
 							class="workflow-card-header bg-el-color-primary-light-9 dark:bg-el-fill-color border-b border-el-border-color-light dark:border-el-border-color"
+							data-tour="workflow-detail-header"
 						>
 							<div class="left-section">
 								<div class="title-and-tags">
@@ -211,6 +214,7 @@
 										class="more-actions-btn rounded-xl"
 										aria-label="More actions"
 										:aria-expanded="false"
+										data-tour="workflow-more-actions-btn"
 									>
 										<el-icon
 											v-if="
@@ -318,6 +322,7 @@
 														ProjectPermissionEnum.workflow.read
 													)
 												"
+												data-tour="workflow-chart-btn"
 											>
 												<el-icon>
 													<Connection />
@@ -407,6 +412,7 @@
 										@click="addStage()"
 										:disabled="loading.createStage"
 										:icon="loading.createStage ? Loading : Plus"
+										data-tour="workflow-add-stage-btn"
 									>
 										Add Stage
 									</el-button>
@@ -428,6 +434,7 @@
 									sortStages: loading.sortStages,
 								}"
 								:userList="userList"
+								data-tour="workflow-stages-area"
 								:has-workflow-permission="
 									workflow.permission ? workflow.permission.canOperate : true
 								"
@@ -493,7 +500,7 @@
 			:title="dialogTitle"
 			:width="bigDialogWidth"
 			destroy-on-close
-			custom-class="workflow-dialog"
+			class="workflow-form-dialog"
 			:show-close="true"
 			:close-on-click-modal="false"
 			draggable
@@ -523,11 +530,12 @@
 			v-model="dialogVisible.stageForm"
 			:title="isEditingStage ? 'Edit Stage' : 'Add New Stage'"
 			destroy-on-close
-			custom-class="workflow-dialog"
+			class="stage-form-dialog"
 			:show-close="true"
 			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 			top="5vh"
+			data-tour="stage-form-dialog"
 		>
 			<template #header>
 				<div class="dialog-header">
@@ -563,11 +571,50 @@
 				/>
 			</div>
 		</el-dialog>
+
+		<!-- Tour 1: 列表页 tour — 数据加载完成后挂载（确保列表行锚点已渲染） -->
+		<TourGuide
+			v-if="viewMode === 'list' && !loading.workflows"
+			:persist-key="`workflow-list-tour`"
+			:steps="workflowListTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('workflow-list-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('workflow-list-tour').then(() => undefined)"
+		/>
+
+		<!-- Tour 2: 详情页 tour — 详情视图挂载，右下角 "?" 重播（与弹窗 tour 互斥） -->
+		<TourGuide
+			v-if="
+				viewMode === 'detail' &&
+				workflow &&
+				!dialogVisible.stageForm &&
+				!dialogVisible.workflowForm
+			"
+			:persist-key="`workflow-detail-tour`"
+			:steps="workflowDetailTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('workflow-detail-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('workflow-detail-tour').then(() => undefined)"
+		/>
+
+		<!-- Tour 3: Add/Edit Stage 弹窗 tour — "?" 渲染进该弹窗自己的 overlay（层级低于弹窗），用户点击右下角 "?" 手动触发 -->
+		<TourGuide
+			v-if="dialogVisible.stageForm"
+			:persist-key="`workflow-stage-form-tour`"
+			:steps="workflowStageFormTourSteps"
+			:auto-start="false"
+			:show-fab="true"
+			:fab-container="getStageFormOverlay"
+			:check-seen-remote="() => checkTourSeen('workflow-stage-form-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('workflow-stage-form-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, markRaw } from 'vue';
+import { ref, reactive, onMounted, onActivated, computed, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
@@ -606,6 +653,8 @@ import {
 	deleteStage as deleteStageApi,
 	exportWorkflowToExcel,
 	getWorkflowInfo,
+	checkTourSeen,
+	markTourSeen,
 } from '@/apis/ow';
 
 import { getChecklists } from '@/apis/ow/checklist';
@@ -636,6 +685,14 @@ import { functionPermission } from '@/hooks';
 import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { IQuickLink } from '#/integration';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import {
+	workflowListTourSteps,
+	workflowDetailTourSteps,
+	workflowStageFormTourSteps,
+} from '@/hooks/useWorkflowTourSteps';
+
+defineOptions({ name: 'OnboardWorkflow' });
 
 const { t } = useI18n();
 
@@ -742,6 +799,13 @@ const dialogVisible = reactive({
 	workflowForm: false,
 	stageForm: false,
 });
+
+// Add/Edit Stage 弹窗 tour 的 "?" FAB 挂载点：
+// 解析到「Stage 弹窗自己的 .el-overlay-dialog」，而不是文档里第一个
+// .el-overlay-dialog（可能是隐藏的 Workflow 表单弹窗，导致 "?" 不可见）。
+const getStageFormOverlay = () =>
+	document.querySelector<HTMLElement>('.stage-form-dialog')?.closest('.el-overlay-dialog') ??
+	null;
 
 // 计算对话框标题
 const dialogTitle = computed(() => {
@@ -1881,6 +1945,10 @@ onMounted(async () => {
 	if (routeWorkflowId.value) {
 		await loadWorkflowDetail(routeWorkflowId.value);
 	}
+});
+
+onActivated(async () => {
+	await fetchWorkflows();
 });
 </script>
 

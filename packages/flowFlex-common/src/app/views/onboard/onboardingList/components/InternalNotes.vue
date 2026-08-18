@@ -1,7 +1,12 @@
 <template>
 	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
-		<div class="case-notes-header rounded-xl" :class="{ expanded: isOpen }" @click="toggleOpen">
+		<div
+			class="case-notes-header rounded-xl"
+			:class="{ expanded: isOpen }"
+			@click="toggleOpen"
+			data-tour="internal-notes-header"
+		>
 			<div class="">
 				<div class="flex items-center">
 					<el-icon
@@ -132,7 +137,7 @@
 				</el-scrollbar>
 
 				<!-- 添加笔记表单 - 移到最下方 -->
-				<div class="border-t pt-4">
+				<div class="border-t pt-4" data-tour="internal-notes-input">
 					<el-form @submit.prevent="handleAddNote">
 						<el-form-item>
 							<Mention

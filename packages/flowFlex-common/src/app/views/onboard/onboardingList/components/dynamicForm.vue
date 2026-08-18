@@ -1053,9 +1053,10 @@
 					</div>
 
 					<!-- 右侧：下一页按钮 -->
-					<div class="nav-right">
+					<div class="nav-right" data-tour="questionnaire-nav-right">
 						<el-button
 							v-if="!isLastSection && totalSections > 1"
+							data-tour="questionnaire-next-section"
 							@click="goToNextSection"
 						>
 							Next
@@ -1076,6 +1077,7 @@
 						</el-button>
 						<el-button
 							v-if="questionnaireAnswers?.status !== 'Submitted' && isLastSection"
+							data-tour="questionnaire-submit"
 							@click="Submit()"
 							type="primary"
 							:icon="Document"

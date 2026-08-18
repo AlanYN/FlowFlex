@@ -41,7 +41,11 @@
 				<p class="stage-panel__condition-hint">
 					Add a condition to control workflow transitions based on this stage's data.
 				</p>
-				<el-button type="primary" @click="$emit('add-condition')">
+				<el-button
+					type="primary"
+					@click="$emit('add-condition')"
+					data-tour="workflow-add-condition-btn"
+				>
 					<el-icon class="mr-1"><Plus /></el-icon>
 					Add Condition
 				</el-button>

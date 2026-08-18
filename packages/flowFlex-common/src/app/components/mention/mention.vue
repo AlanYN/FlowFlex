@@ -3,6 +3,7 @@
 		<el-mention
 			ref="selectRef"
 			v-model="formattedValue"
+			v-bind="attrs"
 			:options="assignOptions"
 			:loading="optionsLoading"
 			placeholder="Please input"
@@ -79,12 +80,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue';
+import { computed, ref, nextTick, useAttrs } from 'vue';
 import { ElMention, ElIcon, ElTag } from 'element-plus';
 import type { InputInstance } from 'element-plus';
 import { Message } from '@element-plus/icons-vue';
 import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
 import { textraTwoHundredLength, inputTextraAutosize } from '@/settings/projectSetting';
+
+// 多根节点组件无法自动继承 attrs，关闭自动继承，手动绑定到 el-mention
+defineOptions({ inheritAttrs: false });
+
+const attrs = useAttrs();
 
 const props = defineProps<{
 	modelValue: string;

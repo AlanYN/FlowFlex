@@ -7,6 +7,7 @@
 				placeholder="e.g., Customer Email"
 				clearable
 				class="w-full"
+				data-tour="dynamic-field-name-input"
 			/>
 		</el-form-item>
 
@@ -29,6 +30,7 @@
 				filterable
 				:disabled="isEdit"
 				@change="handleDataTypeChange"
+				data-tour="dynamic-field-type-dropdown"
 			>
 				<el-option
 					v-for="type in fieldsTypeEnum"

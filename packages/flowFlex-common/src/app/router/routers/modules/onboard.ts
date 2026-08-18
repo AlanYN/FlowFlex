@@ -30,6 +30,7 @@ const cases: AppRouteModule = {
 				code: 'CASES',
 				hidden: false,
 				status: true,
+				keepAlive: true,
 			},
 		},
 		{

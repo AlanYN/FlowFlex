@@ -28,6 +28,9 @@ const Api = (id?: string | number) => {
 		onboardingSetPriority: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/set-priority`,
 		onboardingBatchUpdateStatus: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/batch-update-status`,
 		onboardingSave: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/save`,
+		// Tour seen tracking — account-level, stored in stages_progress_json
+		onboardingTourSeen: (stageId: string | number) =>
+			`${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/stages/${stageId}/tour-seen`,
 
 		// Lead同步相关API
 		leadSyncShouldCreate: `${globSetting.apiProName}/ow/lead-sync/${globSetting.apiVersion}/should-create`,
@@ -872,6 +875,35 @@ export function updateStageFields(
 	}
 ) {
 	return defHttp.post({ url: `${Api(id).updateStageFields}`, params });
+}
+
+/**
+ * 检查当前用户是否已看过指定 stage 的引导 tour（账号级别）
+ * @param onboardingId 入职 ID
+ * @param stageId 阶段 ID
+ * @returns { seen: boolean }
+ */
+export function getTourSeen(onboardingId: string | number, stageId: string | number) {
+	return defHttp.get<{ code?: string; success?: boolean; msg?: string; data?: boolean }>(
+		{
+			url: Api(onboardingId).onboardingTourSeen(stageId),
+		},
+		{ errorMessageMode: 'none' }
+	);
+}
+
+/**
+ * 标记当前用户已看过指定 stage 的引导 tour（幂等操作）
+ * @param onboardingId 入职 ID
+ * @param stageId 阶段 ID
+ */
+export function markTourSeen(onboardingId: string | number, stageId: string | number) {
+	return defHttp.post(
+		{
+			url: Api(onboardingId).onboardingTourSeen(stageId),
+		},
+		{ errorMessageMode: 'none' }
+	);
 }
 
 /**

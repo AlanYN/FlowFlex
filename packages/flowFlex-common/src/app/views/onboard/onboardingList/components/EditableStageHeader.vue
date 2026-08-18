@@ -1,686 +1,473 @@
 <template>
-	<div class="">
-		<div class="case-header rounded-xl p-2.5">
-			<!-- 显示状态 -->
-			<div v-if="!isEditing">
-				<!-- 头部标题和操作按钮 -->
-				<div
-					class="flex items-center justify-between cursor-pointer"
-					@click="toggleExpanded"
-				>
-					<h2 class="font-bold text-xl">{{ displayTitle }}</h2>
-					<div class="flex items-center gap-2">
-						<template v-if="!disabled">
-							<el-button
-								type="primary"
-								size="small"
-								plain
-								@click.stop="openReassignDialog"
-							>
-								Reassign
-							</el-button>
-							<el-button
-								type="primary"
-								size="small"
-								plain
-								:icon="Plus"
-								@click.stop="openAddCoassigneeDialog"
-							>
-								Add Co-assignee
-							</el-button>
-						</template>
-						<el-button
-							link
-							type="primary"
+	<div class="stage-header">
+		<!-- ===== 只读展示状态 ===== -->
+		<div v-show="!isEditing">
+			<!-- 标题行 -->
+			<div
+				class="flex items-center justify-between cursor-pointer select-none"
+				@click="toggleExpanded"
+			>
+				<h2 class="text-base font-semibold text-gray-800 truncate mr-2">
+					{{ displayTitle }}
+				</h2>
+				<div class="flex items-center gap-1 flex-shrink-0">
+					<el-tooltip v-if="!disabled" content="Edit stage info" placement="top">
+						<button
+							class="icon-btn"
+							:class="{ 'opacity-30 cursor-not-allowed': !currentStage?.startTime }"
+							:disabled="!currentStage?.startTime"
 							@click.stop="handleEdit"
-							:icon="Edit"
-							:disabled="disabled || !currentStage?.startTime"
-						/>
-						<el-icon class="collapse-icon" :class="{ rotated: isExpanded }">
-							<ArrowRight />
-						</el-icon>
-					</div>
-				</div>
-				<el-collapse-transition>
-					<div v-show="isExpanded">
-						<div class="my-2 space-y-2">
-							<!-- Assigned to 行 -->
-							<div class="assignees-row">
-								<div class="flex items-center gap-x-2 flex-shrink-0">
-									<Icon icon="lucide-user" class="text-gray-500" />
-									<span class="text-gray-600">Assigned to:</span>
-								</div>
-								<template v-if="displayAssignees.length > 0">
-									<div
-										ref="assigneesTagsRef"
-										class="assignees-tags mt-1"
-										:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
-									>
-										<template v-for="userId in displayAssignees" :key="userId">
-											<el-tag
-												v-if="getUserDisplayName(userId)"
-												:closable="!disabled"
-												size="small"
-												type="primary"
-												@close="handleRemoveAssignee(userId)"
-											>
-												{{ getUserDisplayName(userId) }}
-											</el-tag>
-										</template>
-									</div>
-									<el-button
-										v-if="showAssigneesExpandButton || isAssigneesExpanded"
-										link
-										type="primary"
-										size="small"
-										class="flex-shrink-0"
-										@click="toggleAssigneesExpand"
-									>
-										{{
-											isAssigneesExpanded
-												? 'Less'
-												: `Show all ${displayAssignees.length}`
-										}}
-									</el-button>
-								</template>
-								<span v-else class="text-gray-400">--</span>
-							</div>
-							<!-- Co-assignees 行 -->
-							<div class="co-assignees-row">
-								<div class="flex items-center gap-x-2 flex-shrink-0">
-									<Icon icon="lucide-users" class="text-gray-500" />
-									<span class="text-gray-600">Co-assignees:</span>
-								</div>
-								<template v-if="displayCoAssignees.length > 0">
-									<div
-										ref="coAssigneesTagsRef"
-										class="co-assignees-tags mt-1"
-										:class="{
-											'co-assignees-collapsed': !isCoAssigneesExpanded,
-										}"
-									>
-										<template
-											v-for="userId in displayCoAssignees"
-											:key="userId"
-										>
-											<el-tag
-												v-if="getUserDisplayName(userId)"
-												:closable="!disabled"
-												size="small"
-												@close="handleRemoveCoassignee(userId)"
-											>
-												{{ getUserDisplayName(userId) }}
-											</el-tag>
-										</template>
-									</div>
-									<el-button
-										v-if="showExpandButton || isCoAssigneesExpanded"
-										link
-										type="primary"
-										size="small"
-										class="flex-shrink-0"
-										@click="toggleCoAssigneesExpand"
-									>
-										{{
-											isCoAssigneesExpanded
-												? 'Less'
-												: `Show all ${displayCoAssignees.length}`
-										}}
-									</el-button>
-								</template>
-								<span v-else class="text-gray-400">--</span>
-							</div>
-						</div>
-						<div
-							v-if="currentStage?.stageDescription"
-							class="text-sm text-[var(--el-text-color-secondary)]"
 						>
-							{{ currentStage?.stageDescription }}
-						</div>
-						<el-divider class="my-4" />
-						<!-- 信息网格 -->
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-							<div>
-								<div class="mb-1">Start Date</div>
-								<div class="font-medium">{{ displayStartDate }}</div>
-							</div>
-							<div>
-								<div class="mb-1">Est. Duration</div>
-								<div class="font-medium">{{ displayEstimatedDuration }}</div>
-							</div>
-							<div>
-								<div class="mb-1">ETA</div>
-								<div class="font-medium">{{ displayETA }}</div>
-							</div>
-						</div>
-					</div>
-				</el-collapse-transition>
+							<Icon icon="lucide:pencil" class="w-3.5 h-3.5" />
+						</button>
+					</el-tooltip>
+					<button class="icon-btn" @click.stop="toggleExpanded">
+						<Icon
+							icon="lucide:chevron-right"
+							class="w-4 h-4 transition-transform duration-200"
+							:class="{ 'rotate-90': isExpanded }"
+						/>
+					</button>
+				</div>
 			</div>
 
-			<!-- 编辑状态 -->
-			<div v-else>
-				<!-- 编辑头部标题和操作按钮 -->
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-xl font-semibold">Edit Stage Information</h2>
-					<div class="flex items-center gap-2">
-						<el-button link type="info" @click="handleCancel" :disabled="saving">
-							Cancel
-						</el-button>
-						<el-button link type="primary" @click="handleSave" :loading="saving">
-							Save
-						</el-button>
+			<el-collapse-transition>
+				<div v-show="isExpanded" class="mt-2">
+					<!-- stage description -->
+					<p
+						v-if="currentStage?.stageDescription"
+						class="text-xs text-gray-500 mb-2 leading-relaxed"
+					>
+						{{ currentStage.stageDescription }}
+					</p>
+
+					<!-- 信息卡片网格 -->
+					<div class="meta-grid">
+						<!-- Assigned to（合并展示 assignee + co-assignee） -->
+						<div class="meta-item">
+							<span class="meta-label">
+								<Icon icon="lucide:user" class="w-3 h-3" />
+								Assigned to
+							</span>
+							<div class="meta-value flex items-center gap-1 flex-wrap">
+								<template v-if="allDisplayAssignees.length > 0">
+									<el-avatar
+										v-for="userId in allDisplayAssignees.slice(0, 1)"
+										:key="userId"
+										:size="20"
+										class="avatar-primary shrink-0 text-xs"
+										:title="getUserDisplayName(userId)"
+									>
+										{{ getInitials(userId) }}
+									</el-avatar>
+									<span class="text-xs font-medium text-gray-700 truncate">
+										{{ getUserDisplayName(allDisplayAssignees[0]) || '—' }}
+									</span>
+									<el-popover
+										v-if="allDisplayAssignees.length > 1"
+										placement="bottom-start"
+										:width="180"
+										trigger="click"
+										popper-class="assignees-popover"
+									>
+										<template #reference>
+											<span class="more-badge">
+												+{{ allDisplayAssignees.length - 1 }}
+											</span>
+										</template>
+										<div class="py-1">
+											<div
+												v-for="userId in allDisplayAssignees.slice(1)"
+												:key="userId"
+												class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded"
+											>
+												<el-avatar
+													:size="20"
+													class="avatar-primary shrink-0 text-xs"
+												>
+													{{ getInitials(userId) }}
+												</el-avatar>
+												<span class="text-xs text-gray-700">
+													{{ getUserDisplayName(userId) || userId }}
+												</span>
+											</div>
+										</div>
+									</el-popover>
+								</template>
+								<span v-else class="text-xs text-gray-400">—</span>
+							</div>
+						</div>
+
+						<!-- Start Date -->
+						<div class="meta-item">
+							<span class="meta-label">
+								<Icon icon="lucide:calendar" class="w-3 h-3" />
+								Start Date
+							</span>
+							<span class="meta-value">{{ displayStartDate }}</span>
+						</div>
+
+						<!-- Est. Duration -->
+						<div class="meta-item">
+							<span class="meta-label">
+								<Icon icon="lucide:clock" class="w-3 h-3" />
+								Est. Duration
+							</span>
+							<span class="meta-value">{{ displayEstimatedDuration }}</span>
+						</div>
+
+						<!-- ETA -->
+						<div class="meta-item">
+							<span class="meta-label">
+								<Icon icon="lucide:flag" class="w-3 h-3" />
+								ETA
+							</span>
+							<span class="meta-value">{{ displayETA }}</span>
+						</div>
 					</div>
 				</div>
+			</el-collapse-transition>
+		</div>
 
-				<!-- 编辑表单网格 -->
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-					<!-- Start Date - 只读显示 -->
-					<div>
-						<div class="mb-2">Start Date</div>
-						<el-input
-							v-model="displayStartDate"
-							class="w-full stage-edit-input"
-							disabled
-						/>
-					</div>
-					<!-- Est. Duration - 可编辑 -->
-					<div>
-						<div class="mb-2">Est. Duration (days)</div>
-						<InputNumber
-							v-model="editForm.customEstimatedDays as number"
-							placeholder="Enter days"
-							class="w-full stage-edit-input"
-							:disabled="saving"
-							:isFoloat="false"
-							@change="handleEstimatedDaysChange"
-						/>
-					</div>
-					<!-- End Time - 可编辑 -->
-					<div>
-						<div class="mb-2">End Time</div>
-						<el-date-picker
-							v-model="editForm.customEndTime as string"
-							type="date"
-							placeholder="Select end date"
-							class="w-full stage-edit-input"
-							:disabled="saving"
-							:format="projectDate"
-							:value-format="projectDate"
-							:disabledDate="disabledEndDate"
-							@change="handleEndTimeChange"
-						/>
-					</div>
+		<!-- ===== 编辑状态 ===== -->
+		<div v-show="isEditing">
+			<div class="flex items-center justify-between mb-3">
+				<span class="text-sm font-semibold text-gray-700">Edit Stage</span>
+				<div class="flex items-center gap-2">
+					<el-button size="small" @click="handleCancel" :disabled="props.saving">
+						Cancel
+					</el-button>
+					<el-button
+						size="small"
+						type="primary"
+						@click="handleSave"
+						:loading="props.saving"
+					>
+						Save
+					</el-button>
+				</div>
+			</div>
+
+			<!-- 编辑表单：两行布局 -->
+			<!-- 第一行：Assignee + Co-assignees -->
+			<div class="grid grid-cols-2 gap-3 mb-3">
+				<div class="form-field">
+					<label class="form-label">Assignee</label>
+					<el-select
+						v-model="editForm.assignee"
+						placeholder="Select assignees"
+						class="w-full"
+						multiple
+						filterable
+						tag-type="primary"
+						:loading="optionsLoading"
+						collapse-tags
+						collapse-tags-tooltip
+						:max-collapse-tags="2"
+						:disabled="props.saving"
+					>
+						<el-option
+							v-for="user in assigneeOptions"
+							:key="user.key"
+							:label="user.value"
+							:value="user.key"
+						>
+							<div class="flex items-center justify-between w-full">
+								<span class="text-sm">{{ user.value }}</span>
+								<span v-if="user.email" class="text-gray-400 text-xs ml-3">
+									{{ user.email }}
+								</span>
+							</div>
+						</el-option>
+					</el-select>
+				</div>
+
+				<div class="form-field">
+					<label class="form-label">Co-assignees</label>
+					<el-select
+						v-model="editForm.coAssignees"
+						placeholder="Select co-assignees"
+						class="w-full"
+						multiple
+						filterable
+						tag-type="primary"
+						:loading="optionsLoading"
+						collapse-tags
+						collapse-tags-tooltip
+						:max-collapse-tags="2"
+						:disabled="props.saving"
+					>
+						<el-option
+							v-for="user in coAssigneeOptions"
+							:key="user.key"
+							:label="user.value"
+							:value="user.key"
+						>
+							<div class="flex items-center justify-between w-full">
+								<span class="text-sm">{{ user.value }}</span>
+								<span v-if="user.email" class="text-gray-400 text-xs ml-3">
+									{{ user.email }}
+								</span>
+							</div>
+						</el-option>
+					</el-select>
+				</div>
+			</div>
+
+			<!-- 第二行：Start Date（只读）+ Est. Duration + End Time -->
+			<div class="grid grid-cols-3 gap-3">
+				<div class="form-field">
+					<label class="form-label">Start Date</label>
+					<el-input :model-value="displayStartDate" class="w-full" disabled />
+				</div>
+
+				<div class="form-field">
+					<label class="form-label">Est. Duration (days)</label>
+					<InputNumber
+						v-model="editForm.customEstimatedDays as number"
+						placeholder="e.g. 3"
+						class="w-full"
+						:disabled="props.saving"
+						:isFoloat="false"
+						@change="handleEstimatedDaysChange"
+					/>
+				</div>
+
+				<div class="form-field">
+					<label class="form-label">End Time</label>
+					<el-date-picker
+						v-model="editForm.customEndTime as string"
+						type="date"
+						placeholder="Select end date"
+						class="w-full"
+						:disabled="props.saving"
+						:format="projectDate"
+						:value-format="projectDate"
+						:disabledDate="disabledEndDate"
+						@change="handleEndTimeChange"
+					/>
 				</div>
 			</div>
 		</div>
-
-		<!-- Reassign 弹窗 -->
-		<el-dialog
-			v-model="reassignDialogVisible"
-			title="Reassign Stage"
-			:width="dialogWidth"
-			:close-on-click-modal="false"
-			append-to-body
-		>
-			<p class="text-gray-600 mb-4">
-				Select assignees for the "{{ currentStage?.stageName }}" stage.
-			</p>
-			<!-- 负责人选择 -->
-			<div>
-				<div class="text-sm text-gray-500 mb-1">Select Assignees</div>
-				<el-select
-					v-model="reassignForm.selectedAssignees"
-					placeholder="Select users..."
-					class="w-full"
-					multiple
-					filterable
-					:loading="optionsLoading"
-					tag-type="primary"
-					collapse-tags
-					collapse-tags-tooltip
-					:max-collapse-tags="3"
-					clearable
-				>
-					<el-option
-						v-for="user in canSelectAssignOptions"
-						:key="String(user.key)"
-						:label="user.value"
-						:value="String(user.key)"
-					>
-						<span>{{ user.value }}</span>
-						<span v-if="user.email" class="text-gray-400 text-xs ml-2">
-							{{ user.email }}
-						</span>
-					</el-option>
-				</el-select>
-			</div>
-			<template #footer>
-				<el-button @click="handleReassignCancel">Cancel</el-button>
-				<el-button
-					type="primary"
-					:disabled="reassignForm.selectedAssignees.length === 0"
-					@click="handleReassignConfirm"
-				>
-					Confirm
-				</el-button>
-			</template>
-		</el-dialog>
-
-		<!-- Add Co-assignee 弹窗 -->
-		<el-dialog
-			v-model="addCoassigneeDialogVisible"
-			title="Add Co-assignee"
-			:width="dialogWidth"
-			:close-on-click-modal="false"
-			append-to-body
-		>
-			<p class="text-gray-600 mb-4">
-				Select one or more users to add as co-assignees to this stage.
-			</p>
-			<!-- 多选用户列表 -->
-			<div>
-				<div class="text-sm text-gray-500 mb-1">Select Co-assignees</div>
-				<el-select
-					v-model="addCoassigneeForm.selectedUsers"
-					placeholder="Select users..."
-					class="w-full"
-					multiple
-					filterable
-					:loading="optionsLoading"
-					tag-type="primary"
-					collapse-tags
-					collapse-tags-tooltip
-					:max-collapse-tags="3"
-					clearable
-				>
-					<el-option
-						v-for="user in availableCoAssignees"
-						:key="String(user.key)"
-						:label="user.value"
-						:value="String(user.key)"
-					>
-						<span>{{ user.value }}</span>
-						<span v-if="user.email" class="text-gray-400 text-xs ml-2">
-							{{ user.email }}
-						</span>
-					</el-option>
-				</el-select>
-			</div>
-			<template #footer>
-				<el-button @click="handleAddCoassigneeCancel">Cancel</el-button>
-				<el-button type="primary" @click="handleAddCoassigneeConfirm">
-					Add Co-assignee
-				</el-button>
-			</template>
-		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, toRaw } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Edit, Plus, ArrowRight } from '@element-plus/icons-vue';
+import { ref, computed, watch, onMounted, toRaw } from 'vue';
+import { ElMessage } from 'element-plus';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import {
-	defaultStr,
-	dialogWidth,
-	projectTenMinutesSsecondsDate,
-	projectDate,
-} from '@/settings/projectSetting';
+import { defaultStr, projectTenMinutesSsecondsDate, projectDate } from '@/settings/projectSetting';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { getAllUser } from '@/apis/global';
 import type { Stage } from '#/onboard';
-import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
 import { UserType } from '@/enums/permissionEnum';
 
-// Props 定义
+// ===== Props =====
 interface Props {
 	currentStage?: Stage | null;
 	disabled?: boolean;
 	onboardingId?: string;
+	saving?: boolean;
 }
-
 const props = withDefaults(defineProps<Props>(), {
 	currentStage: null,
 	disabled: false,
 	onboardingId: '',
+	saving: false,
 });
 
-// 用户列表数据
+// ===== Emits =====
+const emit = defineEmits(['update:stage-data', 'save:done']);
+
+// ===== 用户列表 =====
 interface UserOption {
 	key: string;
 	value: string;
 	email?: string;
 }
 
-const { allAssignOptions: canSelectAllAssignOption } = useInternalNoteUsers(props.onboardingId);
 const allAssignOptions = ref<UserOption[]>([]);
 const optionsLoading = ref(false);
+let usersFetched = false;
 
-// 获取所有用户列表
 const fetchAllUsers = async () => {
+	// 已经请求过就不重复请求
+	if (usersFetched || optionsLoading.value) return;
 	optionsLoading.value = true;
 	try {
 		const res = await getAllUser();
 		if (res?.data && Array.isArray(res.data)) {
 			allAssignOptions.value = res.data
-				.filter((item) => item?.userType != UserType.SystemAdmin)
+				.filter((item: any) => item?.userType != UserType.SystemAdmin)
 				.map((user: any) => ({
 					key: String(user?.id),
-					value: user?.name,
-					email: user?.email,
+					value: user?.name ?? '',
+					email: user?.email ?? '',
 				}));
+			usersFetched = true;
 		}
-	} catch (error) {
-		console.error('Failed to fetch users:', error);
+	} catch {
 		allAssignOptions.value = [];
 	} finally {
 		optionsLoading.value = false;
 	}
 };
 
-// 组件挂载后检测溢出
-onMounted(() => {
-	fetchAllUsers();
-	nextTick(() => {
-		checkOverflow();
+const deduplicateByKey = (items: UserOption[]): UserOption[] => {
+	const map = new Map<string, UserOption>();
+	items.forEach((item) => {
+		const raw = toRaw(item);
+		if (!map.has(raw.key)) map.set(raw.key, raw);
 	});
+	return Array.from(map.values());
+};
+
+// 编辑时 assignee 可选（排除已选 co-assignees）
+const assigneeOptions = computed(() => {
+	const excluded = new Set(editForm.value.coAssignees);
+	const base = allAssignOptions.value.filter((u) => !excluded.has(u.key));
+	const selected = allAssignOptions.value.filter((u) => editForm.value.assignee.includes(u.key));
+	return deduplicateByKey([...selected, ...base]);
 });
 
-// Emits 定义
-const emit = defineEmits(['update:stage-data']);
+// 编辑时 co-assignee 可选（排除已选 assignees）
+const coAssigneeOptions = computed(() => {
+	const excluded = new Set(editForm.value.assignee);
+	const base = allAssignOptions.value.filter((u) => !excluded.has(u.key));
+	const selected = allAssignOptions.value.filter((u) =>
+		editForm.value.coAssignees.includes(u.key)
+	);
+	return deduplicateByKey([...selected, ...base]);
+});
 
-// 响应式数据
+const getUserDisplayName = (userId: string) =>
+	allAssignOptions.value.find((u) => u.key === userId)?.value ?? '';
+
+const getInitials = (userId: string) => {
+	const name = getUserDisplayName(userId);
+	if (!name) return '?';
+	const parts = name.trim().split(/\s+/);
+	return parts.length >= 2
+		? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+		: name.slice(0, 2).toUpperCase();
+};
+
+// ===== UI 状态 =====
 const isEditing = ref(false);
-const saving = ref(false);
 const isExpanded = ref(true);
+
 const toggleExpanded = () => {
 	isExpanded.value = !isExpanded.value;
 };
 
-// Co-assignees 展开/收起控制
-const isCoAssigneesExpanded = ref(false);
-const coAssigneesTagsRef = ref<HTMLElement | null>(null);
-const showExpandButton = ref(false);
-
-// Assignees 展开/收起控制
-const isAssigneesExpanded = ref(false);
-const assigneesTagsRef = ref<HTMLElement | null>(null);
-const showAssigneesExpandButton = ref(false);
-
-// 检测是否需要显示展开按钮（内容是否溢出）
-const checkOverflow = () => {
-	if (coAssigneesTagsRef.value) {
-		const el = coAssigneesTagsRef.value;
-		showExpandButton.value = el.scrollHeight > el.clientHeight;
-	}
-	if (assigneesTagsRef.value) {
-		const el = assigneesTagsRef.value;
-		showAssigneesExpandButton.value = el.scrollHeight > el.clientHeight;
-	}
-};
-
-// 弹窗控制
-const reassignDialogVisible = ref(false);
-const addCoassigneeDialogVisible = ref(false);
-
-// 弹窗表单数据
-const reassignForm = ref({
-	selectedAssignees: [] as string[],
-});
-
-const addCoassigneeForm = ref({
-	selectedUsers: [] as string[],
-});
-
-// 编辑表单数据
+// ===== 编辑表单 =====
 const editForm = ref({
-	customEstimatedDays: null as number | null,
-	customEndTime: null as string | null,
 	assignee: [] as string[],
 	coAssignees: [] as string[],
+	customEstimatedDays: null as number | null,
+	customEndTime: null as string | null,
 });
 
-// 计算属性 - 显示标题
-const displayTitle = computed(() => {
-	return props.currentStage?.stageName || defaultStr;
-});
-
-// 计算属性 - 显示负责人列表
-const displayAssignees = computed(() => {
-	return props.currentStage?.assignee || [];
-});
-
-// 计算属性 - 显示协作负责人列表
-const displayCoAssignees = computed(() => {
-	return props.currentStage?.coAssignees || [];
-});
-
-// 根据 key 去重的工具函数
-const deduplicateByKey = (
-	items: Array<{ key: string | number | boolean; value: string; email?: string }>
-): UserOption[] => {
-	const uniqueMap = new Map<string, UserOption>();
-	items.forEach((item) => {
-		const rawItem = toRaw(item);
-		const key = String(rawItem.key);
-		if (!uniqueMap.has(key)) {
-			uniqueMap.set(key, {
-				key,
-				value: rawItem.value,
-				email: rawItem.email,
-			});
-		}
-	});
-	return Array.from(uniqueMap.values());
+const initEditForm = () => {
+	if (!props.currentStage) return;
+	editForm.value = {
+		assignee: [...(props.currentStage.assignee ?? [])],
+		coAssignees: [...(props.currentStage.coAssignees ?? [])],
+		customEstimatedDays: props.currentStage.estimatedDays ?? null,
+		customEndTime: timeZoneConvert(props.currentStage.endTime ?? '') || null,
+	};
 };
 
-// 计算属性 - 可选择的协作负责人列表 (排除当前负责人，但保留已选的协作负责人用于回显)
-// 使用 allAssignOptions（来自 getAllUser）而非 canSelectAllAssignOption（来自 authorized-users），
-// 避免 authorized-users 因 ViewPermissionMode 过滤导致团队成员为空时下拉显示 No data (OW-683)
-const availableCoAssignees = computed(() => {
-	const currentAssignee = props.currentStage?.assignee || [];
-	const filteredAll = allAssignOptions.value.filter(
-		(user) => !currentAssignee.includes(String(user.key))
-	);
-	// 保留已选的协作负责人用于回显（即使不在过滤列表中）
-	const selectedButFiltered =
-		addCoassigneeForm.value.selectedUsers.length > 0
-			? allAssignOptions.value.filter((item) =>
-					addCoassigneeForm.value.selectedUsers.includes(item.key)
-			  )
-			: [];
-	const combined = [...selectedButFiltered, ...filteredAll];
-	return deduplicateByKey(combined);
+// ===== 展示计算属性 =====
+const displayTitle = computed(() => props.currentStage?.stageName ?? defaultStr);
+
+// 只读状态：合并 assignee + coAssignees 一行展示
+const allDisplayAssignees = computed(() => {
+	const assignees = props.currentStage?.assignee ?? [];
+	const coAssignees = props.currentStage?.coAssignees ?? [];
+	return [...new Set([...assignees, ...coAssignees])];
 });
 
-const canSelectAssignOptions = computed(() => {
-	const currentAssigneeOptions =
-		reassignForm.value.selectedAssignees.length > 0
-			? allAssignOptions.value.filter((item) =>
-					reassignForm.value.selectedAssignees.includes(item.key)
-			  )
-			: [];
-	// 使用 allAssignOptions（来自 getAllUser）替代 canSelectAllAssignOption（来自 authorized-users），
-	// 修复 authorized-users 在 VisibleToTeams 模式下因 IDM 团队成员为空返回 [] 的问题 (OW-683)
-	const combined = [...currentAssigneeOptions, ...allAssignOptions.value];
-	return deduplicateByKey(combined);
-});
-
-// 获取用户显示名称，字典里查不到该 ID 则返回空字符串（不显示）
-const getUserDisplayName = (userId: string): string => {
-	const user = allAssignOptions.value.find((u) => String(u.key) === userId);
-	return user?.value || '';
-};
-
-// 计算属性 - 显示开始日期
 const displayStartDate = computed(() => {
 	if (!props.currentStage?.startTime) return defaultStr;
 	return timeZoneConvert(props.currentStage.startTime, false, projectDate);
 });
 
-// 计算属性 - 显示预估时长
 const displayEstimatedDuration = computed(() => {
-	if (!props.currentStage?.estimatedDays) return defaultStr;
-	const days = props.currentStage.estimatedDays;
+	const days = props.currentStage?.estimatedDays;
+	if (!days) return defaultStr;
 	if (days === 1) return '1 day';
 	if (days < 30) return `${days} days`;
 	if (days < 365) {
-		const months = Math.round(days / 30);
-		return months === 1 ? '1 month' : `${months} months`;
+		const m = Math.round(days / 30);
+		return m === 1 ? '1 month' : `${m} months`;
 	}
-	const years = Math.round(days / 365);
-	return years === 1 ? '1 year' : `${years} years`;
+	const y = Math.round(days / 365);
+	return y === 1 ? '1 year' : `${y} years`;
 });
 
-// 计算属性 - 显示ETA
 const displayETA = computed(() => {
-	if (!props.currentStage?.startTime || !props.currentStage?.estimatedDays) {
-		return defaultStr;
-	}
-
+	if (!props.currentStage?.startTime || !props.currentStage?.estimatedDays) return defaultStr;
 	try {
 		return (
 			timeZoneConvert(
-				props.currentStage?.customEndTime || props.currentStage?.endTime || '',
+				props.currentStage.customEndTime || props.currentStage.endTime || '',
 				false,
 				projectDate
 			) || defaultStr
 		);
-	} catch (error) {
-		console.error('Error calculating ETA:', error);
+	} catch {
 		return defaultStr;
 	}
 });
 
-// 初始化编辑表单
-const initEditForm = () => {
-	if (!props.currentStage) return;
-	editForm.value = {
-		assignee: props.currentStage.assignee || [],
-		coAssignees: props.currentStage.coAssignees || [],
-		customEstimatedDays: props.currentStage?.estimatedDays || null,
-		customEndTime: timeZoneConvert(props.currentStage?.endTime || '') || null, // 可以直接编辑结束时间
-	};
-};
-
-// 监听当前阶段变化，更新编辑表单
-watch(
-	() => props.currentStage,
-	() => {
-		isEditing.value = false;
-		isCoAssigneesExpanded.value = false;
-		isAssigneesExpanded.value = false;
-		showExpandButton.value = false;
-		showAssigneesExpandButton.value = false;
-		initEditForm();
-		// 等待 DOM 更新后检测溢出
-		nextTick(() => {
-			checkOverflow();
-		});
-	},
-	{ immediate: true }
-);
-
-// 监听 assignees 和 co-assignees 变化，重新检测溢出
-watch(
-	() => [props.currentStage?.assignee, props.currentStage?.coAssignees],
-	() => {
-		nextTick(() => {
-			checkOverflow();
-		});
-	}
-);
-
-// 切换展开/收起状态
-const toggleCoAssigneesExpand = () => {
-	isCoAssigneesExpanded.value = !isCoAssigneesExpanded.value;
-};
-
-// 切换 Assignees 展开/收起状态
-const toggleAssigneesExpand = () => {
-	isAssigneesExpanded.value = !isAssigneesExpanded.value;
-};
-
-// 预估天数变化时，自动计算结束时间
-const handleEstimatedDaysChange = (estimatedDays: number | null) => {
-	if (props.currentStage?.startTime && estimatedDays && estimatedDays > 0) {
+// ===== 日期联动 =====
+const handleEstimatedDaysChange = (days: number | null) => {
+	if (props.currentStage?.startTime && days && days > 0) {
 		try {
-			// 直接使用原始的ISO时间字符串创建Date对象
-			const startDate = new Date(props.currentStage.startTime);
-
-			// 使用毫秒计算支持小数天数，保持原始时分秒
-			const millisecondsToAdd = estimatedDays * 24 * 60 * 60 * 1000;
-			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
-
-			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
-			const endTimeFormatted = timeZoneConvert(endDate.toString(), false, projectDate);
-			editForm.value.customEndTime = endTimeFormatted;
-		} catch (error) {
-			console.error('Error calculating end time from estimated days:', error);
+			const end = new Date(
+				new Date(props.currentStage.startTime).getTime() + days * 86400000
+			);
+			editForm.value.customEndTime = timeZoneConvert(end.toString(), false, projectDate);
+		} catch {
 			editForm.value.customEndTime = null;
 		}
-	} else if (!estimatedDays) {
+	} else if (!days) {
 		editForm.value.customEndTime = null;
 	}
 };
 
-// 禁用结束日期选择器中开始日期之前的日期
 const disabledEndDate = (time: Date) => {
-	if (!props.currentStage?.startTime) {
-		return false;
-	}
-
+	if (!props.currentStage?.startTime) return false;
 	try {
-		// 将开始时间转换为本地时区的格式化字符串
-		const startTimeFormatted = timeZoneConvert(
+		const fmt = timeZoneConvert(
 			props.currentStage.startTime,
 			false,
 			projectTenMinutesSsecondsDate
 		);
-
-		const startDate = new Date(startTimeFormatted);
-		const startDateOnly = new Date(
-			startDate.getFullYear(),
-			startDate.getMonth(),
-			startDate.getDate()
-		);
-		const timeOnly = new Date(time.getFullYear(), time.getMonth(), time.getDate());
-
-		// 禁用早于开始日期的所有日期
-		return timeOnly < startDateOnly;
-	} catch (error) {
-		console.error('Error in disabledEndDate:', error);
+		const s = new Date(fmt);
+		const startDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+		return new Date(time.getFullYear(), time.getMonth(), time.getDate()) < startDay;
+	} catch {
 		return false;
 	}
 };
 
-// 结束时间变化时，自动计算预估天数
 const handleEndTimeChange = (endTime: string | Date | null) => {
 	if (props.currentStage?.startTime && endTime) {
 		try {
-			// 直接使用原始的ISO时间字符串创建Date对象
-			const startDate = new Date(timeZoneConvert(displayStartDate.value, true));
-			const endDate = new Date(timeZoneConvert(endTime as string, true));
-			// 验证结束时间不能小于开始时间
-			if (endDate < startDate) {
+			const startMs = new Date(timeZoneConvert(displayStartDate.value, true)).getTime();
+			const endMs = new Date(timeZoneConvert(endTime as string, true)).getTime();
+			if (endMs < startMs) {
 				ElMessage.error('End time cannot be earlier than start time');
-				// 重置为之前的有效值或null
 				editForm.value.customEndTime = null;
 				editForm.value.customEstimatedDays = null;
 				return;
 			}
-
-			// 计算天数差，支持小数
-			const timeDiff = endDate.getTime() - startDate.getTime();
-			const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
-
-			// 更新预估天数，保留两位小数
-			editForm.value.customEstimatedDays =
-				daysDiff > 0 ? Math.round(daysDiff * 100) / 100 : 0.01;
-		} catch (error) {
-			console.error('Error calculating estimated days from end time:', error);
+			const diff = (endMs - startMs) / 86400000;
+			editForm.value.customEstimatedDays = diff > 0 ? Math.round(diff * 100) / 100 : 0.01;
+		} catch {
 			editForm.value.customEstimatedDays = null;
 		}
 	} else if (!endTime) {
@@ -688,16 +475,17 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 	}
 };
 
-// 事件处理函数
+// ===== 编辑操作 =====
 const handleEdit = () => {
-	if (props.disabled) return;
+	if (props.disabled || !props.currentStage?.startTime) return;
 	initEditForm();
 	isEditing.value = true;
 };
 
 const handleCancel = () => {
+	if (props.saving) return;
 	isEditing.value = false;
-	initEditForm(); // 重置表单数据
+	initEditForm();
 };
 
 const handleSave = async () => {
@@ -705,251 +493,171 @@ const handleSave = async () => {
 		ElMessage.error('Invalid stage information');
 		return;
 	}
-
-	// 表单验证
 	if (!editForm.value.customEstimatedDays || editForm.value.customEstimatedDays < 0.01) {
 		ElMessage.error('Estimated duration must be at least 0.01 day');
 		return;
 	}
-
 	if (!editForm.value.customEndTime) {
 		ElMessage.error('End time is required');
 		return;
 	}
-
-	// 验证结束时间不能小于开始时间
 	if (props.currentStage.startTime) {
-		try {
-			// 直接使用原始的ISO时间字符串创建Date对象
-			const startDate = new Date(props.currentStage.startTime);
-			const endDate = new Date(editForm.value.customEndTime);
-
-			if (endDate < startDate) {
-				ElMessage.error('End time cannot be earlier than start time');
-				return;
-			}
-		} catch (error) {
-			console.error('Error validating dates:', error);
-			ElMessage.error('Invalid date format');
+		const start = new Date(props.currentStage.startTime);
+		const end = new Date(editForm.value.customEndTime);
+		if (end < start) {
+			ElMessage.error('End time cannot be earlier than start time');
 			return;
 		}
 	}
 
-	saving.value = true;
+	// emit 给父组件处理，不在这里关闭编辑态
+	// 父组件完成后需调用 closeSaving() 或 emit('save:done')
+	emit('update:stage-data', {
+		stageId: props.currentStage.stageId,
+		customEstimatedDays: editForm.value.customEstimatedDays,
+		customEndTime: timeZoneConvert(editForm.value.customEndTime, true),
+		assignee: editForm.value.assignee,
+		coAssignees: editForm.value.coAssignees,
+	});
+};
 
-	try {
-		// 准备更新数据，使用 timeZoneConvert 处理时间格式
-		// 将格式化的时间字符串转换为Date对象，再转为ISO字符串，最后转换为UTC格式
-		const customEndTimeStr = timeZoneConvert(editForm.value.customEndTime, true);
-		const updateData = {
-			stageId: props.currentStage.stageId,
-			customEstimatedDays: editForm.value.customEstimatedDays,
-			customEndTime: customEndTimeStr,
-			assignee: editForm.value.assignee,
-			coAssignees: editForm.value.coAssignees,
-		};
+// 父组件 API 完成后调用此方法关闭编辑态
+const closeSaving = () => {
+	isEditing.value = false;
+};
 
-		// 发送更新事件给父组件
-		emit('update:stage-data', updateData);
+defineExpose({ closeSaving });
 
-		// 退出编辑模式
+// ===== 生命周期 =====
+onMounted(fetchAllUsers);
+
+watch(
+	() => props.currentStage,
+	() => {
 		isEditing.value = false;
-	} finally {
-		saving.value = false;
-	}
-};
-
-// ========== Reassign 弹窗相关方法 ==========
-const openReassignDialog = () => {
-	// 回显已添加的负责人
-	reassignForm.value.selectedAssignees = [...(props.currentStage?.assignee || [])];
-	reassignDialogVisible.value = true;
-};
-
-const handleReassignConfirm = () => {
-	if (!props.currentStage?.stageId) return;
-
-	const updateData = {
-		stageId: props.currentStage.stageId,
-		assignee: reassignForm.value.selectedAssignees,
-	};
-
-	emit('update:stage-data', updateData);
-	reassignDialogVisible.value = false;
-};
-
-const handleReassignCancel = () => {
-	reassignDialogVisible.value = false;
-	reassignForm.value.selectedAssignees = [];
-};
-
-// ========== 删除负责人 ==========
-const handleRemoveAssignee = async (userId: string) => {
-	if (!props.currentStage?.stageId) return;
-
-	const userName = getUserDisplayName(userId);
-
-	ElMessageBox.confirm(
-		`Are you sure you want to remove "${userName}" from assignees?`,
-		'⚠️ Confirm Remove Assignee',
-		{
-			confirmButtonText: 'Remove',
-			cancelButtonText: 'Cancel',
-			confirmButtonClass: 'warning-confirm-btn',
-			cancelButtonClass: 'cancel-confirm-btn',
-			distinguishCancelAndClose: true,
-			customClass: 'remove-confirmation-dialog',
-			showCancelButton: true,
-			showConfirmButton: true,
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Removing...';
-
-					const currentAssignees = props.currentStage?.assignee || [];
-					const newAssignees = currentAssignees.filter((id) => id !== userId);
-
-					const updateData = {
-						stageId: props.currentStage?.stageId,
-						assignee: newAssignees,
-					};
-
-					emit('update:stage-data', updateData);
-					done();
-				} else {
-					done();
-				}
-			},
-		}
-	);
-};
-
-// ========== Add Co-assignee 弹窗相关方法 ==========
-const openAddCoassigneeDialog = () => {
-	// 回显已添加的协作负责人
-	addCoassigneeForm.value.selectedUsers = [...(props.currentStage?.coAssignees || [])];
-	addCoassigneeDialogVisible.value = true;
-};
-
-const handleAddCoassigneeConfirm = () => {
-	if (!props.currentStage?.stageId) return;
-
-	const updateData = {
-		stageId: props.currentStage.stageId,
-		coAssignees: addCoassigneeForm.value.selectedUsers,
-	};
-
-	emit('update:stage-data', updateData);
-	addCoassigneeDialogVisible.value = false;
-};
-
-const handleAddCoassigneeCancel = () => {
-	addCoassigneeDialogVisible.value = false;
-	addCoassigneeForm.value.selectedUsers = [];
-};
-
-// ========== 删除协作负责人 ==========
-const handleRemoveCoassignee = async (userId: string) => {
-	if (!props.currentStage?.stageId) return;
-
-	const userName = getUserDisplayName(userId);
-
-	ElMessageBox.confirm(
-		`Are you sure you want to remove "${userName}" from co-assignees?`,
-		'⚠️ Confirm Remove Co-assignee',
-		{
-			confirmButtonText: 'Remove',
-			cancelButtonText: 'Cancel',
-			confirmButtonClass: 'warning-confirm-btn',
-			cancelButtonClass: 'cancel-confirm-btn',
-			distinguishCancelAndClose: true,
-			customClass: 'remove-confirmation-dialog',
-			showCancelButton: true,
-			showConfirmButton: true,
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Removing...';
-
-					const currentCoAssignees = props.currentStage?.coAssignees || [];
-					const newCoAssignees = currentCoAssignees.filter((id) => id !== userId);
-
-					const updateData = {
-						stageId: props.currentStage?.stageId,
-						coAssignees: newCoAssignees,
-					};
-
-					emit('update:stage-data', updateData);
-					done();
-				} else {
-					done();
-				}
-			},
-		}
-	);
-};
+		initEditForm();
+	},
+	{ immediate: true }
+);
 </script>
 
 <style scoped lang="scss">
-/* Assignees 行样式 */
-.assignees-row {
-	display: flex;
-	align-items: flex-start;
-	gap: 0.5rem;
-	flex-wrap: wrap;
+.stage-header {
+	padding: 0.625rem 0.75rem;
+	background: var(--black-400);
+	border-radius: 0.75rem;
 }
 
-.assignees-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem;
-	flex: 1;
-	min-width: 0;
-	max-height: 500px;
-	overflow: hidden;
-	transition: max-height 0.3s ease-in-out;
-}
+/* 图标按钮 */
+.icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--el-text-color-secondary);
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		color 0.15s;
 
-.assignees-collapsed {
-	max-height: 24px;
-}
-
-/* Co-assignees 行样式 */
-.co-assignees-row {
-	display: flex;
-	align-items: flex-start;
-	gap: 0.5rem;
-	flex-wrap: wrap;
-}
-
-.co-assignees-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem;
-	flex: 1;
-	min-width: 0;
-	max-height: 500px;
-	overflow: hidden;
-	transition: max-height 0.3s ease-in-out;
-}
-
-.co-assignees-collapsed {
-	max-height: 24px;
-}
-
-.collapse-icon {
-	transition: transform 0.3s ease;
-}
-
-.rotated {
-	transform: rotate(90deg);
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-	:deep(.grid) {
-		grid-template-columns: 1fr;
-		gap: 1rem;
+	&:hover:not(:disabled) {
+		background: var(--el-fill-color-light);
+		color: var(--el-color-primary);
 	}
+}
+
+/* 只读信息网格：responsive，最多 4 列 */
+.meta-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.5rem 1rem;
+	width: 100%;
+
+	@media (max-width: 900px) {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.meta-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	min-width: 0;
+}
+
+/* 头像 primary 色 */
+.avatar-primary {
+	background-color: var(--el-color-primary) !important;
+	color: #fff !important;
+	font-size: 0.6rem !important;
+	font-weight: 600;
+}
+
+.meta-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: 0.7rem;
+	font-weight: 500;
+	color: var(--el-text-color-placeholder);
+	white-space: nowrap;
+	letter-spacing: 0.02em;
+}
+
+.meta-value {
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--el-text-color-primary);
+	min-width: 0;
+}
+
+/* +n badge */
+.more-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 10px;
+	background: var(--el-fill-color);
+	color: var(--el-text-color-secondary);
+	font-size: 0.7rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s;
+	flex-shrink: 0;
+
+	&:hover {
+		background: var(--el-fill-color-dark);
+	}
+}
+
+/* 编辑表单字段 */
+.form-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+.form-label {
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--el-text-color-secondary);
+	white-space: nowrap;
+}
+
+/* date-picker 撑满父容器 */
+:deep(.el-date-editor.el-input),
+:deep(.el-date-editor.el-input__wrapper) {
+	width: 100%;
+}
+
+/* popover 内部滚动区域 */
+:global(.assignees-popover .el-popover__title) {
+	display: none;
 }
 </style>

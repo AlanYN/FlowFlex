@@ -2,6 +2,7 @@
 	<div class="questionnaire-container">
 		<!-- 页面头部 -->
 		<PageHeader
+			data-tour="questionnaire-page-header"
 			title="Questionnaires"
 			description="Create and manage questionnaires for different workflow stages"
 		>
@@ -21,6 +22,7 @@
 					class="page-header-btn page-header-btn-primary"
 					:icon="Plus"
 					v-permission="ProjectPermissionEnum.question.create"
+					data-tour="questionnaire-new-btn"
 				>
 					New Questionnaire
 				</el-button>
@@ -148,11 +150,21 @@
 			:workflows="workflows"
 			:all-stages="allStages"
 		/>
+
+		<!-- Questionnaire 列表页 tour -->
+		<TourGuide
+			:persist-key="'questionnaire-list-tour'"
+			:steps="questionnaireListTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('questionnaire-list-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('questionnaire-list-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, markRaw } from 'vue';
+import { ref, onMounted, onActivated, watch, markRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
@@ -161,6 +173,9 @@ import QuestionnaireCardView from './components/QuestionnaireCardView.vue';
 import QuestionnaireListView from './components/QuestionnaireListView.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { questionnaireListTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 
 // 引入问卷相关API接口
@@ -177,6 +192,8 @@ import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTa
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+
+defineOptions({ name: 'Questionnaire' });
 
 const router = useRouter();
 
@@ -241,6 +258,10 @@ onMounted(async () => {
 	} finally {
 		loading.value = false;
 	}
+});
+
+onActivated(async () => {
+	await fetchQuestionnaires();
 });
 
 // 获取工作流列表

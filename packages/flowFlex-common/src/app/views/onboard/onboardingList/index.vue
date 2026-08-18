@@ -663,7 +663,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onActivated, markRaw, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
@@ -728,6 +728,8 @@ import { functionPermission } from '@/hooks';
 import { WFEMoudels } from '@/enums/appEnum';
 import GanttPreview from './components/GanttPreview.vue';
 import GanttModal from './components/GanttModal.vue';
+
+defineOptions({ name: 'OnboardList' });
 
 type RuleType =
 	| 'string'
@@ -2180,6 +2182,15 @@ watch(
 	{ immediate: true }
 );
 
+watch(
+	() => route.query?.newOnboarding,
+	(newVal) => {
+		if (newVal && functionPermission(ProjectPermissionEnum.case.create)) {
+			handleNewOnboarding();
+		}
+	}
+);
+
 // 初始化
 onMounted(async () => {
 	// 加载初始数据
@@ -2194,6 +2205,10 @@ onMounted(async () => {
 	}
 	// 默认选中所有阶段
 	selectedStages.value = [...getAllAvailableStages.value];
+});
+
+onActivated(async () => {
+	await loadOnboardingList();
 });
 </script>
 

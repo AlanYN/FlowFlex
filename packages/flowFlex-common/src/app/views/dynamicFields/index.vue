@@ -1,6 +1,7 @@
 <template>
 	<div>
 		<PageHeader
+			data-tour="dynamic-field-page-header"
 			title="Dynamic Fields"
 			description="Manage custom fields for your workflows and cases"
 		>
@@ -23,6 +24,7 @@
 					:loading="loading"
 					:icon="Plus"
 					v-if="functionPermission(ProjectPermissionEnum.dynamicField.create)"
+					data-tour="dynamic-field-new-btn"
 				>
 					Add New Field
 				</el-button>
@@ -165,12 +167,39 @@
 			<template #footer>
 				<div class="dialog-footer">
 					<el-button @click="handleCancel" :disabled="saving">Cancel</el-button>
-					<el-button type="primary" @click="handleSave" :loading="saving">
+					<el-button
+						type="primary"
+						@click="handleSave"
+						:loading="saving"
+						data-tour="dynamic-field-save-btn"
+					>
 						{{ handleFieldId ? 'Save Changes' : 'Add Field' }}
 					</el-button>
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- Dynamic Field 列表页 tour -->
+		<TourGuide
+			:persist-key="'dynamic-field-list-tour'"
+			:steps="dynamicFieldListTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:check-seen-remote="() => checkTourSeen('dynamic-field-list-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('dynamic-field-list-tour').then(() => undefined)"
+		/>
+
+		<!-- Dynamic Field 创建/编辑弹窗 tour -->
+		<TourGuide
+			v-if="dialogVisible"
+			:persist-key="'dynamic-field-form-tour'"
+			:steps="dynamicFieldFormTourSteps"
+			:auto-start="true"
+			:show-fab="true"
+			:fab-container="getDynamicFieldDialogOverlay"
+			:check-seen-remote="() => checkTourSeen('dynamic-field-form-tour').then((r) => r.data)"
+			:mark-seen-remote="() => markTourSeen('dynamic-field-form-tour').then(() => undefined)"
+		/>
 	</div>
 </template>
 
@@ -195,8 +224,10 @@ import { timeZoneConvert } from '@/hooks/time';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';
-
 import { DynamicList } from '#/dynamic';
+import TourGuide from '@/components/global/TourGuide/index.vue';
+import { dynamicFieldListTourSteps, dynamicFieldFormTourSteps } from '@/hooks/useAdminTourSteps';
+import { checkTourSeen, markTourSeen } from '@/apis/ow';
 
 const { t } = useI18n();
 
@@ -213,6 +244,10 @@ const dialogVisible = ref(false);
 const formRef = ref<InstanceType<typeof DynamicFieldForm>>();
 const saving = ref(false);
 const handleFieldId = ref('');
+
+// Dynamic Field 弹窗 tour 的 FAB 挂载点
+const getDynamicFieldDialogOverlay = () =>
+	document.querySelector<HTMLElement>('.el-dialog')?.closest('.el-overlay-dialog') ?? null;
 
 const handleExport = async () => {
 	try {

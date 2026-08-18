@@ -10,6 +10,7 @@
 							placeholder="Select question type"
 							style="width: 100%"
 							@change="handleQuestionTypeChange"
+							data-tour="questionnaire-question-type-dropdown"
 						>
 							<template #prefix>
 								<div v-if="newQuestion.type" class="type-option">
@@ -43,12 +44,19 @@
 				</el-col>
 				<el-col :span="12">
 					<el-form-item label="Required">
-						<el-switch v-model="newQuestion.required" />
+						<el-switch
+							v-model="newQuestion.required"
+							data-tour="questionnaire-required-toggle"
+						/>
 					</el-form-item>
 				</el-col>
 			</el-row>
 			<el-form-item label="Question Text" required>
-				<el-input v-model="newQuestion.question" placeholder="Enter question text" />
+				<el-input
+					v-model="newQuestion.question"
+					placeholder="Enter question text"
+					data-tour="questionnaire-question-text"
+				/>
 			</el-form-item>
 			<el-form-item label="Question Description">
 				<el-input
@@ -127,6 +135,7 @@
 					:disabled="!newQuestion.question || !newQuestion.type"
 					:icon="Plus"
 					class="w-full"
+					data-tour="questionnaire-add-question-btn"
 				>
 					{{ isEditing ? 'Update Question' : 'Add Question' }}
 				</el-button>

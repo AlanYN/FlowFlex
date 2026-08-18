@@ -464,6 +464,34 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Check whether the current user has already seen the guided tour for a specific stage.
+        /// Returns { "seen": true/false }.
+        /// Requires CASE:READ permission.
+        /// </summary>
+        [HttpGet("{id}/stages/{stageId}/tour-seen")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetTourSeenAsync(long id, long stageId)
+        {
+            var seen = await _onboardingService.GetTourSeenAsync(id, stageId);
+            return Success(new { seen });
+        }
+
+        /// <summary>
+        /// Mark the guided tour as seen by the current user for a specific stage.
+        /// Idempotent — calling multiple times has no additional effect.
+        /// Requires CASE:READ permission (lightweight tracking, no write permission needed).
+        /// </summary>
+        [HttpPost("{id}/stages/{stageId}/tour-seen")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> MarkTourSeenAsync(long id, long stageId)
+        {
+            await _onboardingService.MarkTourSeenAsync(id, stageId);
+            return Success(true);
+        }
+
+        /// <summary>
         /// Roll back a completed stage to InProgress state.
         /// Only stages with status Completed can be rolled back.
         /// The caller must belong to a team listed in the stage's RollBackTeams whitelist.
