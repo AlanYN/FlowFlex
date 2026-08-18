@@ -69,6 +69,8 @@
 									: 'cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-indigo-900/10',
 							]"
 							@click="isStageAccessible(stage) && handleStageClick(stage.stageId)"
+							@mouseenter="showStageDetail(stage, $event)"
+							@mouseleave="hideStageDetail"
 						>
 							<!-- 阶段状态图标 -->
 							<div
@@ -104,11 +106,6 @@
 							<!-- 阶段内容 -->
 							<div class="space-y-1 w-full min-w-0">
 								<div class="font-medium flex items-start min-w-0">
-									<!-- <span
-										class="mr-2 text-sm font-bold text-[var(--el-text-color-secondary)] flex-shrink-0"
-									>
-										{{ getOriginalStageIndex(stage) + 1 }}.
-									</span> -->
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center gap-2 min-w-0">
 											<div
@@ -240,18 +237,271 @@
 				</el-button>
 			</template>
 		</el-dialog>
+
+		<!-- Stage 详情 Popover (hover 触发，复用甘特图的 gsp-* 样式) -->
+		<el-popover
+			v-model:visible="stageDetailVisible"
+			:virtual-ref="stageDetailTriggerRef"
+			virtual-triggering
+			placement="left-start"
+			:width="300"
+			trigger="manual"
+			popper-class="gantt-stage-popover"
+		>
+			<template v-if="hoveredStage">
+				<div
+					class="gsp-wrap"
+					@mouseenter="cancelHideDetail"
+					@mouseleave="handlePopoverMouseLeave"
+				>
+					<!-- 顶部：Stage 名称 + 状态 -->
+					<div class="gsp-header">
+						<div class="gsp-header__left">
+							<span class="gsp-stage-num">
+								STAGE {{ getOriginalStageIndex(hoveredStage) + 1 }}
+							</span>
+							<h3 class="gsp-stage-name">{{ hoveredStage.title }}</h3>
+						</div>
+						<div class="gsp-header__right">
+							<!-- 偏差天数 -->
+							<span
+								v-if="hoveredStageVariance !== 0"
+								class="gsp-variance"
+								:class="
+									hoveredStageVariance > 0
+										? 'gsp-variance--late'
+										: 'gsp-variance--early'
+								"
+							>
+								{{ hoveredStageVariance > 0 ? '+' : '' }}{{ hoveredStageVariance }}d
+							</span>
+							<!-- 状态标签 -->
+							<el-tag
+								:type="getStageTagType(hoveredStage)"
+								size="small"
+								effect="light"
+							>
+								{{ getStageStatusLabel(hoveredStage) }}
+							</el-tag>
+						</div>
+					</div>
+
+					<!-- 警告提示 -->
+					<div
+						v-if="hoveredStageVariance > 0 || hoveredStage.status === 'Blocked'"
+						class="gsp-alert"
+					>
+						<el-icon class="gsp-alert__icon"><InfoFilled /></el-icon>
+						<span v-if="hoveredStageVariance > 0">
+							Finished {{ hoveredStageVariance }} day{{
+								hoveredStageVariance > 1 ? 's' : ''
+							}}
+							later than planned.
+						</span>
+						<span v-else>This stage is currently blocked.</span>
+					</div>
+
+					<!-- Assignee -->
+					<div
+						v-if="hoveredStage.defaultAssignee || hoveredStage.assignee"
+						class="gsp-assignee"
+					>
+						<div class="gsp-assignee__avatar">
+							{{
+								(
+									hoveredStage.defaultAssignee ||
+									(Array.isArray(hoveredStage.assignee)
+										? hoveredStage.assignee[0]
+										: hoveredStage.assignee) ||
+									'?'
+								)
+									.charAt(0)
+									.toUpperCase()
+							}}
+						</div>
+						<div class="gsp-assignee__info">
+							<span class="gsp-assignee__name">
+								{{
+									hoveredStage.defaultAssignee ||
+									(Array.isArray(hoveredStage.assignee)
+										? hoveredStage.assignee[0]
+										: hoveredStage.assignee) ||
+									'—'
+								}}
+							</span>
+						</div>
+					</div>
+
+					<!-- TIMELINE -->
+					<div class="gsp-section">
+						<div class="gsp-section__title">
+							<el-icon><Calendar /></el-icon>
+							TIMELINE
+						</div>
+
+						<!-- PLANNED -->
+						<div
+							v-if="hoveredStage.startTime || hoveredStage.endTime"
+							class="gsp-time-block"
+						>
+							<div class="gsp-time-block__label">PLANNED</div>
+							<div class="gsp-time-rows">
+								<div class="gsp-time-row">
+									<span>START</span>
+									<span>{{ formatStageDate(hoveredStage.startTime) }}</span>
+								</div>
+								<div class="gsp-time-row">
+									<span>ETA</span>
+									<span>{{ formatStageDate(hoveredStage.endTime) }}</span>
+								</div>
+								<div v-if="hoveredStage.estimatedDuration" class="gsp-time-row">
+									<span>DURATION</span>
+									<span>{{ hoveredStage.estimatedDuration }} days</span>
+								</div>
+							</div>
+						</div>
+
+						<div v-if="hoveredStage.customEndTime" class="gsp-divider"></div>
+
+						<!-- PROJECTED -->
+						<div v-if="hoveredStage.customEndTime" class="gsp-time-block">
+							<div class="gsp-time-block__label">
+								PROJECTED
+								<el-tooltip
+									content="Current forecast. Updates automatically as stages complete."
+									placement="top"
+									:show-after="200"
+								>
+									<el-icon class="gsp-info-icon"><InfoFilled /></el-icon>
+								</el-tooltip>
+							</div>
+							<div class="gsp-time-rows">
+								<div v-if="hoveredStage.startTime" class="gsp-time-row">
+									<span>START</span>
+									<span>{{ formatStageDate(hoveredStage.startTime) }}</span>
+								</div>
+								<div class="gsp-time-row">
+									<span>END</span>
+									<span>{{ formatStageDate(hoveredStage.customEndTime) }}</span>
+								</div>
+							</div>
+						</div>
+
+						<!-- ACTUAL（进行中或已完成的 stage） -->
+						<template v-if="hoveredStage.startTime">
+							<div class="gsp-divider"></div>
+							<div class="gsp-time-block">
+								<div class="gsp-time-block__label">ACTUAL</div>
+								<div class="gsp-time-rows">
+									<div class="gsp-time-row">
+										<span>START</span>
+										<span>{{ formatStageDate(hoveredStage.startTime) }}</span>
+									</div>
+									<div class="gsp-time-row">
+										<span>END</span>
+										<span
+											:class="{
+												'gsp-time-row__value--muted':
+													!hoveredStage.completed,
+											}"
+										>
+											{{
+												hoveredStage.completed && hoveredStage.date
+													? hoveredStage.date
+													: '—'
+											}}
+										</span>
+									</div>
+									<div v-if="hoveredStageDaysElapsed > 0" class="gsp-time-row">
+										<span>DAYS ELAPSED</span>
+										<span>{{ hoveredStageDaysElapsed }} days</span>
+									</div>
+								</div>
+							</div>
+						</template>
+					</div>
+
+					<!-- 完成 / 保存信息 -->
+					<div v-if="hoveredStage.completedBy || hoveredStage.savedBy" class="gsp-meta">
+						<template v-if="hoveredStage.showSaveOrComplete">
+							Last saved by
+							<strong>{{ hoveredStage.savedBy }}</strong>
+							<span v-if="hoveredStage.saveTime">on {{ hoveredStage.saveTime }}</span>
+						</template>
+						<template v-else>
+							Completed by
+							<strong>{{ hoveredStage.completedBy }}</strong>
+							<span v-if="hoveredStage.date">on {{ hoveredStage.date }}</span>
+						</template>
+					</div>
+
+					<!-- Mark as Blocked（仅对 InProgress 的 stage 显示） -->
+					<div
+						v-if="isCurrentActiveStage(hoveredStage)"
+						class="gsp-footer"
+						@mouseenter="cancelHideDetail"
+					>
+						<!-- 展开状态：输入原因 -->
+						<template v-if="blockingStageId === hoveredStage.stageId">
+							<el-input
+								v-model="blockReason"
+								placeholder="Reason for blocking..."
+								class="mb-2"
+								autofocus
+								@focus="isInputFocused = true"
+								@blur="handleInputBlur"
+								@keydown.enter="confirmBlock"
+								@keydown.esc="cancelBlock"
+							/>
+							<div class="flex gap-2">
+								<el-button
+									type="info"
+									class="flex-1"
+									:loading="blockLoading"
+									@click.stop="confirmBlock"
+								>
+									<el-icon class="mr-1"><CircleClose /></el-icon>
+									Confirm
+								</el-button>
+								<el-button @click.stop="cancelBlock">Cancel</el-button>
+							</div>
+						</template>
+						<!-- 收起状态：Mark as Blocked 按钮 -->
+						<template v-else>
+							<button
+								class="gsp-action gsp-action--block"
+								@click.stop="startBlock(hoveredStage)"
+							>
+								<el-icon><CircleClose /></el-icon>
+								Mark as Blocked
+							</button>
+						</template>
+					</div>
+				</div>
+			</template>
+		</el-popover>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Check, Clock, ArrowDown, ArrowUp, ArrowRight } from '@element-plus/icons-vue';
+import {
+	Check,
+	Clock,
+	ArrowDown,
+	ArrowUp,
+	ArrowRight,
+	InfoFilled,
+	Calendar,
+	CircleClose,
+} from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { OnboardingItem, Stage } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
-import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { defaultStr, projectTenMinutesSsecondsDate, projectDate } from '@/settings/projectSetting';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import { rollBackStage } from '@/apis/ow/onboarding';
+import dayjs from 'dayjs';
 
 // Props
 interface Props {
@@ -409,6 +659,150 @@ watch(
 		console.log('Active stage changed to:', newStage);
 	}
 );
+
+// ========================= Stage 详情 Popover =========================
+
+const stageDetailVisible = ref(false);
+const hoveredStage = ref<any>(null);
+const stageDetailTriggerRef = ref<HTMLElement | null>(null);
+let hideDetailTimer: ReturnType<typeof setTimeout> | null = null;
+
+function showStageDetail(stage: any, event: MouseEvent) {
+	if (hideDetailTimer) {
+		clearTimeout(hideDetailTimer);
+		hideDetailTimer = null;
+	}
+	hoveredStage.value = stage;
+	stageDetailTriggerRef.value = event.currentTarget as HTMLElement;
+	stageDetailVisible.value = true;
+}
+
+function hideStageDetail() {
+	// block 输入框展开时不关闭弹窗
+	if (blockingStageId.value) return;
+	hideDetailTimer = setTimeout(() => {
+		stageDetailVisible.value = false;
+		hideDetailTimer = null;
+	}, 200);
+}
+
+function cancelHideDetail() {
+	if (hideDetailTimer) {
+		clearTimeout(hideDetailTimer);
+		hideDetailTimer = null;
+	}
+}
+
+function handlePopoverMouseLeave() {
+	// IME 候选词选择时鼠标会离开 popover，此处是关键拦截点
+	if (isInputFocused.value || blockingStageId.value) return;
+	stageDetailVisible.value = false;
+}
+
+/** 格式化日期 */
+function formatStageDate(d: string | null | undefined): string {
+	if (!d) return '—';
+	return timeZoneConvert(d, false, projectDate);
+}
+
+/** 计算 Stage 偏差天数（endTime vs 实际完成时间） */
+const hoveredStageVariance = computed(() => {
+	const s = hoveredStage.value;
+	if (!s?.endTime || !s?.completionTime) return 0;
+	return dayjs(s.completionTime).diff(dayjs(s.endTime), 'day');
+});
+
+/** Stage Tag 类型 */
+function getStageTagType(stage: any): '' | 'success' | 'warning' | 'danger' | 'info' {
+	if (stage.completed) return 'success';
+	if (stage.status === 'Skipped') return 'info';
+	if (stage.status === 'InProgress') return '';
+	return 'info';
+}
+
+/** Stage 状态展示文字 */
+function getStageStatusLabel(stage: any): string {
+	if (stage.completed) {
+		const variance = hoveredStageVariance.value;
+		if (variance === 0) return 'Completed';
+		return `Completed ${variance > 0 ? '+' : ''}${variance}d`;
+	}
+	if (stage.status === 'Skipped') return 'Skipped';
+	if (stage.status === 'InProgress') return 'In Progress';
+	return stage.status || 'Not Started';
+}
+
+/** 已过去天数（从 startTime 到今天） */
+const hoveredStageDaysElapsed = computed(() => {
+	const s = hoveredStage.value;
+	if (!s?.startTime) return 0;
+	const start = dayjs(s.startTime);
+	const end = s.completed && s.completionTime ? dayjs(s.completionTime) : dayjs();
+	return Math.max(0, end.diff(start, 'day'));
+});
+
+/** 是否是当前活跃（InProgress）的 Stage */
+function isCurrentActiveStage(stage: any): boolean {
+	return (
+		!stage.completed &&
+		stage.status !== 'Skipped' &&
+		(stage.stageId === props.activeStage ||
+			props.onboardingData?.currentStageId === stage.stageId)
+	);
+}
+
+// ========================= Mark as Blocked =========================
+
+const blockingStageId = ref<string | null>(null);
+const blockReason = ref('');
+const blockLoading = ref(false);
+/** IME 输入锁：focus 时设 true，blur 后 300ms 才解锁 */
+const isInputFocused = ref(false);
+let blurUnlockTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleInputBlur() {
+	// 延迟解锁，给 IME 候选词选择（mousedown）留出时间
+	blurUnlockTimer = setTimeout(() => {
+		isInputFocused.value = false;
+		blurUnlockTimer = null;
+	}, 300);
+}
+
+function startBlock(stage: any) {
+	blockingStageId.value = stage.stageId;
+	blockReason.value = '';
+}
+
+function cancelBlock() {
+	blockingStageId.value = null;
+	blockReason.value = '';
+	isInputFocused.value = false;
+	if (blurUnlockTimer) {
+		clearTimeout(blurUnlockTimer);
+		blurUnlockTimer = null;
+	}
+}
+
+async function confirmBlock() {
+	if (!blockingStageId.value) return;
+	blockLoading.value = true;
+	try {
+		// 调用 blockStage API（gantt.ts 中已预留）
+		const { blockStage } = await import('@/apis/ow/gantt');
+		await blockStage(props.onboardingId, {
+			stageId: blockingStageId.value,
+			reason: blockReason.value,
+		});
+		ElMessage.success('Stage has been marked as blocked.');
+		blockingStageId.value = null;
+		blockReason.value = '';
+		stageDetailVisible.value = false;
+	} catch {
+		ElMessage.error('Failed to mark stage as blocked.');
+	} finally {
+		blockLoading.value = false;
+	}
+}
 </script>
 
 <style scoped lang="scss">
@@ -431,5 +825,297 @@ watch(
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	width: 100%;
+}
+</style>
+
+<style lang="scss">
+/* ===== Stage 详情 Popover（复用 GanttChart 的 gsp-* 样式）===== */
+.gantt-stage-popover.el-popover {
+	padding: 0 !important;
+	border: 1px solid var(--el-border-color-light) !important;
+	border-radius: var(--el-border-radius-large, 16px) !important;
+	box-shadow: var(--el-box-shadow) !important;
+	background-color: var(--el-bg-color-overlay) !important;
+	overflow: hidden;
+	max-height: 80vh;
+	overflow-y: auto;
+	pointer-events: auto;
+}
+
+.gsp-wrap {
+	padding: 18px;
+	background-color: var(--el-bg-color-overlay);
+	color: var(--el-text-color-regular);
+}
+
+.gsp-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 10px;
+
+	&__left {
+		min-width: 0;
+		flex: 1;
+	}
+
+	&__right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+}
+
+.gsp-stage-num {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--el-text-color-secondary);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	margin-bottom: 2px;
+}
+
+.gsp-stage-name {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--el-text-color-primary);
+	margin: 0;
+	line-height: 1.3;
+}
+
+.gsp-variance {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--el-text-color-secondary);
+
+	&--late {
+		color: var(--el-color-danger);
+	}
+	&--early {
+		color: var(--el-color-success);
+	}
+}
+
+.gsp-alert {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 8px 10px;
+	background-color: var(--el-fill-color-light);
+	border-radius: var(--el-border-radius-small, 8px);
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+	margin-bottom: 10px;
+
+	&__icon {
+		flex-shrink: 0;
+		margin-top: 1px;
+		color: var(--el-text-color-secondary);
+	}
+}
+
+.gsp-assignee {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 14px;
+
+	&__avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background-color: var(--el-color-primary-light-7);
+		color: var(--el-color-primary);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 13px;
+		font-weight: 700;
+		flex-shrink: 0;
+		text-transform: uppercase;
+	}
+
+	&__info {
+		min-width: 0;
+	}
+
+	&__name {
+		font-size: 15px;
+		font-weight: 700;
+		color: var(--el-text-color-primary);
+		display: block;
+		line-height: 1.3;
+	}
+
+	&__email {
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--el-text-color-secondary);
+		display: block;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__co {
+		font-size: 12px;
+		color: var(--el-text-color-secondary);
+		margin-left: 4px;
+	}
+}
+
+.gsp-section {
+	padding: 12px 0 0;
+	margin-bottom: 8px;
+
+	&__title {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		font-size: 10px;
+		font-weight: 700;
+		color: var(--el-text-color-secondary);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		margin-bottom: 12px;
+	}
+
+	&__title--with-pct {
+		justify-content: space-between;
+	}
+
+	&__pct {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--el-text-color-primary);
+	}
+}
+
+.gsp-time-block {
+	margin-bottom: 2px;
+
+	&__label {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 10px;
+		font-weight: 700;
+		color: var(--el-text-color-secondary);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		margin-bottom: 8px;
+	}
+}
+
+.gsp-info-icon {
+	font-size: 12px;
+	color: var(--el-text-color-placeholder);
+	cursor: help;
+}
+
+.gsp-time-rows {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px 8px;
+}
+
+.gsp-time-row {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+
+	span:first-child {
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--el-text-color-secondary);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	span:last-child {
+		font-size: 15px;
+		font-weight: 700;
+		color: var(--el-text-color-primary);
+		line-height: 1.2;
+	}
+
+	&--full {
+		grid-column: 1 / -1;
+	}
+
+	&__value--muted span:last-child,
+	span.gsp-time-row__value--muted {
+		color: var(--el-text-color-placeholder) !important;
+		font-weight: 400;
+	}
+}
+
+.gsp-divider {
+	height: 1px;
+	background-color: var(--el-border-color-lighter);
+	margin: 12px 0;
+}
+
+.gsp-meta {
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+	margin-bottom: 12px;
+	padding-top: 8px;
+	border-top: 1px solid var(--el-border-color-lighter);
+
+	strong {
+		color: var(--el-text-color-primary);
+		font-weight: 600;
+	}
+}
+
+.gsp-footer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--el-border-color-lighter);
+	margin-top: 4px;
+}
+
+.gsp-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 14px;
+	border: 1px solid var(--el-border-color);
+	border-radius: var(--el-border-radius-round, 20px);
+	background-color: var(--el-fill-color-blank);
+	color: var(--el-text-color-regular);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition:
+		background-color 0.15s,
+		border-color 0.15s,
+		color 0.15s;
+
+	&--block {
+		width: 100%;
+		justify-content: center;
+		padding: 8px 16px;
+		background-color: transparent;
+
+		&:hover {
+			background-color: var(--el-color-danger-light-7);
+			border-color: var(--el-color-danger);
+			color: var(--el-color-danger);
+		}
+	}
+
+	&:hover {
+		background-color: var(--el-color-primary-light-9);
+		border-color: var(--el-color-primary-light-7);
+		color: var(--el-color-primary);
+	}
 }
 </style>

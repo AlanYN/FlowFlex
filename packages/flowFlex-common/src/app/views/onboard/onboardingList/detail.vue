@@ -285,6 +285,8 @@
 		>
 			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
 		</el-dialog>
+
+		<!-- 甘特图模态框 (从列表页入口打开，detail 页通过 stage hover 展示详情) -->
 	</div>
 </template>
 
