@@ -34,6 +34,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.TenantId, opt => opt.MapFrom(src => src.TenantId))
                 .ForMember(dest => dest.IsExternalImport, opt => opt.MapFrom(src => src.IsExternalImport))
                 .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source))
+                .ForMember(dest => dest.IsSigned, opt => opt.MapFrom(src => src.IsSigned))
+                .ForMember(dest => dest.SignerName, opt => opt.MapFrom(src => src.SignerName))
+                .ForMember(dest => dest.SignTime, opt => opt.MapFrom(src => src.SignTime))
                 // 忽略DTO中有但实体中没有的属性
                 .ForMember(dest => dest.StageName, opt => opt.Ignore())
                 .ForMember(dest => dest.FileSizeFormatted, opt => opt.Ignore())

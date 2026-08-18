@@ -30,6 +30,13 @@
 							</el-button-group>
 						</div>
 						<div class="toolbar-right">
+							<el-button
+								v-if="allowSign && type === 'pdf' && !isSigned"
+								type="primary"
+								@click="handleSignDocument"
+							>
+								Sign Document
+							</el-button>
 							<el-button :icon="CloseBold" @click="closeOffice" />
 						</div>
 					</div>
@@ -73,7 +80,7 @@ import { CloseBold, ZoomIn, ZoomOut, RefreshRight } from '@element-plus/icons-vu
 import VueOfficeDocx from '@vue-office/docx';
 import VueOfficeExcel from '@vue-office/excel';
 
-const emit = defineEmits(['closeOffice', 'renderedOffice']);
+const emit = defineEmits(['closeOffice', 'renderedOffice', 'signDocument']);
 
 const props = defineProps({
 	fileUrl: {
@@ -95,6 +102,18 @@ const props = defineProps({
 	offloading: {
 		type: Boolean,
 		default: false,
+	},
+	allowSign: {
+		type: Boolean,
+		default: false,
+	},
+	isSigned: {
+		type: Boolean,
+		default: false,
+	},
+	fileId: {
+		type: [String, Number],
+		default: null,
 	},
 });
 
@@ -161,6 +180,11 @@ const rendered = () => {
 
 const closeOffice = () => {
 	emit('closeOffice');
+};
+
+const handleSignDocument = () => {
+	emit('closeOffice');
+	emit('signDocument', { fileId: props.fileId, fileUrl: props.fileUrl });
 };
 </script>
 

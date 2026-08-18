@@ -32,6 +32,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IAttachmentService _attachmentService;
+        private readonly IFileStorageService _fileStorageService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IMapper _mapper;
@@ -48,6 +49,7 @@ namespace FlowFlex.Application.Services.OW
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
             IAttachmentService attachmentService,
+            IFileStorageService fileStorageService,
             IOperationChangeLogService operationChangeLogService,
             IServiceProvider serviceProvider,
             IMapper mapper,
@@ -63,6 +65,7 @@ namespace FlowFlex.Application.Services.OW
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _attachmentService = attachmentService;
+            _fileStorageService = fileStorageService;
             _operationChangeLogService = operationChangeLogService;
             _serviceProvider = serviceProvider;
             _mapper = mapper;
@@ -430,9 +433,25 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
                 }
 
-                var (stream, attachmentDto) = await _attachmentService.GetAttachmentAsync(onboardingFile.AttachmentId);
+                // Signed files are stored via IFileStorageService (not the Attachment system),
+                // so their AttachmentId is set to 0 as a sentinel value.
+                // For these files, read directly from StoragePath / AccessUrl.
+                if (onboardingFile.AttachmentId == 0)
+                {
+                    var filePath = onboardingFile.StoragePath ?? onboardingFile.AccessUrl;
+                    if (string.IsNullOrEmpty(filePath))
+                    {
+                        throw new CRMException(ErrorCodeEnum.DataNotFound,
+                            $"File {fileId} has no storage path or access URL");
+                    }
 
-                return (stream, onboardingFile.OriginalFileName, onboardingFile.ContentType);
+                    var (stream, _, contentType) = await _fileStorageService.GetFileAsync(filePath);
+                    return (stream, onboardingFile.OriginalFileName, onboardingFile.ContentType ?? contentType);
+                }
+
+                // Normal files: retrieve via the Attachment system
+                var (attachStream, attachmentDto) = await _attachmentService.GetAttachmentAsync(onboardingFile.AttachmentId);
+                return (attachStream, onboardingFile.OriginalFileName, onboardingFile.ContentType);
             }
             catch (Exception ex)
             {
@@ -451,6 +470,23 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
                 }
 
+                // Signed files (AttachmentId == 0) are stored via IFileStorageService.
+                // Generate a real-time signed URL directly from StoragePath / AccessUrl
+                // to avoid passing id=0 into GetAttachmentUrlAsync which returns a wrong fallback.
+                if (onboardingFile.AttachmentId == 0)
+                {
+                    var filePath = onboardingFile.StoragePath ?? onboardingFile.AccessUrl;
+                    if (string.IsNullOrEmpty(filePath))
+                    {
+                        throw new CRMException(ErrorCodeEnum.DataNotFound,
+                            $"File {fileId} has no storage path or access URL");
+                    }
+
+                    var signedUrl = await _fileStorageService.GetFileUrlAsync(filePath);
+                    return string.IsNullOrEmpty(signedUrl) ? filePath : signedUrl;
+                }
+
+                // Normal files: generate URL via the Attachment system
                 return await _attachmentService.GetAttachmentUrlAsync(onboardingFile.AttachmentId, default);
             }
             catch (Exception ex)
