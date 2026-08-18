@@ -564,23 +564,41 @@ async function handleConfirmSignature(): Promise<void> {
 
 /**
  * Download the signed file.
- * Uses an <a download> anchor to trigger a browser download rather than
- * just opening the URL (which could display inline in the browser).
+ *
+ * Uses the backend preview proxy to fetch PDF bytes rather than linking
+ * directly to the OSS/S3 URL. Direct cross-origin URLs ignore the HTML
+ * `download` attribute, so the browser falls back to its own
+ * Content-Disposition handling — which on S3 (staging) means inline preview
+ * instead of a download prompt.
+ *
+ * Fetching through the backend returns raw bytes as a Blob, from which we
+ * create a same-origin blob: URL. The `download` attribute is then honoured
+ * by every browser, giving consistent download behaviour across environments.
+ *
  * Validates: Requirement 16.2
  */
-function handleDownload(): void {
-	const url = signedFileData.value?.downloadUrl;
-	if (!url) return;
+async function handleDownload(): Promise<void> {
+	const signedFileId = signedFileData.value?.signedFileId;
+	if (!signedFileId || !props.onboardingId) return;
 
-	const fileName = signedFileData.value?.fileName || 'signed.pdf';
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = fileName;
-	a.target = '_blank';
-	a.rel = 'noopener noreferrer';
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
+	try {
+		const res = await previewOnboardingFile(props.onboardingId, signedFileId);
+		const blob = res instanceof Blob ? res : new Blob([res], { type: 'application/pdf' });
+		const blobUrl = URL.createObjectURL(blob);
+
+		const fileName = signedFileData.value?.fileName || 'signed.pdf';
+		const a = document.createElement('a');
+		a.href = blobUrl;
+		a.download = fileName;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+
+		// Revoke the blob URL shortly after to free memory
+		setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+	} catch {
+		ElMessage.error('Failed to download the signed file. Please try again.');
+	}
 }
 
 /**
