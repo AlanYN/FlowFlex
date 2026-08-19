@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<div class="gantt-chart" ref="containerRef">
 		<!-- Case 汇总 Header（顶部，带 rounded-t） -->
 		<div
@@ -285,20 +285,20 @@
 						<!-- 状态 tag（固定宽度，左对齐） -->
 						<div class="w-20 flex-shrink-0">
 							<el-tag
-								:type="getStatusTagType(stage.status)"
+								:type="getStatusTagType(stage.ganttStatus)"
 								effect="plain"
 								class="text-xs gantt-status-tag"
 							>
-								{{ getStatusLabel(stage.status) }}
+								{{ getStatusLabel(stage.ganttStatus) }}
 							</el-tag>
 						</div>
 						<!-- Assignee（固定宽度，左对齐） -->
 						<div class="w-20 flex-shrink-0">
 							<span
 								class="text-xs text-gray-500 dark:text-gray-400 truncate block"
-								:title="stage.assignee?.[0]"
+								:title="stage.assignee?.[0]?.name"
 							>
-								{{ stage.assignee?.[0] || '—' }}
+								{{ stage.assignee?.[0]?.name || '—' }}
 							</span>
 						</div>
 					</div>
@@ -417,11 +417,11 @@
 								{{ stageVarianceDays > 0 ? '+' : '' }}{{ stageVarianceDays }}d
 							</span>
 							<el-tag
-								:type="getStatusTagType(selectedStage.status)"
+								:type="getStatusTagType(selectedStage.ganttStatus)"
 								effect="light"
 								class="gsp-status-tag"
 							>
-								{{ getStatusLabel(selectedStage.status) }}
+								{{ getStatusLabel(selectedStage.ganttStatus) }}
 							</el-tag>
 						</div>
 					</div>
@@ -429,12 +429,12 @@
 					<!-- 警告提示（超期 / 阻塞时显示） -->
 					<div
 						v-if="
-							selectedStage.status === 'Overdue' || selectedStage.status === 'Blocked'
+							selectedStage.ganttStatus === 'Overdue' || selectedStage.isBlocked
 						"
 						class="gsp-alert"
 					>
 						<el-icon class="gsp-alert__icon"><InfoFilled /></el-icon>
-						<span v-if="selectedStage.status === 'Overdue'">
+						<span v-if="selectedStage.ganttStatus === 'Overdue'" >
 							This stage is taking longer than planned.
 						</span>
 						<span v-else>
@@ -445,16 +445,16 @@
 					<!-- Assignee -->
 					<div v-if="selectedStage.assignee?.length" class="gsp-assignee">
 						<div class="gsp-assignee__avatar">
-							{{ (selectedStage.assignee[0] || '?').charAt(0) }}
+							{{ (selectedStage.assignee[0]?.name || '?').charAt(0) }}
 						</div>
 						<div class="gsp-assignee__info">
-							<span class="gsp-assignee__name">{{ selectedStage.assignee[0] }}</span>
-							<span v-if="selectedStage.assigneeEmail" class="gsp-assignee__email">
-								{{ selectedStage.assigneeEmail }}
+							<span class="gsp-assignee__name">{{ selectedStage.assignee[0]?.name }}</span>
+							<span v-if="selectedStage.assignee[0]?.email" class="gsp-assignee__email">
+								{{ selectedStage.assignee[0]?.email }}
 							</span>
 						</div>
 						<span v-if="selectedStage.coAssignees?.length" class="gsp-assignee__co">
-							· {{ selectedStage.coAssignees.join(', ') }}
+							· {{ selectedStage.coAssignees.map(a => a.name).join(', ') }}
 						</span>
 					</div>
 
@@ -750,8 +750,8 @@ const allStatusOptions: { value: GanttStageStatus; label: string }[] = [
 const allAssignees = computed(() => {
 	const set = new Set<string>();
 	props.stages.forEach((s) => {
-		s.assignee?.forEach((a) => set.add(a));
-		s.coAssignees?.forEach((a) => set.add(a));
+		s.assignee?.forEach((a) => set.add(a.name));
+		s.coAssignees?.forEach((a) => set.add(a.name));
 	});
 	return Array.from(set).sort();
 });
@@ -766,10 +766,10 @@ const filteredAssigneeList = computed(() => {
 /** 过滤后的 Stage 列表 */
 const filteredStages = computed(() => {
 	return props.stages.filter((s) => {
-		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.status))
+		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.ganttStatus))
 			return false;
 		if (selectedAssignees.value.length > 0) {
-			const stageAssignees = [...(s.assignee ?? []), ...(s.coAssignees ?? [])];
+			const stageAssignees = [...(s.assignee ?? []).map(a => a.name), ...(s.coAssignees ?? []).map(a => a.name)];
 			if (!selectedAssignees.value.some((a) => stageAssignees.includes(a))) return false;
 		}
 		return true;
@@ -781,12 +781,12 @@ const filteredStages = computed(() => {
 /** 基础时间范围（来自 stages 数据） */
 const baseDateRange = computed(() => {
 	const stages = props.stages;
-	if (!stages.length) {
-		return {
-			minDate: dayjs().subtract(7, 'day'),
-			maxDate: dayjs().add(30, 'day'),
-		};
-	}
+	const fallback = {
+		minDate: dayjs().subtract(7, 'day'),
+		maxDate: dayjs().add(30, 'day'),
+	};
+	if (!stages.length) return fallback;
+
 	const allDates = stages
 		.flatMap((s) => [
 			s.plannedStartDate,
@@ -795,10 +795,18 @@ const baseDateRange = computed(() => {
 			s.projectedEndDate,
 		])
 		.filter(Boolean) as string[];
-	const timestamps = allDates.map((d) => dayjs(d).valueOf());
+
+	// filter(Boolean) removes null; also exclude strings dayjs cannot parse
+	const validTimestamps = allDates
+		.map((d) => dayjs(d))
+		.filter((d) => d.isValid())
+		.map((d) => d.valueOf());
+
+	if (!validTimestamps.length) return fallback;
+
 	return {
-		minDate: dayjs(Math.min(...timestamps)).subtract(3, 'day'),
-		maxDate: dayjs(Math.max(...timestamps)).add(5, 'day'),
+		minDate: dayjs(Math.min(...validTimestamps)).subtract(3, 'day'),
+		maxDate: dayjs(Math.max(...validTimestamps)).add(5, 'day'),
 	};
 });
 
@@ -881,10 +889,10 @@ const ganttRows = computed(() => {
 		const projEnd = stage.actualEndDate || stage.projectedEndDate || stage.plannedEndDate;
 
 		if (projStart && projEnd) {
-			const bgColor = getStatusBarColor(stage.status);
+			const bgColor = getStatusBarColor(stage.ganttStatus);
 			let label = '';
 			if (
-				(stage.status === 'InProgress' || stage.status === 'Overdue') &&
+				(stage.ganttStatus === 'InProgress' || stage.ganttStatus === 'Overdue') &&
 				stage.completionPercentage > 20
 			) {
 				label = `${stage.completionPercentage}%`;
@@ -1679,3 +1687,5 @@ defineExpose({ scrollToToday });
 	}
 }
 </style>
+
+

@@ -170,10 +170,9 @@ async function fetchData() {
 	stages.value = [];
 	summary.value = null;
 	try {
-		const result = await getOnboardingGanttData(currentOnboardingId.value);
-		stages.value = result.stages;
-		summary.value = result.summary;
-		// 等待 Vue 渲染完成后再挂载 Tour，确保 data-tour 锚点已在 DOM 中
+		const { data: result } = await getOnboardingGanttData(currentOnboardingId.value);
+		stages.value = result.stages ?? [];
+		summary.value = result.summary ?? null;
 		await nextTick();
 		tourReady.value = true;
 	} catch (e: any) {
