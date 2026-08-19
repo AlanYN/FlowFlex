@@ -120,7 +120,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20260810000001_CreateUserTourRecordsTable", (Action)(() => Migration_20260810000001_CreateUserTourRecordsTable.Up(_db))),
                     ("20260806000001_AddRollBackTeamsToStage", (Action)(() => Migration_20260806000001_AddRollBackTeamsToStage.Up(_db))),
                     ("20260810000001_CreateUserSignatureTable", (Action)(() => Migration_20260810000001_CreateUserSignatureTable.Up(_db))),
-                    ("20260810000002_AddSigningFieldsToOnboardingFile", (Action)(() => Migration_20260810000002_AddSigningFieldsToOnboardingFile.Up(_db)))
+                    ("20260810000002_AddSigningFieldsToOnboardingFile", (Action)(() => Migration_20260810000002_AddSigningFieldsToOnboardingFile.Up(_db))),
+                    ("20260819000001_AddGanttFieldsToStage",
+                        (Action)(() => Migration_20260819000001_AddGanttFieldsToStage.Up(_db))),
+                    ("20260819000002_AddTotalVarianceDaysToOnboarding",
+                        (Action)(() => Migration_20260819000002_AddTotalVarianceDaysToOnboarding.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
