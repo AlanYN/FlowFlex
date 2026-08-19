@@ -7,21 +7,8 @@
 		destroy-on-close
 	>
 		<template #header>
-			<div class="flex items-center justify-between w-full pr-8">
-				<div class="flex items-center gap-3">
-					<span class="font-semibold text-base">Gantt Chart</span>
-				</div>
-				<!-- 自定义问号按钮：在弹窗 header 右侧，关闭按钮左边 -->
-				<el-tooltip
-					v-if="tourReady"
-					content="View guided tour"
-					placement="bottom"
-					:show-after="300"
-				>
-					<button class="gantt-tour-fab" @click="handleTourFabClick">
-						<span class="gantt-tour-fab__icon">?</span>
-					</button>
-				</el-tooltip>
+			<div class="flex items-center gap-3">
+				<span class="font-semibold text-base">Gantt Chart</span>
 			</div>
 		</template>
 
@@ -63,14 +50,15 @@
 	</el-dialog>
 
 	<!-- Tour 引导：v-if 与 visible 绑定，弹窗关闭时组件销毁，driver.js 实例随之清除 -->
-	<!-- show-fab="false" 禁用内置悬浮按钮，改用弹窗 header 内的自定义按钮触发 -->
+	<!-- show-fab="true" + fab-container 将 "?" 渲染进弹窗蒙层右下角，与 Edit Stage 弹窗保持一致 -->
 	<TourGuide
 		v-if="visible && tourReady"
 		ref="tourGuideRef"
 		:persist-key="tourPersistKey"
 		:steps="tourSteps"
 		:auto-start="true"
-		:show-fab="false"
+		:show-fab="true"
+		:fab-container="getGanttModalOverlay"
 		:check-seen-remote="checkTourSeenRemote"
 		:mark-seen-remote="markTourSeenRemote"
 	/>
@@ -155,10 +143,9 @@ const markTourSeenRemote = async (): Promise<void> => {
 	}
 };
 
-/** 点击 header 问号按钮：强制重播 tour */
-const handleTourFabClick = () => {
-	tourGuideRef.value?.replayTour();
-};
+/** 甘特图弹窗 tour 的 "?" FAB 挂载点：解析到甘特图弹窗自己的 .el-overlay-dialog */
+const getGanttModalOverlay = () =>
+	document.querySelector<HTMLElement>('.gantt-modal')?.closest('.el-overlay-dialog') ?? null;
 
 // ========================= 方法 =========================
 
@@ -206,46 +193,6 @@ defineExpose({ open });
 	.el-dialog__footer {
 		padding: 12px 20px;
 		border-top: 1px solid var(--el-border-color-lighter);
-	}
-}
-
-/* 弹窗 header 内的问号按钮 */
-.gantt-tour-fab {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	border-radius: 50%;
-	border: none;
-	cursor: pointer;
-	background: var(--el-color-primary);
-	color: #fff;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-	transition:
-		transform 0.2s ease,
-		background 0.2s ease;
-	flex-shrink: 0;
-
-	&:hover {
-		transform: scale(1.1);
-		background: var(--el-color-primary-dark-2);
-	}
-
-	&:active {
-		transform: scale(0.95);
-	}
-
-	&:focus-visible {
-		outline: 2px solid var(--el-color-primary);
-		outline-offset: 3px;
-	}
-
-	&__icon {
-		font-size: 14px;
-		font-weight: 700;
-		line-height: 1;
-		user-select: none;
 	}
 }
 </style>
