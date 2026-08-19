@@ -331,5 +331,63 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [StringLength(100)]
         public string TerminatedBy { get; set; }
+
+        // ── Gantt 时间字段 ──────────────────────────────────────────────
+
+        /// <summary>Planned start date — set at Case start, never mutated afterwards</summary>
+        public DateTimeOffset? PlannedStartDate { get; set; }
+
+        /// <summary>Planned end date — set at Case start, never mutated afterwards</summary>
+        public DateTimeOffset? PlannedEndDate { get; set; }
+
+        /// <summary>Projected start date — recalculated on each Stage advance; null when stage is blocked</summary>
+        public DateTimeOffset? ProjectedStartDate { get; set; }
+
+        /// <summary>Projected end date — recalculated on each Stage advance; null when stage is blocked</summary>
+        public DateTimeOffset? ProjectedEndDate { get; set; }
+
+        // ── 偏差分析字段（仅 Completed Stage 有值）─────────────────────
+
+        /// <summary>= actualStartDate - plannedStartDate (days). Positive = late start.</summary>
+        public int? InheritedDelayDays { get; set; }
+
+        /// <summary>= actualDuration - estimatedDuration (days). Positive = took longer.</summary>
+        public int? OwnVarianceDays { get; set; }
+
+        /// <summary>= actualEndDate - plannedEndDate (days). Positive = late finish.</summary>
+        public int? TotalVarianceDays { get; set; }
+
+        // ── Blocked 状态字段 ────────────────────────────────────────────
+
+        /// <summary>Whether this stage is currently blocked</summary>
+        public bool IsBlocked { get; set; } = false;
+
+        /// <summary>Full history of blocker records for this stage</summary>
+        public List<BlockerRecord> BlockerHistory { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Represents a single blocker event on a stage, capturing the reason, timeline,
+    /// and resolution details. Stored inside <see cref="OnboardingStageProgress.BlockerHistory"/>.
+    /// </summary>
+    public class BlockerRecord
+    {
+        /// <summary>Required description of why the stage is blocked (≤500 characters).</summary>
+        public string BlockerReason { get; set; }
+
+        /// <summary>Date/time when the blocker was reported.</summary>
+        public DateTimeOffset? BlockerStartDate { get; set; }
+
+        /// <summary>Estimated date by which the blocker is expected to be resolved.</summary>
+        public DateTimeOffset? ExpectedResolutionDate { get; set; }
+
+        /// <summary>Date/time when the blocker was actually resolved.</summary>
+        public DateTimeOffset? BlockerResolvedDate { get; set; }
+
+        /// <summary>Optional notes recorded when resolving the blocker.</summary>
+        public string ResolutionNotes { get; set; }
+
+        /// <summary>Number of calendar days the stage was blocked (= resolvedDate − startDate, rounded).</summary>
+        public int? BlockedDays { get; set; }
     }
 }
