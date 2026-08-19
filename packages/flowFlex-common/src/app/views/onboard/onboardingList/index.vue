@@ -654,11 +654,7 @@
 		</el-dialog>
 
 		<!-- 甘特图模态框 -->
-		<GanttModal
-			v-if="ganttOnboardingId"
-			v-model="ganttModalVisible"
-			:onboarding-id="ganttOnboardingId"
-		/>
+		<GanttModal ref="ganttModalRef" />
 	</div>
 </template>
 
@@ -764,8 +760,7 @@ const route = useRoute();
 const loading = ref(false);
 
 // 甘特图相关状态
-const ganttModalVisible = ref(false);
-const ganttOnboardingId = ref<string>('');
+const ganttModalRef = ref<InstanceType<typeof GanttModal> | null>(null);
 const onboardingList = ref<OnboardingItem[]>([]);
 
 const selectedItems = ref<OnboardingItem[]>([]);
@@ -1180,8 +1175,7 @@ const handleEdit = (itemId: string) => {
 
 /** 打开甘特图模态框 */
 const handleOpenGantt = (id: string) => {
-	ganttOnboardingId.value = id;
-	ganttModalVisible.value = true;
+	ganttModalRef.value?.open(id);
 };
 
 const handleNewOnboarding = async () => {

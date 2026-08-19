@@ -258,7 +258,7 @@ function createMockGanttData(onboardingId: string): GanttDataResponse {
 		},
 		{
 			stageId: '1005',
-			stageName: 'Legal Review',
+			stageName: 'Legal Review Legal Review Legal Review Legal Review',
 			stageOrder: 5,
 			color: '#722ed1',
 			status: 'Blocked',

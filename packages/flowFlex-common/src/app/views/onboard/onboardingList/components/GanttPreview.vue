@@ -8,7 +8,11 @@
 		effect="light"
 	>
 		<!-- 触发按钮 -->
-		<el-button size="small" link :icon="DataLine" @click.stop="handleClick" title="Gantt" />
+		<el-button link @click.stop="handleClick">
+			<template #icon>
+				<Icon icon="mynaui:square-chart-gantt" class="w-5 h-5 info-icon mt-0.5" />
+			</template>
+		</el-button>
 
 		<!-- Tooltip 内容 -->
 		<template #content>
@@ -92,22 +96,12 @@
 
 					<!-- View Full Chart 按钮 -->
 					<div class="gantt-card__footer">
-						<button class="gantt-card__action" @click.stop="handleClick">
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<polyline points="15 3 21 3 21 9"></polyline>
-								<polyline points="9 21 3 21 3 15"></polyline>
-								<line x1="21" y1="3" x2="14" y2="10"></line>
-								<line x1="3" y1="21" x2="10" y2="14"></line>
-							</svg>
+						<el-button class="gantt-card__action" @click.stop="handleClick">
+							<template #icon>
+								<Icon icon="mynaui:maximize-one" class="w-5 h-5 info-icon mt-0.5" />
+							</template>
 							View Full Chart
-						</button>
+						</el-button>
 					</div>
 				</template>
 			</div>
@@ -117,7 +111,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Loading, DataLine } from '@element-plus/icons-vue';
+import { Loading } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectDate } from '@/settings/projectSetting';
@@ -125,7 +119,6 @@ import {
 	getOnboardingGanttData,
 	type GanttDataResponse,
 	type GanttStageItem,
-	type GanttStageStatus,
 	type GanttCaseSummary,
 } from '@/apis/ow/gantt';
 

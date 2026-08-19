@@ -3,19 +3,18 @@
 		<!-- Case 汇总 Header（顶部，带 rounded-t） -->
 		<div
 			v-if="summary"
+			data-tour="gantt-case-summary"
 			class="gantt-summary px-5 pt-4 pb-3 bg-white dark:bg-black-300 rounded-t-xl border-t border-x border-[--el-border-color-lighter]"
 		>
 			<!-- 第一行：Case 名称 + Code + Workflow -->
 			<div class="flex items-center justify-between mb-4">
 				<div class="flex items-baseline gap-2 min-w-0">
-					<span class="font-bold text-base text-gray-800 dark:text-gray-100 truncate">
+					<span class="font-bold text-base truncate">
 						{{ summary.caseName }}
 					</span>
-					<span class="text-sm text-gray-400 whitespace-nowrap">
-						({{ summary.caseCode }})
-					</span>
+					<span class="text-sm twhitespace-nowrap">({{ summary.caseCode }})</span>
 				</div>
-				<span class="text-xs text-gray-400 whitespace-nowrap ml-4">
+				<span class="text-xs whitespace-nowrap ml-4">
 					Workflow: {{ summary.workflowName }}
 				</span>
 			</div>
@@ -44,19 +43,29 @@
 				<div class="gantt-summary-col">
 					<span class="gantt-summary-label">START</span>
 					<div class="gantt-summary-value font-bold">
-						{{ formatDate(summary.plannedStartDate) }}
+						{{ formatShortDate(summary.plannedStartDate) }}
 					</div>
 				</div>
 				<!-- ETA -->
 				<div class="gantt-summary-col">
 					<span class="gantt-summary-label">ETA</span>
 					<div class="gantt-summary-value font-bold">
-						{{ formatDate(summary.projectedEndDate || summary.plannedEndDate) }}
+						{{ formatShortDate(summary.projectedEndDate || summary.plannedEndDate) }}
 					</div>
 				</div>
 				<!-- VARIANCE -->
 				<div class="gantt-summary-col">
-					<span class="gantt-summary-label">VARIANCE</span>
+					<span class="gantt-summary-label">
+						VARIANCE
+						<el-tooltip
+							content="Difference between Projected and Planned"
+							placement="top"
+						>
+							<el-icon class="gsp-info-icon" style="font-size: 11px; cursor: help">
+								<InfoFilled />
+							</el-icon>
+						</el-tooltip>
+					</span>
 					<div
 						class="gantt-summary-value font-bold"
 						:class="
@@ -79,12 +88,13 @@
 
 		<!-- 工具栏（紧贴在 Header 下方） -->
 		<div
+			data-tour="gantt-toolbar"
 			class="gantt-toolbar flex items-center justify-between px-4 py-2 bg-white dark:bg-black-300 border border-[--el-border-color-lighter]"
 			:class="summary ? 'border-t-0' : 'rounded-t-xl'"
 		>
 			<div class="flex items-center gap-2">
 				<!-- 视图切换 -->
-				<el-radio-group v-model="viewMode" size="small" @change="renderGantt">
+				<el-radio-group v-model="viewMode" @change="renderGantt">
 					<el-radio-button value="day">Day</el-radio-button>
 					<el-radio-button value="week">Week</el-radio-button>
 					<el-radio-button value="month">Month</el-radio-button>
@@ -99,7 +109,7 @@
 					popper-class="gantt-filter-popper"
 				>
 					<template #reference>
-						<el-button size="small" class="gantt-filter-btn">
+						<el-button class="gantt-filter-btn">
 							{{
 								selectedStatuses.length
 									? `${selectedStatuses.length} status(es)`
@@ -146,7 +156,7 @@
 					popper-class="gantt-filter-popper"
 				>
 					<template #reference>
-						<el-button size="small" class="gantt-filter-btn">
+						<el-button class="gantt-filter-btn">
 							{{
 								selectedAssignees.length
 									? `${selectedAssignees.length} assignee(s)`
@@ -159,7 +169,6 @@
 						<div class="px-2 pb-1">
 							<el-input
 								v-model="assigneeSearchText"
-								size="small"
 								placeholder="Search assignees..."
 								clearable
 								:prefix-icon="Search"
@@ -197,21 +206,22 @@
 
 			<div class="flex items-center gap-3">
 				<span class="text-xs text-gray-400">Range: {{ rangeText }}</span>
-				<el-button-group size="small">
+				<el-button-group>
 					<el-button @click="shiftTimeline(-1)" :icon="ArrowLeft" />
-					<el-button @click="goToToday" size="small">Today</el-button>
+					<el-button @click="goToToday" data-tour="gantt-today-btn">Today</el-button>
 					<el-button @click="shiftTimeline(1)" :icon="ArrowRight" />
 				</el-button-group>
-				<el-button size="small" @click="fitToContent" :icon="FullScreen">Fit</el-button>
+				<el-button @click="fitToContent" :icon="FullScreen">Fit</el-button>
 			</div>
 		</div>
 
 		<!-- 甘特图主体 -->
 		<div
-			class="gantt-body bg-white dark:bg-black-300 rounded-b-xl border-x border-b border-[--el-border-color-lighter] overflow-hidden"
+			data-tour="gantt-body"
+			class="gantt-body bg-white dark:bg-black-300 rounded-b-xl border-x border-b border-[--el-border-color-lighter]"
 		>
 			<div class="gantt-inner flex" v-loading="loading">
-				<!-- 左侧：Stage 信息列 -->
+				<!-- 左侧：Stage 信息列（固定宽度，不随时间轴滚动） -->
 				<div
 					class="gantt-left-panel flex-shrink-0"
 					:style="{ width: leftPanelWidth + 'px' }"
@@ -232,25 +242,30 @@
 							Stage
 						</span>
 						<span
-							class="text-xs font-semibold text-gray-500 uppercase tracking-wide w-24 flex-shrink-0 text-right"
+							class="text-xs font-semibold text-gray-500 uppercase tracking-wide w-20 flex-shrink-0"
+						>
+							Status
+						</span>
+						<span
+							class="text-xs font-semibold text-gray-500 uppercase tracking-wide w-20 flex-shrink-0"
 						>
 							Assignee
 						</span>
 					</div>
-					<!-- Stage 行 -->
+					<!-- Stage 行：严格固定高度，内容 overflow hidden -->
 					<div
 						v-for="stage in filteredStages"
 						:key="stage.stageId"
-						class="gantt-row flex items-start gap-2 px-3 py-2 border-b border-[--el-border-color-lighter] cursor-pointer hover:bg-gray-50 dark:hover:bg-black-400 transition-colors"
+						class="gantt-row flex items-center gap-2 px-3 border-b border-[--el-border-color-lighter] cursor-pointer hover:bg-gray-50 dark:hover:bg-black-400 transition-colors overflow-hidden"
 						:style="{ height: rowHeight + 'px' }"
 					>
 						<!-- 序号 -->
-						<span class="text-xs text-gray-400 w-5 flex-shrink-0 pt-0.5">
+						<span class="text-xs text-gray-400 w-5 flex-shrink-0">
 							{{ stage.stageOrder }}
 						</span>
-						<!-- 名称 + 日期范围 -->
-						<div class="flex-1 min-w-0">
-							<div class="flex items-center gap-1.5">
+						<!-- 名称 + 日期范围（竖排，overflow hidden） -->
+						<div class="flex-1 min-w-0 overflow-hidden">
+							<div class="flex items-center gap-1 min-w-0">
 								<span
 									class="w-2 h-2 rounded-full flex-shrink-0"
 									:style="{ backgroundColor: stage.color || '#5b8cff' }"
@@ -261,22 +276,24 @@
 								>
 									{{ stage.stageName }}
 								</span>
-								<el-tag
-									:type="getStatusTagType(stage.status)"
-									size="small"
-									effect="plain"
-									class="flex-shrink-0 text-xs"
-								>
-									{{ getStatusLabel(stage.status) }}
-								</el-tag>
 							</div>
-							<div class="text-xs text-gray-400 mt-0.5 pl-3.5">
-								{{ formatDate(stage.plannedStartDate) }} –
-								{{ formatDate(stage.plannedEndDate) }}
+							<div class="text-xs text-gray-400 truncate pl-3">
+								{{ formatShortDate(stage.plannedStartDate) }} –
+								{{ formatShortDate(stage.plannedEndDate) }}
 							</div>
 						</div>
-						<!-- Assignee -->
-						<div class="w-24 flex-shrink-0 text-right">
+						<!-- 状态 tag（固定宽度，左对齐） -->
+						<div class="w-20 flex-shrink-0">
+							<el-tag
+								:type="getStatusTagType(stage.status)"
+								effect="plain"
+								class="text-xs gantt-status-tag"
+							>
+								{{ getStatusLabel(stage.status) }}
+							</el-tag>
+						</div>
+						<!-- Assignee（固定宽度，左对齐） -->
+						<div class="w-20 flex-shrink-0">
 							<span
 								class="text-xs text-gray-500 dark:text-gray-400 truncate block"
 								:title="stage.assignee?.[0]"
@@ -287,137 +304,40 @@
 					</div>
 				</div>
 
-				<!-- 分割线 -->
-				<div class="w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0"></div>
-
-				<!-- 右侧：时间轴区域 -->
+				<!-- 右侧：ganttastic 时间轴，允许横向滚动 -->
 				<div
-					class="gantt-right-panel flex-1 overflow-x-auto"
-					ref="rightPanelRef"
-					@scroll="handleScroll"
+					ref="ganttWrapperRef"
+					class="flex-1 min-w-0 overflow-x-auto gantt-chart-wrapper"
 				>
-					<div :style="{ width: totalTimelineWidth + 'px', minWidth: '100%' }">
-						<!-- 时间刻度 header -->
-						<div
-							class="gantt-timeline-header flex border-b border-[--el-border-color-lighter] bg-gray-50 dark:bg-black-400"
-							:style="{ height: headerHeight + 'px' }"
-						>
-							<div
-								v-for="col in timelineColumns"
-								:key="col.key"
-								class="flex-shrink-0 flex items-center justify-center border-r border-[--el-border-color-lighter] last:border-r-0"
-								:style="{ width: col.width + 'px' }"
-								:class="{ 'font-semibold text-primary-500': col.isToday }"
-							>
-								<span
-									class="text-xs text-gray-500 dark:text-gray-400 select-none"
-									:class="{
-										'text-primary-500 dark:text-primary-400': col.isToday,
-									}"
-								>
-									{{ col.label }}
-								</span>
-							</div>
-						</div>
-
-						<!-- 甘特图行 -->
-						<div class="gantt-rows relative">
-							<!-- Today 竖线 -->
-							<div
-								v-if="todayX !== null"
-								class="absolute top-0 bottom-0 z-10 pointer-events-none"
-								:style="{
-									left: todayX + 'px',
-									width: '2px',
-									background: 'rgba(255, 77, 79, 0.7)',
-								}"
-							>
-								<div
-									class="absolute -top-1 left-1/2 -translate-x-1/2 text-xs text-red-500 font-semibold whitespace-nowrap"
-								>
-									Today
-								</div>
-							</div>
-
-							<!-- 每个 Stage 的行 -->
-							<div
-								v-for="(stage, idx) in filteredStages"
-								:key="stage.stageId"
-								class="gantt-bar-row relative flex items-center border-b border-[--el-border-color-lighter]"
-								:style="{
-									height: rowHeight + 'px',
-									width: totalTimelineWidth + 'px',
-								}"
-								:class="{ 'bg-gray-50/50 dark:bg-black-400/30': idx % 2 === 1 }"
-							>
-								<!-- 列背景格线 -->
-								<div
-									v-for="col in timelineColumns"
-									:key="col.key"
-									class="absolute top-0 bottom-0 border-r border-[--el-border-color-lighter]"
-									:class="{ 'bg-red-50/30 dark:bg-red-900/10': col.isToday }"
-									:style="{ left: col.x + 'px', width: col.width + 'px' }"
-								></div>
-
-								<!-- Planned 条（灰色半透明底条） -->
-								<div
-									v-if="getBarStyle(stage, 'planned')"
-									class="absolute rounded gantt-bar-planned"
-									:style="getBarStyle(stage, 'planned')"
-									:title="`Planned: ${formatDate(
-										stage.plannedStartDate
-									)} → ${formatDate(stage.plannedEndDate)}`"
-								></div>
-
-								<!-- Projected/Actual 条（主色彩条） -->
-								<div
-									v-if="getBarStyle(stage, 'projected')"
-									class="absolute rounded gantt-bar-projected cursor-pointer transition-all hover:brightness-110"
-									:style="getBarStyle(stage, 'projected')"
-									@mouseenter="showStagePopover(stage, $event)"
-									@mouseleave="hideStagePopover"
-									@click.stop
-								>
-									<!-- 进度填充（InProgress / Overdue 时显示完成度） -->
-									<div
-										v-if="
-											stage.status === 'InProgress' ||
-											stage.status === 'Overdue'
-										"
-										class="absolute left-0 top-0 bottom-0 rounded gantt-bar-progress"
-										:style="{
-											width: stage.completionPercentage + '%',
-											backgroundColor: getProgressColor(stage.status),
-										}"
-									></div>
-									<!-- 阻塞标记 -->
-									<div
-										v-if="stage.isBlocked"
-										class="absolute right-1 top-1/2 -translate-y-1/2 text-white text-xs font-bold"
-									>
-										🚫
-									</div>
-									<!-- 完成度文字 -->
-									<span
-										v-if="
-											(stage.status === 'InProgress' ||
-												stage.status === 'Overdue') &&
-											stage.completionPercentage > 20
-										"
-										class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white z-10 select-none"
-									>
-										{{ stage.completionPercentage }}%
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
+					<!-- key 绑定 viewMode + chartDateRange，切换视图时强制重新渲染 -->
+					<g-gantt-chart
+						:key="`${viewMode}-${chartDateRange.start}-${chartDateRange.end}`"
+						:chart-start="chartDateRange.start"
+						:chart-end="chartDateRange.end"
+						:precision="ganttPrecision"
+						bar-start="start"
+						bar-end="end"
+						:row-height="rowHeight"
+						:current-time="true"
+						color-scheme="default"
+						class="gantt-lib"
+						@mouseenter-bar="onBarMouseover($event.bar, $event.e)"
+						@mouseleave-bar="onBarMouseleave"
+					>
+						<g-gantt-row
+							v-for="row in ganttRows"
+							:key="row.stageRef.stageId"
+							:label="row.label"
+							:bars="row.bars"
+						/>
+					</g-gantt-chart>
 				</div>
 			</div>
 		</div>
 
 		<!-- 图例 -->
 		<div
+			data-tour="gantt-legend"
 			class="gantt-legend mt-4 px-4 py-3 bg-white dark:bg-black-300 rounded-xl border border-[--el-border-color-lighter]"
 		>
 			<div class="flex items-center gap-1 mb-2">
@@ -498,7 +418,6 @@
 							</span>
 							<el-tag
 								:type="getStatusTagType(selectedStage.status)"
-								size="small"
 								effect="light"
 								class="gsp-status-tag"
 							>
@@ -551,7 +470,7 @@
 							<div class="gsp-time-block__label">
 								PLANNED
 								<el-tooltip
-									content="Original plan set when stage started"
+									content="Original plan, set when case started, does not change"
 									placement="top"
 								>
 									<el-icon class="gsp-info-icon"><InfoFilled /></el-icon>
@@ -580,7 +499,7 @@
 							<div class="gsp-time-block__label">
 								PROJECTED
 								<el-tooltip
-									content="Current forecast based on actual progress"
+									content="Current forecast, updates as stages complete"
 									placement="top"
 								>
 									<el-icon class="gsp-info-icon"><InfoFilled /></el-icon>
@@ -716,10 +635,10 @@
 
 					<!-- Go to Stage 按钮 -->
 					<div class="gsp-footer">
-						<button class="gsp-action" @click.stop="handleGoToStage(selectedStage)">
+						<el-button class="gsp-action" @click.stop="handleGoToStage(selectedStage)">
 							Go to Stage
 							<el-icon><ArrowRight /></el-icon>
-						</button>
+						</el-button>
 					</div>
 				</div>
 			</template>
@@ -728,7 +647,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import {
 	ArrowLeft,
 	ArrowRight,
@@ -740,45 +660,51 @@ import {
 	Search,
 } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isoWeek from 'dayjs/plugin/isoWeek';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
+import { GGanttChart, GGanttRow } from '@infectoone/vue-ganttastic';
 import { timeZoneConvert } from '@/hooks/time';
-import { projectDate } from '@/settings/projectSetting';
+import {
+	projectDate,
+	projectTenMinutesSsecondsDate,
+	ganttDateFormat,
+} from '@/settings/projectSetting';
 import type { GanttStageItem, GanttCaseSummary, GanttStageStatus } from '@/apis/ow/gantt';
 
-dayjs.extend(isSameOrBefore);
-dayjs.extend(isSameOrAfter);
+// ganttastic 内部依赖这两个 dayjs 插件
+dayjs.extend(isoWeek);
+dayjs.extend(weekOfYear);
 
-// ========================= Props =========================
+// ========================= Props & Emits =========================
 
 interface Props {
 	stages: GanttStageItem[];
 	summary: GanttCaseSummary | null;
 	loading?: boolean;
+	onboardingId?: string | number;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	loading: false,
-});
+const props = withDefaults(defineProps<Props>(), { loading: false });
+
+const emit = defineEmits<{ close: [] }>();
+
+const router = useRouter();
 
 // ========================= 状态 =========================
 
 type ViewMode = 'day' | 'week' | 'month';
 
 const containerRef = ref<HTMLElement | null>(null);
-const rightPanelRef = ref<HTMLElement | null>(null);
+const ganttWrapperRef = ref<HTMLElement | null>(null);
 const viewMode = ref<ViewMode>('week');
+const timelineOffset = ref(0); // 时间轴偏移量（控制前/后移）
 
-/** Popover 状态 */
+// Popover 状态
 const popoverVisible = ref(false);
 const selectedStage = ref<GanttStageItem | null>(null);
 const popoverTriggerRef = ref<HTMLElement | null>(null);
 
-/** 时间轴起始/结束（viewportStart/viewportEnd 控制显示范围） */
-const viewportStart = ref<dayjs.Dayjs>(dayjs());
-const viewportEnd = ref<dayjs.Dayjs>(dayjs());
-
-/** 筛选状态 */
+// 筛选状态
 const selectedStatuses = ref<GanttStageStatus[]>([]);
 const selectedAssignees = ref<string[]>([]);
 const assigneeSearchText = ref('');
@@ -788,92 +714,11 @@ const assigneeFilterVisible = ref(false);
 // ========================= 常量 =========================
 
 const rowHeight = 48;
-const headerHeight = 40;
-const leftPanelWidth = 320;
-
-/** 每种视图模式下，每列的宽度（px）和对应时间单位 */
-const colConfig: Record<ViewMode, { colWidth: number; unit: 'day' | 'week' | 'month' }> = {
-	day: { colWidth: 40, unit: 'day' },
-	week: { colWidth: 80, unit: 'week' },
-	month: { colWidth: 100, unit: 'month' },
-};
+const leftPanelWidth = 380;
+// headerHeight 与 ganttastic 的 .g-timeaxis 实际高度一致（库内部固定 80px）
+const headerHeight = 80;
 
 // ========================= 计算属性 =========================
-
-/** 从 stages 中提取时间范围 */
-const dataTimeRange = computed(() => {
-	if (!props.stages.length) {
-		return { start: dayjs(), end: dayjs().add(30, 'day') };
-	}
-	const allDates = props.stages
-		.flatMap((s) => [
-			s.plannedStartDate,
-			s.plannedEndDate,
-			s.projectedStartDate,
-			s.projectedEndDate,
-			s.actualStartDate,
-			s.actualEndDate,
-		])
-		.filter(Boolean) as string[];
-
-	const timestamps = allDates.map((d) => dayjs(d).valueOf());
-	return {
-		start: dayjs(Math.min(...timestamps)).subtract(2, 'day'),
-		end: dayjs(Math.max(...timestamps)).add(5, 'day'),
-	};
-});
-
-/** 时间轴列数据 */
-const timelineColumns = computed(() => {
-	const { colWidth, unit } = colConfig[viewMode.value];
-	const cols: Array<{
-		key: string;
-		label: string;
-		x: number;
-		width: number;
-		isToday: boolean;
-		date: dayjs.Dayjs;
-	}> = [];
-
-	let current = viewportStart.value.startOf(unit);
-	let x = 0;
-
-	while (current.isSameOrBefore(viewportEnd.value, unit)) {
-		const isToday = current.isSame(dayjs(), unit);
-		let label = '';
-		if (unit === 'day') {
-			label = current.format('MM/DD');
-		} else if (unit === 'week') {
-			label = current.format('MM/DD');
-		} else {
-			label = current.format('MMM YY');
-		}
-
-		cols.push({
-			key: current.format('YYYY-MM-DD'),
-			label,
-			x,
-			width: colWidth,
-			isToday,
-			date: current,
-		});
-		x += colWidth;
-		current = current.add(1, unit);
-	}
-	return cols;
-});
-
-/** 时间轴总宽度 */
-const totalTimelineWidth = computed(() => {
-	if (!timelineColumns.value.length) return 800;
-	const last = timelineColumns.value[timelineColumns.value.length - 1];
-	return last.x + last.width;
-});
-
-/** Today 的 x 坐标 */
-const todayX = computed(() => {
-	return getXForDate(dayjs());
-});
 
 /** 图例数据 */
 const legendItems = [
@@ -885,49 +730,7 @@ const legendItems = [
 	{ label: 'Blocked', color: '#8c8c8c' },
 ];
 
-// ========================= 筛选计算属性 =========================
-
-/** 所有 Assignee 去重列表 */
-const allAssignees = computed(() => {
-	const set = new Set<string>();
-	props.stages.forEach((s) => {
-		s.assignee?.forEach((a) => set.add(a));
-		s.coAssignees?.forEach((a) => set.add(a));
-	});
-	return Array.from(set).sort();
-});
-
-/** 按搜索文字过滤后的 Assignee 列表 */
-const filteredAssigneeList = computed(() => {
-	const q = assigneeSearchText.value.toLowerCase().trim();
-	if (!q) return allAssignees.value;
-	return allAssignees.value.filter((a) => a.toLowerCase().includes(q));
-});
-
-/** 过滤后的 Stage 列表（同时应用 status + assignee 筛选） */
-const filteredStages = computed(() => {
-	return props.stages.filter((s) => {
-		// Status 筛选
-		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.status)) {
-			return false;
-		}
-		// Assignee 筛选
-		if (selectedAssignees.value.length > 0) {
-			const stageAssignees = [...(s.assignee ?? []), ...(s.coAssignees ?? [])];
-			if (!selectedAssignees.value.some((a) => stageAssignees.includes(a))) return false;
-		}
-		return true;
-	});
-});
-
-/** 当前视图时间范围文字 */
-const rangeText = computed(() => {
-	return `${formatDate(viewportStart.value.toISOString())} – ${formatDate(
-		viewportEnd.value.toISOString()
-	)}`;
-});
-
-/** 计划偏差天数（projected end vs planned end） */
+/** Case 偏差天数 */
 const caseVarianceDays = computed(() => {
 	if (!props.summary?.projectedEndDate || !props.summary?.plannedEndDate) return 0;
 	return dayjs(props.summary.projectedEndDate).diff(dayjs(props.summary.plannedEndDate), 'day');
@@ -943,77 +746,181 @@ const allStatusOptions: { value: GanttStageStatus; label: string }[] = [
 	{ value: 'Blocked', label: 'Blocked' },
 ];
 
-// ========================= 方法 =========================
+/** 所有 Assignee 去重 */
+const allAssignees = computed(() => {
+	const set = new Set<string>();
+	props.stages.forEach((s) => {
+		s.assignee?.forEach((a) => set.add(a));
+		s.coAssignees?.forEach((a) => set.add(a));
+	});
+	return Array.from(set).sort();
+});
 
-/** 初始化 viewport 范围 */
-function initViewport() {
-	const range = dataTimeRange.value;
-	viewportStart.value = range.start;
-	viewportEnd.value = range.end;
-}
+/** 按搜索过滤的 Assignee */
+const filteredAssigneeList = computed(() => {
+	const q = assigneeSearchText.value.toLowerCase().trim();
+	if (!q) return allAssignees.value;
+	return allAssignees.value.filter((a) => a.toLowerCase().includes(q));
+});
 
-/** 将日期转为时间轴 x 坐标 */
-function getXForDate(date: dayjs.Dayjs | string | null): number | null {
-	if (!date) return null;
-	const d = dayjs(date);
-	const { colWidth, unit } = colConfig[viewMode.value];
+/** 过滤后的 Stage 列表 */
+const filteredStages = computed(() => {
+	return props.stages.filter((s) => {
+		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.status))
+			return false;
+		if (selectedAssignees.value.length > 0) {
+			const stageAssignees = [...(s.assignee ?? []), ...(s.coAssignees ?? [])];
+			if (!selectedAssignees.value.some((a) => stageAssignees.includes(a))) return false;
+		}
+		return true;
+	});
+});
 
-	const startOf = viewportStart.value.startOf(unit);
-	const diff = d.diff(startOf, unit, true); // 浮点数
-	return diff * colWidth;
-}
+// ========================= Ganttastic 相关计算属性 =========================
 
-/** 生成甘特条样式 */
-function getBarStyle(stage: GanttStageItem, type: 'planned' | 'projected') {
-	const barHeight = 28;
-	const topOffset = (rowHeight - barHeight) / 2;
-
-	let startDate: string | null = null;
-	let endDate: string | null = null;
-
-	if (type === 'planned') {
-		startDate = stage.plannedStartDate;
-		endDate = stage.plannedEndDate;
-	} else {
-		// projected：优先显示实际，否则显示预测
-		startDate = stage.actualStartDate || stage.projectedStartDate || stage.plannedStartDate;
-		endDate = stage.actualEndDate || stage.projectedEndDate || stage.plannedEndDate;
-	}
-
-	if (!startDate || !endDate) return null;
-
-	const x1 = getXForDate(startDate);
-	const x2 = getXForDate(endDate);
-	if (x1 === null || x2 === null) return null;
-
-	const width = Math.max(x2 - x1, 8);
-
-	if (type === 'planned') {
+/** 基础时间范围（来自 stages 数据） */
+const baseDateRange = computed(() => {
+	const stages = props.stages;
+	if (!stages.length) {
 		return {
-			left: x1 + 'px',
-			top: topOffset + 'px',
-			width: width + 'px',
-			height: barHeight + 'px',
-			background: 'var(--el-fill-color)',
-			border: '1px dashed var(--el-border-color)',
-			zIndex: 1,
+			minDate: dayjs().subtract(7, 'day'),
+			maxDate: dayjs().add(30, 'day'),
 		};
 	}
-
-	const bgColor = getStatusBarColor(stage.status);
+	const allDates = stages
+		.flatMap((s) => [
+			s.plannedStartDate,
+			s.plannedEndDate,
+			s.projectedStartDate,
+			s.projectedEndDate,
+		])
+		.filter(Boolean) as string[];
+	const timestamps = allDates.map((d) => dayjs(d).valueOf());
 	return {
-		left: x1 + 'px',
-		top: topOffset + 'px',
-		width: width + 'px',
-		height: barHeight + 'px',
-		background: bgColor,
-		opacity: stage.isBlocked ? '0.6' : '1',
-		zIndex: 2,
-		overflow: 'hidden',
+		minDate: dayjs(Math.min(...timestamps)).subtract(3, 'day'),
+		maxDate: dayjs(Math.max(...timestamps)).add(5, 'day'),
 	};
-}
+});
 
-/** 根据状态获取条形图背景色 */
+/** 应用 offset 后的显示范围（ganttastic 需要 YYYY-MM-DD HH:mm 格式） */
+const chartDateRange = computed(() => {
+	const { minDate, maxDate } = baseDateRange.value;
+	const unit = viewMode.value === 'day' ? 'day' : viewMode.value === 'week' ? 'week' : 'month';
+	const step = viewMode.value === 'day' ? 7 : viewMode.value === 'week' ? 4 : 3;
+	const offset = timelineOffset.value;
+	return {
+		start: minDate.add(offset * step, unit).format(ganttDateFormat),
+		end: maxDate.add(offset * step, unit).format(ganttDateFormat),
+	};
+});
+
+/** 范围文字（用于工具栏显示） */
+const rangeText = computed(() => {
+	const start = dayjs(chartDateRange.value.start).format(projectDate);
+	const end = dayjs(chartDateRange.value.end).format(projectDate);
+	return `${start} – ${end}`;
+});
+
+/** ganttastic precision 映射 */
+const ganttPrecision = computed((): 'day' | 'week' | 'month' => {
+	const map: Record<ViewMode, 'day' | 'week' | 'month'> = {
+		day: 'day',
+		week: 'week',
+		month: 'month',
+	};
+	return map[viewMode.value] ?? 'week';
+});
+
+/**
+ * 甘特图最小宽度：确保 Day 模式列多时出现横向滚动条
+ * Day: 每天 30px × 天数；Week: 每周 80px × 周数；Month: 每月 120px × 月数
+ */
+const ganttMinWidth = computed(() => {
+	const start = dayjs(chartDateRange.value.start);
+	const end = dayjs(chartDateRange.value.end);
+	let minPx = 600;
+	if (viewMode.value === 'day') {
+		minPx = Math.max(600, end.diff(start, 'day') * 32);
+	} else if (viewMode.value === 'week') {
+		minPx = Math.max(600, end.diff(start, 'week') * 90);
+	} else {
+		minPx = Math.max(600, end.diff(start, 'month') * 140);
+	}
+	return minPx + 'px';
+});
+
+/** 将 filteredStages 转换为 ganttastic row 格式 */
+const ganttRows = computed(() => {
+	return filteredStages.value.map((stage) => {
+		const bars: any[] = [];
+
+		// Planned 底层虚线条
+		if (stage.plannedStartDate && stage.plannedEndDate) {
+			bars.push({
+				start: dayjs(stage.plannedStartDate).format(ganttDateFormat),
+				end: dayjs(stage.plannedEndDate).format(ganttDateFormat),
+				ganttBarConfig: {
+					id: `${stage.stageId}-planned`,
+					label: '',
+					style: {
+						background: 'var(--el-fill-color)',
+						border: '1px dashed var(--el-border-color)',
+						borderRadius: '4px',
+						height: '24px',
+						zIndex: 1,
+					},
+					stageRef: stage,
+					isPlanned: true,
+				},
+			});
+		}
+
+		// Projected/Actual 主色彩条
+		const projStart =
+			stage.actualStartDate || stage.projectedStartDate || stage.plannedStartDate;
+		const projEnd = stage.actualEndDate || stage.projectedEndDate || stage.plannedEndDate;
+
+		if (projStart && projEnd) {
+			const bgColor = getStatusBarColor(stage.status);
+			let label = '';
+			if (
+				(stage.status === 'InProgress' || stage.status === 'Overdue') &&
+				stage.completionPercentage > 20
+			) {
+				label = `${stage.completionPercentage}%`;
+			}
+			if (stage.isBlocked) label = '🚫';
+
+			bars.push({
+				start: dayjs(projStart).format(ganttDateFormat),
+				end: dayjs(projEnd).format(ganttDateFormat),
+				ganttBarConfig: {
+					id: `${stage.stageId}-projected`,
+					label,
+					hasHandles: false,
+					style: {
+						background: bgColor,
+						borderRadius: '4px',
+						height: '24px',
+						opacity: stage.isBlocked ? '0.6' : '1',
+						cursor: 'pointer',
+						zIndex: 2,
+					},
+					stageRef: stage,
+				},
+			});
+		}
+
+		return {
+			label: `${stage.stageOrder}`,
+			bars,
+			stageRef: stage,
+		};
+	});
+});
+
+// ========================= 方法 =========================
+
 function getStatusBarColor(status: GanttStageStatus): string {
 	const colors: Record<GanttStageStatus, string> = {
 		NotStarted: '#d9d9d9',
@@ -1026,35 +933,23 @@ function getStatusBarColor(status: GanttStageStatus): string {
 	return colors[status] ?? '#d9d9d9';
 }
 
-/** 进度条前景色 */
-function getProgressColor(status: GanttStageStatus): string {
-	const colors: Record<GanttStageStatus, string> = {
-		NotStarted: '#bfbfbf',
-		InProgress: '#2d6ef7',
-		Completed: '#389e0d',
-		Overdue: '#cf1322',
-		Delayed: '#d46b08',
-		Blocked: '#595959',
-	};
-	return colors[status] ?? '#2d6ef7';
-}
-
-/** 状态 Tag 类型 */
 function getStatusTagType(
 	status: GanttStageStatus
-): '' | 'success' | 'warning' | 'danger' | 'info' {
-	const map: Record<GanttStageStatus, '' | 'success' | 'warning' | 'danger' | 'info'> = {
+): 'primary' | 'success' | 'warning' | 'danger' | 'info' | undefined {
+	const map: Record<
+		GanttStageStatus,
+		'primary' | 'success' | 'warning' | 'danger' | 'info' | undefined
+	> = {
 		NotStarted: 'info',
-		InProgress: '',
+		InProgress: 'primary',
 		Completed: 'success',
 		Overdue: 'danger',
 		Delayed: 'warning',
 		Blocked: 'info',
 	};
-	return map[status] ?? 'info';
+	return map[status];
 }
 
-/** 状态展示文字 */
 function getStatusLabel(status: GanttStageStatus): string {
 	const labels: Record<GanttStageStatus, string> = {
 		NotStarted: 'Not Started',
@@ -1067,87 +962,91 @@ function getStatusLabel(status: GanttStageStatus): string {
 	return labels[status] ?? status;
 }
 
-/** 格式化日期（使用 timeZoneConvert） */
 function formatDate(dateString: string | null | undefined): string {
+	if (!dateString) return '—';
+	return timeZoneConvert(dateString, false, projectTenMinutesSsecondsDate);
+}
+
+/** 短日期格式（用于左侧列表区间、Summary Header 等） */
+function formatShortDate(dateString: string | null | undefined): string {
 	if (!dateString) return '—';
 	return timeZoneConvert(dateString, false, projectDate);
 }
 
-/** 时间轴平移 */
-function shiftTimeline(direction: number) {
-	const { unit } = colConfig[viewMode.value];
-	const step = unit === 'day' ? 7 : unit === 'week' ? 4 : 3;
-	viewportStart.value = viewportStart.value.add(direction * step, unit);
-	viewportEnd.value = viewportEnd.value.add(direction * step, unit);
+function formatDateTime(dateString: string | null | undefined): string {
+	if (!dateString) return '—';
+	return timeZoneConvert(dateString, false, projectTenMinutesSsecondsDate);
 }
 
-/** 跳到今天 */
+function shiftTimeline(direction: number) {
+	timelineOffset.value += direction;
+}
+
 function goToToday() {
-	initViewport();
-	nextTick(() => {
+	if (timelineOffset.value !== 0) {
+		// 需要重置范围，key 变化会触发 ganttastic 重渲染，等渲染完成再滚动
+		timelineOffset.value = 0;
+		// ganttastic 重挂载需要多个 tick，用 setTimeout 保证 DOM 稳定
+		setTimeout(() => scrollToToday(), 100);
+	} else {
+		// 范围未变，直接滚动即可
 		scrollToToday();
+	}
+}
+
+/** 滚动到 Today 线居中位置 */
+function scrollToToday() {
+	nextTick(() => {
+		const wrapper = ganttWrapperRef.value;
+		if (!wrapper) return;
+		const todayLine = wrapper.querySelector<HTMLElement>(
+			'.g-grid-current-time, .g-grid-current-time-marker'
+		);
+		if (todayLine) {
+			const lineLeft = todayLine.offsetLeft;
+			const wrapperWidth = wrapper.clientWidth;
+			wrapper.scrollLeft = lineLeft - wrapperWidth / 2;
+		}
 	});
 }
 
-/** 滚动让 Today 居中 */
-function scrollToToday() {
-	if (!rightPanelRef.value || todayX.value === null) return;
-	const panelWidth = rightPanelRef.value.clientWidth;
-	rightPanelRef.value.scrollLeft = todayX.value - panelWidth / 2;
-}
-
-/** 适配所有内容 */
 function fitToContent() {
-	initViewport();
-}
-
-function handleScroll() {
-	// 可扩展：虚拟滚动逻辑
+	timelineOffset.value = 0;
 }
 
 function renderGantt() {
-	// viewMode 变更后重新初始化 viewport
-	initViewport();
+	timelineOffset.value = 0;
 }
 
-/** 切换 Status 筛选 */
 function toggleStatus(status: GanttStageStatus) {
 	const idx = selectedStatuses.value.indexOf(status);
-	if (idx > -1) {
-		selectedStatuses.value.splice(idx, 1);
-	} else {
-		selectedStatuses.value.push(status);
-	}
+	if (idx > -1) selectedStatuses.value.splice(idx, 1);
+	else selectedStatuses.value.push(status);
 }
 
-/** 切换 Assignee 筛选 */
 function toggleAssignee(name: string) {
 	const idx = selectedAssignees.value.indexOf(name);
-	if (idx > -1) {
-		selectedAssignees.value.splice(idx, 1);
-	} else {
-		selectedAssignees.value.push(name);
-	}
+	if (idx > -1) selectedAssignees.value.splice(idx, 1);
+	else selectedAssignees.value.push(name);
 }
 
-/** 显示 Stage Popover (hover) — 支持快速切换，直接更新不关闭 */
+// ========================= Bar Hover（Popover） =========================
+
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-function showStagePopover(stage: GanttStageItem, event: MouseEvent) {
-	// 取消任何待执行的隐藏计时器
+function onBarMouseover(bar: any, event: MouseEvent) {
+	const stageRef = bar?.ganttBarConfig?.stageRef as GanttStageItem | undefined;
+	if (!stageRef || bar?.ganttBarConfig?.isPlanned) return; // 忽略 planned 底层条
 	if (hideTimer) {
 		clearTimeout(hideTimer);
 		hideTimer = null;
 	}
-	// 无论 popover 是否已显示，直接更新 stage 和触发元素
-	// 这样快速切换时不会有闪烁或需要重新触发的问题
-	selectedStage.value = stage;
+	selectedStage.value = stageRef;
 	popoverTriggerRef.value = event.currentTarget as HTMLElement;
 	popoverVisible.value = true;
 }
 
-function hideStagePopover() {
-	// 给一个短暂延迟，让鼠标有时间移入 Popover
+function onBarMouseleave() {
 	hideTimer = setTimeout(() => {
 		popoverVisible.value = false;
 		hideTimer = null;
@@ -1155,7 +1054,6 @@ function hideStagePopover() {
 }
 
 function handlePopoverMouseEnter() {
-	// 鼠标进入 Popover，取消隐藏
 	if (hideTimer) {
 		clearTimeout(hideTimer);
 		hideTimer = null;
@@ -1163,26 +1061,29 @@ function handlePopoverMouseEnter() {
 }
 
 function handlePopoverMouseLeave() {
-	// 鼠标离开 Popover，延迟隐藏
 	hideTimer = setTimeout(() => {
 		popoverVisible.value = false;
 		hideTimer = null;
 	}, 100);
 }
 
-/** Go to Stage 按钮 */
 function handleGoToStage(stage: GanttStageItem) {
-	// TODO: 后端就绪后根据 onboardingId + stageId 跳转
+	const onboardingId = props.onboardingId ?? props.summary?.onboardingId;
+	if (!onboardingId) {
+		popoverVisible.value = false;
+		return;
+	}
 	popoverVisible.value = false;
+	emit('close');
+	router.push({
+		path: '/onboard/onboardDetail',
+		query: {
+			onboardingId: String(onboardingId),
+			stageId: stage.stageId,
+		},
+	});
 }
 
-/** 格式化日期时间（带时间） */
-function formatDateTime(dateString: string | null | undefined): string {
-	if (!dateString) return '—';
-	return timeZoneConvert(dateString, false, 'MM/DD/YYYY HH:mm:ss');
-}
-
-/** Stage 偏差天数（projected end vs planned end） */
 const stageVarianceDays = computed(() => {
 	const s = selectedStage.value;
 	if (!s?.projectedEndDate || !s?.plannedEndDate) return 0;
@@ -1191,23 +1092,17 @@ const stageVarianceDays = computed(() => {
 
 // ========================= 生命周期 =========================
 
-onMounted(() => {
-	initViewport();
-	nextTick(() => {
-		scrollToToday();
-	});
-});
-
 watch(
 	() => props.stages,
 	() => {
-		initViewport();
-		nextTick(() => {
-			scrollToToday();
-		});
+		timelineOffset.value = 0;
+		// stages 更新后等 ganttastic 渲染完成再滚到 Today
+		setTimeout(() => scrollToToday(), 100);
 	},
 	{ deep: true }
 );
+
+defineExpose({ scrollToToday });
 </script>
 
 <style scoped lang="scss">
@@ -1219,24 +1114,98 @@ watch(
 	border-right: 1px solid var(--el-border-color-lighter);
 }
 
-.gantt-bar-row {
-	position: relative;
+/* 状态 tag：固定宽度列内不换行，超出截断 */
+.gantt-status-tag {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	display: inline-flex;
 }
 
-.gantt-bar-planned {
-	pointer-events: none;
-}
+/* ganttastic 包裹层样式 */
+.gantt-chart-wrapper {
+	/* 隐藏库自带的左侧 row label */
+	:deep(.g-gantt-row-label) {
+		display: none !important;
+		width: 0 !important;
+		min-width: 0 !important;
+		padding: 0 !important;
+	}
 
-.gantt-bar-projected {
-	position: absolute;
-}
+	/* 整个甘特图：去掉白色背景和外边框 */
+	:deep(.g-gantt-chart) {
+		border: none !important;
+		background: transparent !important;
+		min-width: v-bind(ganttMinWidth);
+	}
 
-.gantt-bar-progress {
-	pointer-events: none;
-}
+	/* 时间轴整体容器 */
+	:deep(.g-timeaxis) {
+		background: var(--el-bg-color) !important;
+		border-bottom: 1px solid var(--el-border-color-lighter) !important;
+	}
 
-/* 右侧滚动条美化 */
-.gantt-right-panel {
+	/* 上层月份/年份行 */
+	:deep(.g-upper-timeunit) {
+		background: var(--el-fill-color-light) !important;
+		color: var(--el-text-color-secondary) !important;
+		font-size: 11px !important;
+		border-right: 1px solid var(--el-border-color-lighter) !important;
+		border-bottom: 1px solid var(--el-border-color-lighter) !important;
+	}
+
+	/* 下层时间单元格容器 */
+	:deep(.g-timeunits-container) {
+		background: var(--el-bg-color) !important;
+	}
+
+	/* 下层日期/周单元格 */
+	:deep(.g-timeunit) {
+		background: var(--el-bg-color) !important;
+		color: var(--el-text-color-secondary) !important;
+		font-size: 11px !important;
+		border-right: 1px solid var(--el-border-color-lighter) !important;
+	}
+
+	/* 行容器背景 */
+	:deep(.g-gantt-rows-container) {
+		background: var(--el-bg-color) !important;
+	}
+
+	/* 每一行：去掉自身边框，由 bars-container 的 border-top/bottom 来画分割线 */
+	:deep(.g-gantt-row) {
+		background: transparent !important;
+		border-bottom: none !important;
+	}
+
+	/* 条形图区域容器：覆盖库硬编码的 #eaeaea 边框 */
+	:deep(.g-gantt-row > .g-gantt-row-bars-container) {
+		background: transparent !important;
+		border-top: 1px solid var(--el-border-color-lighter) !important;
+		border-bottom: 1px solid var(--el-border-color-lighter) !important;
+	}
+
+	/* 网格竖线 */
+	:deep(.g-grid-line) {
+		background: var(--el-border-color-lighter) !important;
+	}
+
+	/* 网格容器 */
+	:deep(.g-grid-container) {
+		background: transparent !important;
+	}
+
+	/* Today 线：深色主题下确保可见（覆盖 default scheme 的黑色 markerCurrentTime） */
+	:deep(.g-grid-current-time-marker) {
+		border-left: 2px solid var(--el-color-danger) !important;
+		opacity: 1 !important;
+	}
+	:deep(.g-grid-current-time-text) {
+		color: var(--el-color-danger) !important;
+	}
+
+	/* 横向滚动条美化 */
 	&::-webkit-scrollbar {
 		height: 6px;
 	}
@@ -1244,7 +1213,7 @@ watch(
 		background: transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		background: rgba(0, 0, 0, 0.15);
+		background: var(--el-border-color);
 		border-radius: 3px;
 	}
 }
@@ -1429,7 +1398,7 @@ watch(
 		height: 32px;
 		border-radius: 50%;
 		background-color: var(--el-color-primary-light-7);
-		color: var(--el-color-primary);
+		color: var(--white-100);
 		display: flex;
 		align-items: center;
 		justify-content: center;

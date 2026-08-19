@@ -262,9 +262,6 @@
 					<!-- 顶部：Stage 名称 + 状态 -->
 					<div class="gsp-header">
 						<div class="gsp-header__left">
-							<span class="gsp-stage-num">
-								STAGE {{ getOriginalStageIndex(hoveredStage) + 1 }}
-							</span>
 							<h3 class="gsp-stage-name">{{ hoveredStage.title }}</h3>
 						</div>
 						<div class="gsp-header__right">
@@ -308,33 +305,44 @@
 
 					<!-- Assignee -->
 					<div
-						v-if="hoveredStage.defaultAssignee || hoveredStage.assignee"
+						v-if="
+							hoveredStage.assignee?.length ||
+							hoveredStage.assignedGroup ||
+							hoveredStage.defaultAssignee
+						"
 						class="gsp-assignee"
 					>
-						<div class="gsp-assignee__avatar">
-							{{
-								(
-									hoveredStage.defaultAssignee ||
-									(Array.isArray(hoveredStage.assignee)
-										? hoveredStage.assignee[0]
-										: hoveredStage.assignee) ||
-									'?'
-								)
-									.charAt(0)
-									.toUpperCase()
-							}}
-						</div>
-						<div class="gsp-assignee__info">
-							<span class="gsp-assignee__name">
+						<!-- loading 时显示 skeleton -->
+						<template v-if="usersLoading && hoveredStage.assignee?.length">
+							<div class="gsp-assignee__avatar gsp-skeleton"></div>
+							<div class="gsp-assignee__info">
+								<span class="gsp-skeleton gsp-skeleton--text"></span>
+							</div>
+						</template>
+						<template v-else>
+							<div class="gsp-assignee__avatar">
 								{{
-									hoveredStage.defaultAssignee ||
-									(Array.isArray(hoveredStage.assignee)
-										? hoveredStage.assignee[0]
-										: hoveredStage.assignee) ||
-									'—'
+									(
+										getAssigneeDisplayName(hoveredStage.assignee) ||
+										hoveredStage.assignedGroup ||
+										hoveredStage.defaultAssignee ||
+										'?'
+									)
+										.charAt(0)
+										.toUpperCase()
 								}}
-							</span>
-						</div>
+							</div>
+							<div class="gsp-assignee__info">
+								<span class="gsp-assignee__name">
+									{{
+										getAssigneeDisplayName(hoveredStage.assignee) ||
+										hoveredStage.assignedGroup ||
+										hoveredStage.defaultAssignee ||
+										'—'
+									}}
+								</span>
+							</div>
+						</template>
 					</div>
 
 					<!-- TIMELINE -->
@@ -349,7 +357,15 @@
 							v-if="hoveredStage.startTime || hoveredStage.endTime"
 							class="gsp-time-block"
 						>
-							<div class="gsp-time-block__label">PLANNED</div>
+							<div class="gsp-time-block__label">
+								PLANNED
+								<el-tooltip
+									content="Original plan, set when case started, does not change"
+									placement="top"
+								>
+									<el-icon class="gsp-info-icon"><InfoFilled /></el-icon>
+								</el-tooltip>
+							</div>
 							<div class="gsp-time-rows">
 								<div class="gsp-time-row">
 									<span>START</span>
@@ -373,7 +389,7 @@
 							<div class="gsp-time-block__label">
 								PROJECTED
 								<el-tooltip
-									content="Current forecast. Updates automatically as stages complete."
+									content="Current forecast, updates as stages complete"
 									placement="top"
 									:show-after="200"
 								>
@@ -489,7 +505,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import {
 	Check,
 	Clock,
@@ -503,9 +519,10 @@ import {
 import { ElMessage } from 'element-plus';
 import { OnboardingItem, Stage } from '#/onboard';
 import { timeZoneConvert } from '@/hooks/time';
-import { defaultStr, projectTenMinutesSsecondsDate, projectDate } from '@/settings/projectSetting';
+import { projectTenMinutesSsecondsDate, projectDate } from '@/settings/projectSetting';
 import ActionTag from '@/components/actionTools/ActionTag.vue';
 import { rollBackStage } from '@/apis/ow/onboarding';
+import { getAllUser } from '@/apis/global';
 import dayjs from 'dayjs';
 
 // Props
@@ -531,6 +548,46 @@ const rollBackDialogVisible = ref(false);
 const rollBackReason = ref('');
 const rollBackLoading = ref(false);
 const rollBackTargetStage = ref<any>(null);
+
+// 用户列表（用于 assignee ID → 名字映射，组件挂载时即加载）
+const allUserOptions = ref<{ key: string; value: string }[]>([]);
+let usersFetched = false;
+const usersLoading = ref(false);
+
+const fetchAllUsers = async () => {
+	if (usersFetched) return;
+	usersLoading.value = true;
+	try {
+		const res = await getAllUser();
+		if (res?.data && Array.isArray(res.data)) {
+			allUserOptions.value = res.data.map((user: any) => ({
+				key: String(user?.id),
+				value: user?.name ?? '',
+			}));
+			usersFetched = true;
+		}
+	} catch {
+		// 静默失败，不影响主流程
+	} finally {
+		usersLoading.value = false;
+	}
+};
+
+onMounted(() => {
+	fetchAllUsers();
+});
+
+const getUserName = (userId: string): string =>
+	allUserOptions.value.find((u) => u.key === userId)?.value ?? userId;
+
+/** 将 assignee string[] 转成可读的名字列表（最多显示前3个，逗号拼接） */
+const getAssigneeDisplayName = (assignee: string[] | undefined): string => {
+	if (!assignee || assignee.length === 0) return '';
+	return assignee
+		.slice(0, 3)
+		.map((id) => getUserName(id))
+		.join(', ');
+};
 
 // Roll Back 事件处理
 const handleRollBack = (stage: any) => {
@@ -593,7 +650,7 @@ const stages = computed(() => {
 		completed: stage.isCompleted,
 		date: timeZoneConvert(stage?.completionTime || '', false, projectTenMinutesSsecondsDate),
 		saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
-		assignee: stage.defaultAssignedGroup || defaultStr,
+		assignedGroup: stage.defaultAssignedGroup || '',
 		completedBy: stage.completedBy,
 		showSaveOrComplete: getSaveOrCompleteFlag(
 			stage?.completionTime || '',
@@ -678,6 +735,7 @@ function showStageDetail(stage: any, event: MouseEvent) {
 		hideDetailTimer = null;
 	}
 	hoveredStage.value = stage;
+	console.log('hoveredStage.value:', hoveredStage.value);
 	stageDetailTriggerRef.value = event.currentTarget as HTMLElement;
 	stageDetailVisible.value = true;
 }
@@ -1075,6 +1133,40 @@ async function confirmBlock() {
 	strong {
 		color: var(--el-text-color-primary);
 		font-weight: 600;
+	}
+}
+
+/* ===== Skeleton loading ===== */
+@keyframes gsp-shimmer {
+	0% {
+		background-position: -200px 0;
+	}
+	100% {
+		background-position: calc(200px + 100%) 0;
+	}
+}
+
+.gsp-skeleton {
+	background: linear-gradient(
+		90deg,
+		var(--el-fill-color-light) 25%,
+		var(--el-fill-color) 50%,
+		var(--el-fill-color-light) 75%
+	);
+	background-size: 200px 100%;
+	animation: gsp-shimmer 1.2s ease-in-out infinite;
+	border-radius: var(--el-border-radius-small, 6px);
+
+	&--text {
+		display: block;
+		width: 120px;
+		height: 14px;
+		border-radius: 4px;
+	}
+
+	// 用于圆形头像 skeleton，保持圆形
+	&.gsp-assignee__avatar {
+		border-radius: 50%;
 	}
 }
 
