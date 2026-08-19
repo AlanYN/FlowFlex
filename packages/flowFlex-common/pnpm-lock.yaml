@@ -20,6 +20,9 @@ importers:
       '@iconify/vue':
         specifier: ^4.1.2
         version: 4.1.2(vue@3.5.12)
+      '@infectoone/vue-ganttastic':
+        specifier: ^2.3.2
+        version: 2.3.2(dayjs@1.11.13)(vue@3.5.12)
       '@monaco-editor/loader':
         specifier: ^1.5.0
         version: 1.5.0
@@ -2709,6 +2712,19 @@ packages:
     dependencies:
       '@iconify/types': 2.0.0
       vue: 3.5.12(typescript@5.3.3)
+    dev: false
+
+  /@infectoone/vue-ganttastic@2.3.2(dayjs@1.11.13)(vue@3.5.12):
+    resolution: {integrity: sha512-krxHdlZvo4cdS4axQ99qb756RzwieI7LcyY2vAIehJ5Sxd/jz5Pu/vTplTC0Rxqj8T4v1knYPK9uvTMkQYWYng==}
+    peerDependencies:
+      dayjs: ^1.11.5
+      vue: ^3.2.40
+    dependencies:
+      '@vueuse/core': 9.13.0(vue@3.5.12)
+      dayjs: 1.11.13
+      vue: 3.5.12(typescript@5.3.3)
+    transitivePeerDependencies:
+      - '@vue/composition-api'
     dev: false
 
   /@intlify/core-base@9.14.1:

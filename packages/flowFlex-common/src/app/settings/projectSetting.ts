@@ -36,6 +36,8 @@ export const projectTenMinutesSsecondsDate = 'MM/DD/YYYY HH:mm:ss'; // 项目年
 
 export const projectTenMinuteDate = 'MM/DD/YYYY HH:mm'; // 项目年月日十分日期
 
+export const ganttDateFormat = 'YYYY-MM-DD HH:mm'; // 甘特图库（@infectoone/vue-ganttastic）要求的内部日期格式
+
 export const dialogWidth = '550'; // 项目弹窗的宽
 
 export const smallDialogWidth = '344'; // 项目简单操作弹窗的宽
