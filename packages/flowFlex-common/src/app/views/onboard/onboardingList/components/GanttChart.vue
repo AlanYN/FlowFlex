@@ -435,41 +435,44 @@
 					</div>
 
 					<!-- 警告提示（超期 / 阻塞时显示） -->
-					<div
-						v-if="selectedStage.ganttStatus === 'Overdue' || selectedStage.isBlocked"
-						class="gsp-alert"
-					>
+					<div v-if="selectedStage.ganttStatus === 'Overdue'" class="gsp-alert">
 						<el-icon class="gsp-alert__icon"><InfoFilled /></el-icon>
 						<span v-if="selectedStage.ganttStatus === 'Overdue'">
 							This stage is taking longer than planned.
 						</span>
-						<div v-else class="gsp-blocker-detail">
-							<div class="gsp-blocker-detail__reason">
-								{{
-									selectedStage.blockReason || 'This stage is currently blocked.'
-								}}
-							</div>
-							<div
-								v-if="selectedStage.blockedByName || selectedStage.blockedAt"
-								class="gsp-blocker-detail__meta"
-							>
-								<span v-if="selectedStage.blockedByName">
-									Blocked by
-									<strong>{{ selectedStage.blockedByName }}</strong>
-								</span>
-								<span v-if="selectedStage.blockedAt">
-									{{ selectedStage.blockedByName ? ' · ' : ''
-									}}{{ formatShortDate(selectedStage.blockedAt) }}
-								</span>
-							</div>
-							<div
-								v-if="selectedStage.expectedResolutionDate"
-								class="gsp-blocker-detail__eta"
-							>
-								Expected resolution:
-								<strong>
-									{{ formatShortDate(selectedStage.expectedResolutionDate) }}
-								</strong>
+					</div>
+
+					<!-- Blocked badge -->
+					<div v-if="selectedStage.isBlocked" class="mb-3">
+						<div class="blocked-badge">
+							<span class="blocked-badge__icon">🚫</span>
+							5
+							<div class="blocked-badge__body">
+								<div class="blocked-badge__title">
+									Blocked
+									<span v-if="selectedStage.blockedByName">
+										by
+										<strong>{{ selectedStage.blockedByName }}</strong>
+									</span>
+									<span
+										v-if="selectedStage.blockedAt"
+										class="blocked-badge__date"
+									>
+										· {{ formatDate(selectedStage.blockedAt) }}
+									</span>
+								</div>
+								<div v-if="selectedStage.blockReason" class="blocked-badge__reason">
+									{{ selectedStage.blockReason }}
+								</div>
+								<div
+									v-if="selectedStage.expectedResolutionDate"
+									class="blocked-badge__eta"
+								>
+									Expected resolution:
+									<strong>
+										{{ formatDate(selectedStage.expectedResolutionDate) }}
+									</strong>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -1401,6 +1404,15 @@ defineExpose({ scrollToToday });
 	padding: 18px;
 	background-color: var(--el-bg-color-overlay);
 	color: var(--el-text-color-regular);
+
+	/* blocked-badge reason 在 Popover 里不截断，加滚动 */
+	.blocked-badge__reason {
+		-webkit-line-clamp: unset;
+		overflow-y: auto;
+		max-height: 120px;
+		text-overflow: unset;
+		display: block;
+	}
 }
 
 /* 顶部 */
@@ -1472,40 +1484,6 @@ defineExpose({ scrollToToday });
 		flex-shrink: 0;
 		margin-top: 1px;
 		color: var(--el-text-color-secondary);
-	}
-}
-
-.gsp-blocker-detail {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 0;
-	flex: 1;
-
-	&__reason {
-		color: var(--el-text-color-primary);
-		font-weight: 500;
-		line-height: 1.4;
-	}
-
-	&__meta {
-		font-size: 11px;
-		color: var(--el-text-color-secondary);
-
-		strong {
-			color: var(--el-text-color-regular);
-			font-weight: 600;
-		}
-	}
-
-	&__eta {
-		font-size: 11px;
-		color: var(--el-text-color-secondary);
-
-		strong {
-			color: var(--el-color-warning);
-			font-weight: 600;
-		}
 	}
 }
 
@@ -1792,6 +1770,64 @@ defineExpose({ scrollToToday });
 
 	&:active {
 		background-color: var(--el-color-primary-light-8);
+	}
+}
+
+/* ===== Blocked badge（与 OnboardingProgress 保持一致）===== */
+.blocked-badge {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 6px 8px;
+	background-color: #fff7ed;
+	border: 1px solid #fed7aa;
+	border-radius: 8px;
+	font-size: 12px;
+
+	&__icon {
+		flex-shrink: 0;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+
+	&__body {
+		min-width: 0;
+		flex: 1;
+	}
+
+	&__title {
+		color: #c2410c;
+		font-weight: 500;
+		line-height: 1.4;
+
+		strong {
+			font-weight: 600;
+		}
+	}
+
+	&__date {
+		color: #ea580c;
+		font-weight: 400;
+	}
+
+	&__reason {
+		margin-top: 2px;
+		color: #9a3412;
+		line-height: 1.4;
+		word-break: break-all;
+		max-height: 120px;
+		overflow-y: auto;
+	}
+
+	&__eta {
+		margin-top: 4px;
+		font-size: 11px;
+		color: #9a3412;
+
+		strong {
+			color: #c2410c;
+			font-weight: 600;
+		}
 	}
 }
 </style>
