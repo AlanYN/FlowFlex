@@ -258,6 +258,8 @@
 						:key="stage.stageId"
 						class="gantt-row flex items-center gap-2 px-3 border-b border-[--el-border-color-lighter] cursor-pointer hover:bg-gray-50 dark:hover:bg-black-400 transition-colors overflow-hidden"
 						:style="{ height: rowHeight + 'px' }"
+						@mouseenter="onRowMouseenter(stage, $event)"
+						@mouseleave="onBarMouseleave"
 					>
 						<!-- 序号 -->
 						<span class="text-xs text-gray-400 w-5 flex-shrink-0">
@@ -285,11 +287,17 @@
 						<!-- 状态 tag（固定宽度，左对齐） -->
 						<div class="w-20 flex-shrink-0">
 							<el-tag
-								:type="getStatusTagType(stage.ganttStatus)"
+								:type="
+									getStatusTagType(
+										stage.isBlocked ? 'Blocked' : stage.ganttStatus
+									)
+								"
 								effect="plain"
 								class="text-xs gantt-status-tag"
 							>
-								{{ getStatusLabel(stage.ganttStatus) }}
+								{{
+									getStatusLabel(stage.isBlocked ? 'Blocked' : stage.ganttStatus)
+								}}
 							</el-tag>
 						</div>
 						<!-- Assignee（固定宽度，左对齐） -->
@@ -427,19 +435,46 @@
 					</div>
 
 					<!-- 警告提示（超期 / 阻塞时显示） -->
-					<div
-						v-if="
-							selectedStage.ganttStatus === 'Overdue' || selectedStage.isBlocked
-						"
-						class="gsp-alert"
-					>
+					<div v-if="selectedStage.ganttStatus === 'Overdue'" class="gsp-alert">
 						<el-icon class="gsp-alert__icon"><InfoFilled /></el-icon>
-						<span v-if="selectedStage.ganttStatus === 'Overdue'" >
+						<span v-if="selectedStage.ganttStatus === 'Overdue'">
 							This stage is taking longer than planned.
 						</span>
-						<span v-else>
-							{{ selectedStage.blockReason || 'This stage is currently blocked.' }}
-						</span>
+					</div>
+
+					<!-- Blocked badge -->
+					<div v-if="selectedStage.isBlocked" class="mb-3">
+						<div class="blocked-badge">
+							<span class="blocked-badge__icon">🚫</span>
+							5
+							<div class="blocked-badge__body">
+								<div class="blocked-badge__title">
+									Blocked
+									<span v-if="selectedStage.blockedByName">
+										by
+										<strong>{{ selectedStage.blockedByName }}</strong>
+									</span>
+									<span
+										v-if="selectedStage.blockedAt"
+										class="blocked-badge__date"
+									>
+										· {{ formatDate(selectedStage.blockedAt) }}
+									</span>
+								</div>
+								<div v-if="selectedStage.blockReason" class="blocked-badge__reason">
+									{{ selectedStage.blockReason }}
+								</div>
+								<div
+									v-if="selectedStage.expectedResolutionDate"
+									class="blocked-badge__eta"
+								>
+									Expected resolution:
+									<strong>
+										{{ formatDate(selectedStage.expectedResolutionDate) }}
+									</strong>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<!-- Assignee -->
@@ -448,14 +483,46 @@
 							{{ (selectedStage.assignee[0]?.name || '?').charAt(0) }}
 						</div>
 						<div class="gsp-assignee__info">
-							<span class="gsp-assignee__name">{{ selectedStage.assignee[0]?.name }}</span>
-							<span v-if="selectedStage.assignee[0]?.email" class="gsp-assignee__email">
+							<span class="gsp-assignee__name">
+								{{ selectedStage.assignee[0]?.name }}
+							</span>
+							<span
+								v-if="selectedStage.assignee[0]?.email"
+								class="gsp-assignee__email"
+							>
 								{{ selectedStage.assignee[0]?.email }}
 							</span>
 						</div>
-						<span v-if="selectedStage.coAssignees?.length" class="gsp-assignee__co">
-							· {{ selectedStage.coAssignees.map(a => a.name).join(', ') }}
-						</span>
+
+						<!-- Co-assignee avatars stacked -->
+						<div v-if="selectedStage.coAssignees?.length" class="gsp-co-avatars">
+							<el-tooltip
+								v-for="co in selectedStage.coAssignees.slice(0, 3)"
+								:key="co.name"
+								:content="`${co.name}${co.email ? ' · ' + co.email : ''}`"
+								placement="top"
+								:show-after="200"
+							>
+								<div class="gsp-co-avatars__item">
+									{{ (co.name || '?').charAt(0) }}
+								</div>
+							</el-tooltip>
+							<el-tooltip
+								v-if="selectedStage.coAssignees.length > 3"
+								:content="
+									selectedStage.coAssignees
+										.slice(3)
+										.map((a) => a.name)
+										.join(', ')
+								"
+								placement="top"
+								:show-after="200"
+							>
+								<div class="gsp-co-avatars__item gsp-co-avatars__item--more">
+									+{{ selectedStage.coAssignees.length - 3 }}
+								</div>
+							</el-tooltip>
+						</div>
 					</div>
 
 					<!-- TIMELINE 区块 -->
@@ -669,7 +736,7 @@ import {
 	projectTenMinutesSsecondsDate,
 	ganttDateFormat,
 } from '@/settings/projectSetting';
-import type { GanttStageItem, GanttCaseSummary, GanttStageStatus } from '@/apis/ow/gantt';
+import { GanttCaseSummary, GanttStageItem, GanttStageStatus } from '#/gantt';
 
 // ganttastic 内部依赖这两个 dayjs 插件
 dayjs.extend(isoWeek);
@@ -769,7 +836,10 @@ const filteredStages = computed(() => {
 		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.ganttStatus))
 			return false;
 		if (selectedAssignees.value.length > 0) {
-			const stageAssignees = [...(s.assignee ?? []).map(a => a.name), ...(s.coAssignees ?? []).map(a => a.name)];
+			const stageAssignees = [
+				...(s.assignee ?? []).map((a) => a.name),
+				...(s.coAssignees ?? []).map((a) => a.name),
+			];
 			if (!selectedAssignees.value.some((a) => stageAssignees.includes(a))) return false;
 		}
 		return true;
@@ -804,9 +874,12 @@ const baseDateRange = computed(() => {
 
 	if (!validTimestamps.length) return fallback;
 
+	// 始终把今天纳入范围，确保 Today 线可见
+	const allTimestamps = [...validTimestamps, dayjs().valueOf()];
+
 	return {
-		minDate: dayjs(Math.min(...validTimestamps)).subtract(3, 'day'),
-		maxDate: dayjs(Math.max(...validTimestamps)).add(5, 'day'),
+		minDate: dayjs(Math.min(...allTimestamps)).subtract(3, 'day'),
+		maxDate: dayjs(Math.max(...allTimestamps)).add(5, 'day'),
 	};
 });
 
@@ -840,19 +913,19 @@ const ganttPrecision = computed((): 'day' | 'week' | 'month' => {
 });
 
 /**
- * 甘特图最小宽度：确保 Day 模式列多时出现横向滚动条
- * Day: 每天 30px × 天数；Week: 每周 80px × 周数；Month: 每月 120px × 月数
+ * 甘特图最小宽度：确保内容超出容器时出现横向滚动条
+ * Day: 每天 60px；Week: 每周 160px；Month: 每月 200px
  */
 const ganttMinWidth = computed(() => {
 	const start = dayjs(chartDateRange.value.start);
 	const end = dayjs(chartDateRange.value.end);
-	let minPx = 600;
+	let minPx = 800;
 	if (viewMode.value === 'day') {
-		minPx = Math.max(600, end.diff(start, 'day') * 32);
+		minPx = Math.max(800, end.diff(start, 'day') * 60);
 	} else if (viewMode.value === 'week') {
-		minPx = Math.max(600, end.diff(start, 'week') * 90);
+		minPx = Math.max(800, end.diff(start, 'week') * 160);
 	} else {
-		minPx = Math.max(600, end.diff(start, 'month') * 140);
+		minPx = Math.max(800, end.diff(start, 'month') * 200);
 	}
 	return minPx + 'px';
 });
@@ -889,7 +962,7 @@ const ganttRows = computed(() => {
 		const projEnd = stage.actualEndDate || stage.projectedEndDate || stage.plannedEndDate;
 
 		if (projStart && projEnd) {
-			const bgColor = getStatusBarColor(stage.ganttStatus);
+			const bgColor = getStatusBarColor(stage.isBlocked ? 'Blocked' : stage.ganttStatus);
 			let label = '';
 			if (
 				(stage.ganttStatus === 'InProgress' || stage.ganttStatus === 'Overdue') &&
@@ -1050,6 +1123,17 @@ function onBarMouseover(bar: any, event: MouseEvent) {
 		hideTimer = null;
 	}
 	selectedStage.value = stageRef;
+	popoverTriggerRef.value = event.currentTarget as HTMLElement;
+	popoverVisible.value = true;
+}
+
+/** 左侧列表行 hover 触发 Popover（兜底：无甘特条的 stage 也能看到详情） */
+function onRowMouseenter(stage: GanttStageItem, event: MouseEvent) {
+	if (hideTimer) {
+		clearTimeout(hideTimer);
+		hideTimer = null;
+	}
+	selectedStage.value = stage;
 	popoverTriggerRef.value = event.currentTarget as HTMLElement;
 	popoverVisible.value = true;
 }
@@ -1320,6 +1404,15 @@ defineExpose({ scrollToToday });
 	padding: 18px;
 	background-color: var(--el-bg-color-overlay);
 	color: var(--el-text-color-regular);
+
+	/* blocked-badge reason 在 Popover 里不截断，加滚动 */
+	.blocked-badge__reason {
+		-webkit-line-clamp: unset;
+		overflow-y: auto;
+		max-height: 120px;
+		text-overflow: unset;
+		display: block;
+	}
 }
 
 /* 顶部 */
@@ -1426,6 +1519,10 @@ defineExpose({ scrollToToday });
 		color: var(--el-text-color-primary);
 		display: block;
 		line-height: 1.3;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 160px;
 	}
 
 	&__email {
@@ -1438,15 +1535,77 @@ defineExpose({ scrollToToday });
 		text-overflow: ellipsis;
 	}
 
-	&__co {
-		font-size: 12px;
-		font-weight: 400;
+	&__role {
+		flex-shrink: 0;
+		margin-left: auto;
+		font-size: 10px;
+		font-weight: 500;
 		color: var(--el-text-color-secondary);
-		margin-left: 4px;
+		background-color: var(--el-fill-color);
+		border: 1px solid var(--el-border-color-lighter);
+		border-radius: 4px;
+		padding: 1px 6px;
+		line-height: 1.6;
+		white-space: nowrap;
+	}
+
+	&--co {
+		margin-top: 6px;
+		padding-top: 6px;
+		border-top: 1px dashed var(--el-border-color-lighter);
+	}
+
+	&__avatar--co {
+		width: 26px;
+		height: 26px;
+		font-size: 11px;
+		background-color: var(--el-fill-color);
+		color: var(--el-text-color-secondary);
 	}
 }
 
-/* Section 通用 — 无背景，用上边框分隔 */
+/* Co-assignee 堆叠头像组 */
+.gsp-co-avatars {
+	display: flex;
+	flex-direction: row;
+	margin-left: auto;
+	flex-shrink: 0;
+
+	&__item {
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background-color: var(--el-fill-color);
+		color: var(--el-text-color-secondary);
+		border: 2px solid var(--el-bg-color-overlay);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 11px;
+		font-weight: 700;
+		text-transform: uppercase;
+		cursor: default;
+		transition: transform 0.15s;
+
+		& + & {
+			margin-left: -8px;
+		}
+
+		&:hover {
+			transform: translateY(-2px);
+			z-index: 1;
+		}
+	}
+
+	&__item--more {
+		background-color: var(--el-border-color-light);
+		color: var(--el-text-color-regular);
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: -0.5px;
+	}
+}
+
 .gsp-section {
 	padding: 12px 0 0;
 	margin-bottom: 8px;
@@ -1613,6 +1772,64 @@ defineExpose({ scrollToToday });
 		background-color: var(--el-color-primary-light-8);
 	}
 }
+
+/* ===== Blocked badge（与 OnboardingProgress 保持一致）===== */
+.blocked-badge {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 6px 8px;
+	background-color: #fff7ed;
+	border: 1px solid #fed7aa;
+	border-radius: 8px;
+	font-size: 12px;
+
+	&__icon {
+		flex-shrink: 0;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+
+	&__body {
+		min-width: 0;
+		flex: 1;
+	}
+
+	&__title {
+		color: #c2410c;
+		font-weight: 500;
+		line-height: 1.4;
+
+		strong {
+			font-weight: 600;
+		}
+	}
+
+	&__date {
+		color: #ea580c;
+		font-weight: 400;
+	}
+
+	&__reason {
+		margin-top: 2px;
+		color: #9a3412;
+		line-height: 1.4;
+		word-break: break-all;
+		max-height: 120px;
+		overflow-y: auto;
+	}
+
+	&__eta {
+		margin-top: 4px;
+		font-size: 11px;
+		color: #9a3412;
+
+		strong {
+			color: #c2410c;
+			font-weight: 600;
+		}
+	}
+}
 </style>
 
 <style lang="scss">
@@ -1687,5 +1904,3 @@ defineExpose({ scrollToToday });
 	}
 }
 </style>
-
-

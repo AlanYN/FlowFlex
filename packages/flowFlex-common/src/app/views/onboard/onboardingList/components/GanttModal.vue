@@ -71,11 +71,8 @@ import GanttChart from './GanttChart.vue';
 import TourGuide from '@/components/global/TourGuide/index.vue';
 import { ganttModalTourSteps } from '@/hooks/useGanttTourSteps';
 import { checkTourSeen, markTourSeen } from '@/apis/ow';
-import {
-	getOnboardingGanttData,
-	type GanttStageItem,
-	type GanttCaseSummary,
-} from '@/apis/ow/gantt';
+import { getOnboardingGanttData } from '@/apis/ow/gantt';
+import { GanttCaseSummary, GanttStageItem } from '#/gantt';
 
 // ========================= 状态 =========================
 

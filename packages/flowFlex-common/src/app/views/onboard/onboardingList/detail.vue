@@ -268,6 +268,7 @@
 							@set-active-stage="setActiveStage"
 							@stage-completed="loadOnboardingDetail"
 							@stage-rolled-back="handleStageRolledBack"
+							@stage-block-changed="loadOnboardingDetail"
 						/>
 
 						<!-- 笔记区域 -->

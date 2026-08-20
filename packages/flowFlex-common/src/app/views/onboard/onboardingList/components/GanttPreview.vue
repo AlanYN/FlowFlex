@@ -6,6 +6,7 @@
 		popper-class="gantt-preview-popper"
 		:disabled="disabled"
 		effect="light"
+		@show="fetchPreview"
 	>
 		<!-- 触发按钮 -->
 		<el-button link @click.stop="handleClick">
@@ -66,8 +67,12 @@
 							v-for="stage in stages"
 							:key="stage.stageId"
 							class="gantt-card__bar"
-							:class="`gantt-card__bar--${stage.ganttStatus.toLowerCase()}`"
-							:title="`${stage.stageName}: ${stage.status}`"
+							:class="`gantt-card__bar--${
+								stage.isBlocked ? 'blocked' : stage.ganttStatus.toLowerCase()
+							}`"
+							:title="`${stage.stageName}: ${
+								stage.isBlocked ? 'Blocked' : stage.ganttStatus
+							}`"
 						></div>
 					</div>
 
@@ -115,12 +120,8 @@ import { Loading } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectDate } from '@/settings/projectSetting';
-import {
-	getOnboardingGanttData,
-	type GanttDataResponse,
-	type GanttStageItem,
-	type GanttCaseSummary,
-} from '@/apis/ow/gantt';
+import { getOnboardingGanttData } from '@/apis/ow/gantt';
+import { GanttDataResponse, GanttCaseSummary, GanttStageItem } from '#/gantt';
 
 interface Props {
 	onboardingId: string | number;
@@ -192,14 +193,11 @@ async function fetchPreview() {
 	}
 }
 
-fetchPreview();
-
 watch(
 	() => props.onboardingId,
 	() => {
 		data.value = null;
 		hasFetched = false;
-		fetchPreview();
 	}
 );
 

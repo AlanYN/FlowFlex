@@ -205,5 +205,25 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Computed by the service layer based on RollBackTeams vs current user's teams.
         /// </summary>
         public bool CanRollBack { get; set; }
+
+        /// <summary>
+        /// Whether this stage is currently blocked
+        /// </summary>
+        public bool IsBlocked { get; set; }
+
+        /// <summary>
+        /// Reason for the current active blocker (null when not blocked)
+        /// </summary>
+        public string BlockerReason { get; set; }
+
+        /// <summary>
+        /// Name of the user who marked this stage as blocked (null when not blocked)
+        /// </summary>
+        public string BlockedByName { get; set; }
+
+        /// <summary>
+        /// Date/time when the current blocker was reported (null when not blocked)
+        /// </summary>
+        public DateTimeOffset? BlockedAt { get; set; }
     }
 }

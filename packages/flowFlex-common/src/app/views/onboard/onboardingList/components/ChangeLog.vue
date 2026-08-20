@@ -1138,6 +1138,10 @@ const getTagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 
 			t,
 			'primary',
 		]),
+		// Warning types — block/unblock
+		...['StageBlock', 'Stage Block'].map((t): [string, string] => [t, 'warning']),
+		// Success types — unblock
+		...['StageUnblock', 'Stage Unblock'].map((t): [string, string] => [t, 'success']),
 	]);
 
 	return (tagTypeMap.get(type) ?? 'info') as
