@@ -66,7 +66,7 @@
 							v-for="stage in stages"
 							:key="stage.stageId"
 							class="gantt-card__bar"
-							:class="`gantt-card__bar--${stage.status.toLowerCase()}`"
+							:class="`gantt-card__bar--${stage.ganttStatus.toLowerCase()}`"
 							:title="`${stage.stageName}: ${stage.status}`"
 						></div>
 					</div>
@@ -90,7 +90,7 @@
 							Stage {{ currentStage.stageOrder }} · {{ currentStage.stageName }}
 						</strong>
 						<span v-if="currentStage.assignee?.length" class="gantt-card__assignee">
-							&nbsp;({{ currentStage.assignee[0] }})
+							&nbsp;({{ currentStage.assignee[0]?.name }})
 						</span>
 					</div>
 
@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { Loading } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import { timeZoneConvert } from '@/hooks/time';
@@ -139,9 +139,9 @@ const stages = computed<GanttStageItem[]>(() => data.value?.stages ?? []);
 
 const currentStage = computed(() => {
 	return (
-		stages.value.find((s) => s.status === 'InProgress' || s.status === 'Overdue') ??
-		stages.value.find((s) => s.status === 'Delayed') ??
-		stages.value.find((s) => s.status === 'Blocked') ??
+		stages.value.find((s) => s.ganttStatus === 'InProgress' || s.ganttStatus === 'Overdue') ??
+		stages.value.find((s) => s.ganttStatus === 'Delayed') ??
+		stages.value.find((s) => s.isBlocked) ??
 		null
 	);
 });
@@ -182,7 +182,8 @@ async function fetchPreview() {
 	if (hasFetched || loadingPreview.value) return;
 	loadingPreview.value = true;
 	try {
-		data.value = await getOnboardingGanttData(props.onboardingId);
+		const res = await getOnboardingGanttData(props.onboardingId);
+		data.value = res.data ?? (res as any);
 		hasFetched = true;
 	} catch {
 		// silent
@@ -201,6 +202,12 @@ watch(
 		fetchPreview();
 	}
 );
+
+// 组件销毁时清除缓存，确保下次挂载时重新请求最新数据
+onUnmounted(() => {
+	data.value = null;
+	hasFetched = false;
+});
 </script>
 
 <style lang="scss">
