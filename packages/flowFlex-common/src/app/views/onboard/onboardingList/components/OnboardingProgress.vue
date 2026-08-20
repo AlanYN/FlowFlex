@@ -188,6 +188,33 @@
 										}}
 									</span>
 								</div>
+								<!-- Blocked info -->
+								<div v-if="stage.isBlocked" class="mt-1.5 ml-2">
+									<div class="blocked-badge">
+										<span class="blocked-badge__icon">🚫</span>
+										<div class="blocked-badge__body">
+											<div class="blocked-badge__title">
+												Blocked
+												<span v-if="stage.blockedByName">
+													by
+													<strong>{{ stage.blockedByName }}</strong>
+												</span>
+												<span
+													v-if="stage.blockedAt"
+													class="blocked-badge__date"
+												>
+													· {{ stage.blockedAt }}
+												</span>
+											</div>
+											<div
+												v-if="stage.blockerReason"
+												class="blocked-badge__reason"
+											>
+												{{ stage.blockerReason }}
+											</div>
+										</div>
+									</div>
+								</div>
 								<!-- Roll Back 按钮：仅对已完成且有权限的 Stage 显示 -->
 								<div
 									v-if="stage.status === 'Completed' && stage.canRollBack"
@@ -290,7 +317,7 @@
 
 					<!-- 警告提示 -->
 					<div
-						v-if="hoveredStageVariance > 0 || hoveredStage.status === 'Blocked'"
+						v-if="hoveredStageVariance > 0 || hoveredStage.isBlocked"
 						class="gsp-alert"
 					>
 						<el-icon class="gsp-alert__icon"><InfoFilled /></el-icon>
@@ -300,7 +327,27 @@
 							}}
 							later than planned.
 						</span>
-						<span v-else>This stage is currently blocked.</span>
+						<span v-else>
+							This stage is currently blocked.
+							<template v-if="hoveredStage.blockerReason">
+								<br />
+								<em>Reason: {{ hoveredStage.blockerReason }}</em>
+							</template>
+							<template v-if="hoveredStage.blockedByName || hoveredStage.blockedAt">
+								<br />
+								<span class="text-xs">
+									Blocked{{
+										hoveredStage.blockedByName
+											? ` by ${hoveredStage.blockedByName}`
+											: ''
+									}}{{
+										hoveredStage.blockedAt
+											? ` on ${hoveredStage.blockedAt}`
+											: ''
+									}}
+								</span>
+							</template>
+						</span>
 					</div>
 
 					<!-- Assignee -->
@@ -456,9 +503,9 @@
 						</template>
 					</div>
 
-					<!-- Mark as Blocked（仅对 InProgress 的 stage 显示） -->
+					<!-- Mark as Blocked（仅对当前活跃且未 blocked 的 stage 显示） -->
 					<div
-						v-if="isCurrentActiveStage(hoveredStage)"
+						v-if="isCurrentActiveStage(hoveredStage) && !hoveredStage.isBlocked"
 						class="gsp-footer"
 						@mouseenter="cancelHideDetail"
 					>
@@ -498,6 +545,48 @@
 							</button>
 						</template>
 					</div>
+
+					<!-- Resolve Blocker（仅对 blocked 的 stage 显示） -->
+					<div
+						v-if="hoveredStage.isBlocked"
+						class="gsp-footer"
+						@mouseenter="cancelHideDetail"
+					>
+						<!-- 展开状态：输入解除备注 -->
+						<template v-if="unblockingStageId === hoveredStage.stageId">
+							<el-input
+								v-model="unblockNotes"
+								placeholder="Resolution notes (optional)..."
+								class="mb-2"
+								autofocus
+								@focus="isInputFocused = true"
+								@blur="handleInputBlur"
+								@keydown.enter="confirmUnblock"
+								@keydown.esc="cancelUnblock"
+							/>
+							<div class="flex gap-2">
+								<el-button
+									type="success"
+									class="flex-1"
+									:loading="unblockLoading"
+									@click.stop="confirmUnblock"
+								>
+									Confirm Resolve
+								</el-button>
+								<el-button @click.stop="cancelUnblock">Cancel</el-button>
+							</div>
+						</template>
+						<!-- 收起状态：Resolve Blocker 按钮 -->
+						<template v-else>
+							<button
+								class="gsp-action gsp-action--unblock"
+								@click.stop="startUnblock(hoveredStage)"
+							>
+								<el-icon><CircleCheck /></el-icon>
+								Resolve Blocker
+							</button>
+						</template>
+					</div>
 				</div>
 			</template>
 		</el-popover>
@@ -515,6 +604,7 @@ import {
 	InfoFilled,
 	Calendar,
 	CircleClose,
+	CircleCheck,
 } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { OnboardingItem, Stage } from '#/onboard';
@@ -541,6 +631,7 @@ const emit = defineEmits<{
 	setActiveStage: [stageId: string];
 	stageCompleted: [];
 	stageRolledBack: [];
+	stageBlockChanged: [];
 }>();
 
 // Roll Back 弹窗状态
@@ -657,6 +748,12 @@ const stages = computed(() => {
 			stage?.saveTime || ''
 		),
 		canRollBack: (stage as any).canRollBack ?? false,
+		isBlocked: (stage as any).isBlocked ?? false,
+		blockerReason: (stage as any).blockerReason ?? null,
+		blockedByName: (stage as any).blockedByName ?? null,
+		blockedAt: (stage as any).blockedAt
+			? timeZoneConvert((stage as any).blockedAt, false, projectTenMinutesSsecondsDate)
+			: null,
 	}));
 });
 
@@ -735,14 +832,13 @@ function showStageDetail(stage: any, event: MouseEvent) {
 		hideDetailTimer = null;
 	}
 	hoveredStage.value = stage;
-	console.log('hoveredStage.value:', hoveredStage.value);
 	stageDetailTriggerRef.value = event.currentTarget as HTMLElement;
 	stageDetailVisible.value = true;
 }
 
 function hideStageDetail() {
-	// block 输入框展开时不关闭弹窗
-	if (blockingStageId.value) return;
+	// block 或 unblock 输入框展开时不关闭弹窗
+	if (blockingStageId.value || unblockingStageId.value) return;
 	hideDetailTimer = setTimeout(() => {
 		stageDetailVisible.value = false;
 		hideDetailTimer = null;
@@ -758,7 +854,7 @@ function cancelHideDetail() {
 
 function handlePopoverMouseLeave() {
 	// IME 候选词选择时鼠标会离开 popover，此处是关键拦截点
-	if (isInputFocused.value || blockingStageId.value) return;
+	if (isInputFocused.value || blockingStageId.value || unblockingStageId.value) return;
 	stageDetailVisible.value = false;
 }
 
@@ -854,16 +950,57 @@ async function confirmBlock() {
 		const { blockStage } = await import('@/apis/ow/gantt');
 		await blockStage(props.onboardingId, {
 			stageId: blockingStageId.value,
-			reason: blockReason.value,
+			blockerReason: blockReason.value,
 		});
 		ElMessage.success('Stage has been marked as blocked.');
 		blockingStageId.value = null;
 		blockReason.value = '';
 		stageDetailVisible.value = false;
-	} catch {
-		ElMessage.error('Failed to mark stage as blocked.');
+		emit('stageBlockChanged');
 	} finally {
 		blockLoading.value = false;
+	}
+}
+
+// ========================= Resolve Blocker =========================
+
+const unblockingStageId = ref<string | null>(null);
+const unblockNotes = ref('');
+const unblockLoading = ref(false);
+
+function startUnblock(stage: any) {
+	unblockingStageId.value = stage.stageId;
+	unblockNotes.value = '';
+}
+
+function cancelUnblock() {
+	unblockingStageId.value = null;
+	unblockNotes.value = '';
+	isInputFocused.value = false;
+	if (blurUnlockTimer) {
+		clearTimeout(blurUnlockTimer);
+		blurUnlockTimer = null;
+	}
+}
+
+async function confirmUnblock() {
+	if (!unblockingStageId.value) return;
+	unblockLoading.value = true;
+	try {
+		const { unblockStage } = await import('@/apis/ow/gantt');
+		await unblockStage(props.onboardingId, {
+			stageId: unblockingStageId.value,
+			resolutionNotes: unblockNotes.value || null,
+		});
+		ElMessage.success('Blocker has been resolved.');
+		unblockingStageId.value = null;
+		unblockNotes.value = '';
+		stageDetailVisible.value = false;
+		emit('stageBlockChanged');
+	} catch {
+		ElMessage.error('Failed to resolve blocker.');
+	} finally {
+		unblockLoading.value = false;
 	}
 }
 </script>
@@ -888,6 +1025,72 @@ async function confirmBlock() {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	width: 100%;
+}
+
+/* Blocked badge */
+.blocked-badge {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 6px 8px;
+	background-color: #fff7ed;
+	border: 1px solid #fed7aa;
+	border-radius: 8px;
+	font-size: 12px;
+
+	:global(.dark) & {
+		background-color: rgba(234, 88, 12, 0.1);
+		border-color: rgba(234, 88, 12, 0.3);
+	}
+
+	&__icon {
+		flex-shrink: 0;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+
+	&__body {
+		min-width: 0;
+		flex: 1;
+	}
+
+	&__title {
+		color: #c2410c;
+		font-weight: 500;
+		line-height: 1.4;
+
+		:global(.dark) & {
+			color: #fb923c;
+		}
+
+		strong {
+			font-weight: 600;
+		}
+	}
+
+	&__date {
+		color: #ea580c;
+		font-weight: 400;
+
+		:global(.dark) & {
+			color: #fb923c;
+		}
+	}
+
+	&__reason {
+		margin-top: 2px;
+		color: #9a3412;
+		line-height: 1.4;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+
+		:global(.dark) & {
+			color: #fdba74;
+		}
+	}
 }
 </style>
 
@@ -1206,6 +1409,19 @@ async function confirmBlock() {
 			background-color: var(--el-color-danger-light-7);
 			border-color: var(--el-color-danger);
 			color: var(--el-color-danger);
+		}
+	}
+
+	&--unblock {
+		width: 100%;
+		justify-content: center;
+		padding: 8px 16px;
+		background-color: transparent;
+
+		&:hover {
+			background-color: var(--el-color-success-light-7);
+			border-color: var(--el-color-success);
+			color: var(--el-color-success);
 		}
 	}
 

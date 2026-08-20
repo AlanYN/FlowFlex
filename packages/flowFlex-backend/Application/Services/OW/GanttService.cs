@@ -8,6 +8,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Enums.OW;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
@@ -29,6 +30,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IMediator _mediator;
         private readonly UserContext _userContext;
         private readonly ILogger<GanttService> _logger;
+        private readonly IOperationChangeLogService _operationChangeLogService;
 
         // Shared JSON options for consistency with rest of application
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -42,6 +44,7 @@ namespace FlowFlex.Application.Services.OW
             IUserService userService,
             IMediator mediator,
             UserContext userContext,
+            IOperationChangeLogService operationChangeLogService,
             ILogger<GanttService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -52,6 +55,7 @@ namespace FlowFlex.Application.Services.OW
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+            _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -197,11 +201,15 @@ namespace FlowFlex.Application.Services.OW
                 // Blocker fields
                 var blockedDays = ComputeBlockedDays(sp, today);
                 string blockReason = null;
+                string blockedByName = null;
+                DateTimeOffset? blockedAt = null;
                 DateTimeOffset? expectedResolutionDate = null;
                 if (sp.IsBlocked)
                 {
                     var activeBlocker = sp.BlockerHistory?.LastOrDefault(b => !b.BlockerResolvedDate.HasValue);
                     blockReason = activeBlocker?.BlockerReason;
+                    blockedByName = activeBlocker?.BlockedByName;
+                    blockedAt = activeBlocker?.BlockerStartDate;
                     expectedResolutionDate = activeBlocker?.ExpectedResolutionDate;
                 }
 
@@ -247,6 +255,8 @@ namespace FlowFlex.Application.Services.OW
                     TotalVarianceDays = totalVarianceDays,
                     BlockedDays = blockedDays,
                     BlockReason = blockReason,
+                    BlockedByName = blockedByName,
+                    BlockedAt = blockedAt,
                     ExpectedResolutionDate = expectedResolutionDate,
                     Components = componentsSummary,
                     LastSavedBy = lastSavedBy,
@@ -335,6 +345,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 BlockerReason = input.BlockerReason,
                 BlockerStartDate = DateTimeOffset.UtcNow,
+                BlockedByName = _userContext.UserName,
                 ExpectedResolutionDate = input.ExpectedResolutionDate
             });
 
@@ -361,6 +372,32 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[GanttService] Failed to publish projected recalc event after BlockStage for OnboardingId={OnboardingId}", onboardingId);
+            }
+
+            // Write changelog
+            try
+            {
+                var stageEntity = await _stageRepository.GetByIdAsync(input.StageId);
+                var stageName = stageEntity?.Name ?? input.StageId.ToString();
+                var afterData = new { IsBlocked = true, BlockerReason = input.BlockerReason, BlockedByName = _userContext.UserName, BlockedAt = DateTimeOffset.UtcNow };
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OperationTypeEnum.StageBlock,
+                    businessModule: BusinessModuleEnum.Stage,
+                    businessId: input.StageId,
+                    onboardingId: onboardingId,
+                    stageId: input.StageId,
+                    operationTitle: $"Stage '{stageName}' blocked by {_userContext.UserName}" +
+                        (!string.IsNullOrWhiteSpace(input.BlockerReason) ? $": {input.BlockerReason}" : ""),
+                    operationDescription: $"Stage '{stageName}' has been marked as blocked by {_userContext.UserName}. Reason: {input.BlockerReason}",
+                    beforeData: JsonSerializer.Serialize(new { IsBlocked = false }),
+                    afterData: JsonSerializer.Serialize(afterData),
+                    changedFields: new List<string> { "IsBlocked", "BlockerReason" },
+                    extendedData: JsonSerializer.Serialize(new { Source = "manual_block", ExpectedResolutionDate = input.ExpectedResolutionDate })
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[GanttService] Failed to write changelog after BlockStage for OnboardingId={OnboardingId}", onboardingId);
             }
 
             return true;
@@ -421,6 +458,32 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[GanttService] Failed to publish projected recalc event after UnblockStage for OnboardingId={OnboardingId}", onboardingId);
+            }
+
+            // Write changelog
+            try
+            {
+                var stageEntity = await _stageRepository.GetByIdAsync(input.StageId);
+                var stageName = stageEntity?.Name ?? input.StageId.ToString();
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OperationTypeEnum.StageUnblock,
+                    businessModule: BusinessModuleEnum.Stage,
+                    businessId: input.StageId,
+                    onboardingId: onboardingId,
+                    stageId: input.StageId,
+                    operationTitle: $"Stage '{stageName}' unblocked by {_userContext.UserName}" +
+                        (!string.IsNullOrWhiteSpace(input.ResolutionNotes) ? $": {input.ResolutionNotes}" : ""),
+                    operationDescription: $"Stage '{stageName}' blocker has been resolved by {_userContext.UserName}" +
+                        (!string.IsNullOrWhiteSpace(input.ResolutionNotes) ? $". Notes: {input.ResolutionNotes}" : ""),
+                    beforeData: JsonSerializer.Serialize(new { IsBlocked = true }),
+                    afterData: JsonSerializer.Serialize(new { IsBlocked = false, ResolvedByName = _userContext.UserName, ResolvedAt = DateTimeOffset.UtcNow, ResolutionNotes = input.ResolutionNotes }),
+                    changedFields: new List<string> { "IsBlocked" },
+                    extendedData: JsonSerializer.Serialize(new { Source = "manual_unblock" })
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[GanttService] Failed to write changelog after UnblockStage for OnboardingId={OnboardingId}", onboardingId);
             }
 
             return true;

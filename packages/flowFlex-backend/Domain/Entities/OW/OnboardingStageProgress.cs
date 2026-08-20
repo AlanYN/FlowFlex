@@ -378,6 +378,9 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>Date/time when the blocker was reported.</summary>
         public DateTimeOffset? BlockerStartDate { get; set; }
 
+        /// <summary>Name of the user who marked this stage as blocked.</summary>
+        public string BlockedByName { get; set; }
+
         /// <summary>Estimated date by which the blocker is expected to be resolved.</summary>
         public DateTimeOffset? ExpectedResolutionDate { get; set; }
 

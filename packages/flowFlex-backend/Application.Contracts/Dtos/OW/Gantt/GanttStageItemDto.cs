@@ -133,6 +133,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Gantt
         public string BlockReason { get; set; }
 
         /// <summary>
+        /// Name of the user who marked this stage as blocked (null when not blocked)
+        /// </summary>
+        public string BlockedByName { get; set; }
+
+        /// <summary>
+        /// Date/time when the current blocker was reported (null when not blocked)
+        /// </summary>
+        public DateTimeOffset? BlockedAt { get; set; }
+
+        /// <summary>
         /// Expected resolution date for the current blocker (null when not blocked)
         /// </summary>
         public DateTimeOffset? ExpectedResolutionDate { get; set; }
