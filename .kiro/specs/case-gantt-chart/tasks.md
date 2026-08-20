@@ -258,8 +258,8 @@
 
 ### Phase 5：前端 API 与 Store
 
-- [ ] 6. 修复并完善前端 gantt.ts 和 Pinia Store
-  - [ ] 6.1 修复并完善 `gantt.ts`
+- [x] 6. 修复并完善前端 gantt.ts 和 Pinia Store
+  - [x] 6.1 修复并完善 `gantt.ts`
     - 文件：`packages/flowFlex-common/src/app/apis/ow/gantt.ts`
     - 移除 `'Blocked'` from `GanttStageStatus` 枚举（与设计文档对齐，改为独立的 `isBlocked` 字段）
     - 将 `GanttStageItem.status` 重命名为 `ganttStatus: GanttStageStatus`（与后端 DTO 字段名一致）
@@ -275,7 +275,7 @@
     - 删除 `createMockGanttData()` 函数和全部 Mock 相关代码（保留类型定义）
     - _Requirements: 6, 7, 15.6_
 
-  - [ ] 6.2 新建 Pinia `ganttStore.ts`
+  - [x] 6.2 新建 Pinia `ganttStore.ts`
     - 文件：`packages/flowFlex-common/src/app/stores/modules/gantt.ts`
     - Store ID：`'item-wfe-app-gantt'`
     - State：`ganttData: Map<string, GanttDataResponse>`、`loading: boolean`、`tourSeen: boolean | null`（null = 未查询）

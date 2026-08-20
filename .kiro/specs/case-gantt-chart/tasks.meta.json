@@ -237,6 +237,37 @@
         "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
         "timestamp": 1787122372833
       }
+    ],
+    "6.1 修复并完善 `gantt.ts`": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135290392
+      },
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135697994
+      }
+    ],
+    "6.2 新建 Pinia `ganttStore.ts`": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135297729
+      },
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135706186
+      }
+    ],
+    "6. 修复并完善前端 gantt.ts 和 Pinia Store": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135706337
+      }
     ]
   }
 }
