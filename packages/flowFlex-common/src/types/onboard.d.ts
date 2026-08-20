@@ -358,6 +358,11 @@ export interface Stage {
 	required: boolean;
 	rollBackTeams?: string[];
 	canRollBack?: boolean;
+	isBlocked?: boolean;
+	blockedBy?: string;
+	blockedByName?: string;
+	blockReason?: string;
+	blockedAt?: string;
 }
 
 // 检查清单任务完成记录相关类型定义
