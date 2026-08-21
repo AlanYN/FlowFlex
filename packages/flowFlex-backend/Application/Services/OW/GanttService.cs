@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.Dtos.OW.Gantt;
+using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Helpers.OW;
@@ -578,6 +579,12 @@ namespace FlowFlex.Application.Services.OW
             if (!components.Any())
                 return 0m;
 
+            // Quick return: all components are quickLink → 100% (no real work items)
+            if (components.All(c =>
+                    c.Key?.ToLowerInvariant() == "quicklinks" ||
+                    c.Key?.ToLowerInvariant() == "quicklink"))
+                return 100m;
+
             // Parse component weights from Stage.ComponentWeights
             var weights = ParseComponentWeights(stage.ComponentWeights, components);
 
@@ -655,6 +662,7 @@ namespace FlowFlex.Application.Services.OW
         /// Parse ComponentWeight entries from the stage's ComponentWeights JSONB column.
         /// Falls back to equal distribution when null/empty.
         /// Returns a map from component Key → weight value (0–100 scale).
+        /// Orphan weight records (whose Id does not correspond to any component in <paramref name="components"/>) are filtered out.
         /// </summary>
         private static Dictionary<string, decimal> ParseComponentWeights(string componentWeightsJson, List<StageComponent> components)
         {
@@ -664,9 +672,32 @@ namespace FlowFlex.Application.Services.OW
             {
                 try
                 {
-                    var items = JsonSerializer.Deserialize<List<ComponentWeightEntry>>(componentWeightsJson, JsonOptions);
+                    var items = JsonSerializer.Deserialize<List<ComponentWeightItem>>(componentWeightsJson, JsonOptions);
                     if (items != null && items.Any())
                     {
+                        // Build a set of valid component IDs from current stage components
+                        var validIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var comp in components)
+                        {
+                            var key = comp.Key?.ToLowerInvariant() ?? "";
+                            if (key == "fields")
+                                validIds.Add("fields");
+                            else if (key == "files")
+                                validIds.Add("files");
+
+                            if (comp.ChecklistIds != null)
+                                foreach (var id in comp.ChecklistIds) validIds.Add(id.ToString());
+
+                            if (comp.QuestionnaireIds != null)
+                                foreach (var id in comp.QuestionnaireIds) validIds.Add(id.ToString());
+
+                            if (key == "quicklinks" || key == "quicklink")
+                                foreach (var id in comp.QuickLinkIds) validIds.Add(id.ToString());
+                        }
+
+                        // Filter orphan records — only keep items with a matching Id in current components
+                        items = items.Where(item => !string.IsNullOrEmpty(item.Id) && validIds.Contains(item.Id)).ToList();
+
                         foreach (var item in items)
                         {
                             if (!string.IsNullOrEmpty(item.Type))
@@ -814,20 +845,5 @@ namespace FlowFlex.Application.Services.OW
 
         #endregion
 
-        #region Private Model: ComponentWeightEntry
-
-        /// <summary>
-        /// Internal model to deserialize items from Stage.ComponentWeights JSONB column.
-        /// Format: [{"type":"checklist","id":"1001","name":"CustomerInfo","weight":40}]
-        /// </summary>
-        private class ComponentWeightEntry
-        {
-            public string Type { get; set; }
-            public string Id { get; set; }
-            public string Name { get; set; }
-            public decimal Weight { get; set; }
-        }
-
-        #endregion
     }
 }
