@@ -1122,7 +1122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, readonly } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, readonly, inject } from 'vue';
 import {
 	Upload,
 	Warning,
@@ -2418,14 +2418,12 @@ const findSectionIndexById = (sectionId: string) => {
 };
 
 // 分页控制方法
+// 从 detail.vue 注入滚动到顶部的方法（通过 provide/inject 避免 prop 深传）
+const scrollLeftToTop = inject<() => void>('scrollLeftToTop', () => {});
+
 const scrollToTop = () => {
-	nextTick(() => {
-		const parent = dynamicFormRootRef.value?.closest('.wfe-global-block-bg');
-		(parent || dynamicFormRootRef.value)?.scrollIntoView({
-			behavior: 'smooth',
-			block: 'start',
-		});
-	});
+	// 优先使用父页面注入的滚动方法（操作 el-scrollbar 实例）
+	scrollLeftToTop();
 };
 
 const goToPreviousSection = () => {

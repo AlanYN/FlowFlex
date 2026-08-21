@@ -328,7 +328,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, onBeforeUpdate } from 'vue';
+import { ref, computed, onMounted, nextTick, onBeforeUpdate, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, User, Document, Check, View } from '@element-plus/icons-vue';
@@ -397,6 +397,13 @@ const initialLoading = ref(true); // 初始页面加载状态
 // 使用自适应滚动条 hook
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
 const { scrollbarRef: rightScrollbarRef } = useAdaptiveScrollbar(100);
+
+// 向子孙组件提供左侧滚动区滚动到顶部的方法，供 dynamicForm section 切换使用
+provide('scrollLeftToTop', () => {
+	nextTick(() => {
+		(leftScrollbarRef.value as any)?.setScrollTop(0);
+	});
+});
 
 // 计算属性
 const onboardingId = computed(() => {
