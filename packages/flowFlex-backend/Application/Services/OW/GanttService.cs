@@ -13,6 +13,7 @@ using FlowFlex.Domain.Shared.Enums.OW;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -32,6 +33,11 @@ namespace FlowFlex.Application.Services.OW
         private readonly UserContext _userContext;
         private readonly ILogger<GanttService> _logger;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
+        private readonly IChecklistTaskRepository _checklistTaskRepository;
+        private readonly IQuestionnaireAnswerRepository _questionnaireAnswerRepository;
+        private readonly IStaticFieldValueRepository _staticFieldValueRepository;
+        private readonly IOnboardingFileRepository _onboardingFileRepository;
 
         // Shared JSON options for consistency with rest of application
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -46,6 +52,11 @@ namespace FlowFlex.Application.Services.OW
             IMediator mediator,
             UserContext userContext,
             IOperationChangeLogService operationChangeLogService,
+            IChecklistTaskCompletionRepository checklistTaskCompletionRepository,
+            IChecklistTaskRepository checklistTaskRepository,
+            IQuestionnaireAnswerRepository questionnaireAnswerRepository,
+            IStaticFieldValueRepository staticFieldValueRepository,
+            IOnboardingFileRepository onboardingFileRepository,
             ILogger<GanttService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -57,6 +68,11 @@ namespace FlowFlex.Application.Services.OW
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
+            _checklistTaskCompletionRepository = checklistTaskCompletionRepository ?? throw new ArgumentNullException(nameof(checklistTaskCompletionRepository));
+            _checklistTaskRepository = checklistTaskRepository ?? throw new ArgumentNullException(nameof(checklistTaskRepository));
+            _questionnaireAnswerRepository = questionnaireAnswerRepository ?? throw new ArgumentNullException(nameof(questionnaireAnswerRepository));
+            _staticFieldValueRepository = staticFieldValueRepository ?? throw new ArgumentNullException(nameof(staticFieldValueRepository));
+            _onboardingFileRepository = onboardingFileRepository ?? throw new ArgumentNullException(nameof(onboardingFileRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -112,6 +128,107 @@ namespace FlowFlex.Application.Services.OW
                 plannedTimeMap = ComputePlannedTimes(stages, onboarding.StartDate.Value, onboarding.EstimatedCompletionDate);
             }
 
+            // Step 5b: Batch-fetch all completion data for real completionPercentage / GanttComponentsDto
+            var allStageIds = orderedProgress.Select(sp => sp.StageId).ToList();
+            var onboardingIdLong = onboarding.Id;
+
+            // Checklist task completions — parallel fetch per stage, then union
+            Dictionary<long, List<ChecklistTaskCompletion>> completionsByStage;
+            try
+            {
+                var completionTasks = allStageIds
+                    .Select(sid => _checklistTaskCompletionRepository.GetByOnboardingAndStageAsync(onboardingIdLong, sid))
+                    .ToList();
+                var completionResults = await Task.WhenAll(completionTasks);
+                completionsByStage = allStageIds
+                    .Zip(completionResults, (sid, records) => (sid, records))
+                    .ToDictionary(x => x.sid, x => x.records ?? new List<ChecklistTaskCompletion>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[GanttService] Failed to batch-fetch checklist completions for onboarding {OnboardingId}", onboardingIdLong);
+                completionsByStage = new Dictionary<long, List<ChecklistTaskCompletion>>();
+            }
+
+            // Checklist task definitions
+            List<ChecklistTask> allChecklistTasks;
+            try
+            {
+                var allChecklistIds = orderedProgress
+                    .Where(sp => stageDict.ContainsKey(sp.StageId))
+                    .SelectMany(sp => ParseStageComponents(stageDict[sp.StageId].ComponentsJson)
+                        .Where(c => c.Key?.ToLowerInvariant() == "checklist")
+                        .SelectMany(c => c.ChecklistIds ?? new List<long>()))
+                    .Distinct()
+                    .ToList();
+                allChecklistTasks = allChecklistIds.Any()
+                    ? await _checklistTaskRepository.GetByChecklistIdsAsync(allChecklistIds)
+                    : new List<ChecklistTask>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[GanttService] Failed to batch-fetch checklist tasks for onboarding {OnboardingId}", onboardingIdLong);
+                allChecklistTasks = new List<ChecklistTask>();
+            }
+
+            // Questionnaire answers
+            Dictionary<(long stageId, long questionnaireId), QuestionnaireAnswer> answerLookup;
+            try
+            {
+                var questionnaireAnswers = await _questionnaireAnswerRepository
+                    .GetByOnboardingAndStageIdsAsync(onboardingIdLong, allStageIds);
+                // For each (stageId, questionnaireId) pair keep the most-recently submitted answer,
+                // falling back to any answer if none is submitted.
+                answerLookup = questionnaireAnswers
+                    .GroupBy(a => (a.StageId, a.QuestionnaireId ?? 0L))
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.OrderByDescending(a => a.Status == "Submitted" || a.Status == "Approved")
+                               .ThenByDescending(a => a.CreateDate)
+                               .First());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[GanttService] Failed to batch-fetch questionnaire answers for onboarding {OnboardingId}", onboardingIdLong);
+                answerLookup = new Dictionary<(long, long), QuestionnaireAnswer>();
+            }
+
+            // Static field values
+            Dictionary<long, List<StaticFieldValue>> fieldValuesByStage;
+            try
+            {
+                var allFieldValues = await _staticFieldValueRepository.GetByOnboardingIdAsync(onboardingIdLong);
+                fieldValuesByStage = allFieldValues
+                    .GroupBy(fv => fv.StageId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[GanttService] Failed to batch-fetch static field values for onboarding {OnboardingId}", onboardingIdLong);
+                fieldValuesByStage = new Dictionary<long, List<StaticFieldValue>>();
+            }
+
+            // Uploaded files per stage
+            Dictionary<long, int> fileCountByStage;
+            try
+            {
+                var allFiles = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboardingIdLong, null);
+                fileCountByStage = allFiles
+                    .Where(f => f.StageId.HasValue)
+                    .GroupBy(f => f.StageId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[GanttService] Failed to batch-fetch uploaded files for onboarding {OnboardingId}", onboardingIdLong);
+                fileCountByStage = new Dictionary<long, int>();
+            }
+
+            // Build O(1) lookup: checklistId → tasks
+            var tasksByChecklist = allChecklistTasks
+                .GroupBy(t => t.ChecklistId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             // Step 6 & 7: Collect all assignee/co-assignee user IDs for batch resolution
             var allUserIdStrings = orderedProgress
                 .SelectMany(sp => (sp.CustomStageAssignee?.Any() == true ? sp.CustomStageAssignee : sp.Assignee) ?? new List<string>())
@@ -143,7 +260,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Compute completionPercentage
-                var completionPct = ComputeCompletionPercentage(stage, sp);
+                var completionPct = ComputeCompletionPercentage(stage, sp, completionsByStage, tasksByChecklist, answerLookup, fieldValuesByStage);
 
                 // Derive ganttStatus
                 var ganttStatus = DeriveGanttStageStatus(sp, plannedStart, plannedEnd, today);
@@ -215,7 +332,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Components summary
-                var componentsSummary = BuildComponentsSummary(stage);
+                var componentsSummary = BuildComponentsSummary(stage, sp, completionsByStage, tasksByChecklist, answerLookup, fieldValuesByStage, fileCountByStage);
 
                 // Last saved audit
                 string lastSavedBy = null;
@@ -572,18 +689,29 @@ namespace FlowFlex.Application.Services.OW
         /// Compute the weighted completion percentage for a stage at query time.
         /// Not persisted to the database.
         /// </summary>
-        private static decimal ComputeCompletionPercentage(Stage stage, OnboardingStageProgress progress)
+        private decimal ComputeCompletionPercentage(
+            Stage stage,
+            OnboardingStageProgress progress,
+            Dictionary<long, List<ChecklistTaskCompletion>> completionsByStage,
+            Dictionary<long, List<ChecklistTask>> tasksByChecklist,
+            Dictionary<(long stageId, long questionnaireId), QuestionnaireAnswer> answerLookup,
+            Dictionary<long, List<StaticFieldValue>> fieldValuesByStage)
         {
+            // Short-circuit: completed stage is always 100%
+            if (progress.IsCompleted)
+                return 100m;
+
             // Parse components from Stage.ComponentsJson
             var components = ParseStageComponents(stage.ComponentsJson);
             if (!components.Any())
                 return 0m;
 
-            // Quick return: all components are quickLink → 100% (no real work items)
-            if (components.All(c =>
+            // Quick return: all components are quickLink (no real work items)
+            // Return 100% only if started, 0% if not yet started
+            if (components.Any() && components.All(c =>
                     c.Key?.ToLowerInvariant() == "quicklinks" ||
                     c.Key?.ToLowerInvariant() == "quicklink"))
-                return 100m;
+                return progress.StartTime.HasValue ? 100m : 0m;
 
             // Parse component weights from Stage.ComponentWeights
             var weights = ParseComponentWeights(stage.ComponentWeights, components);
@@ -602,7 +730,7 @@ namespace FlowFlex.Application.Services.OW
                 // Quick links never contribute to completion
                 if (key == "quicklinks" || key == "quicklink") continue;
 
-                decimal componentCompletion = ComputeComponentCompletion(key, component, progress);
+                decimal componentCompletion = ComputeComponentCompletion(key, component, progress, completionsByStage, tasksByChecklist, answerLookup, fieldValuesByStage);
                 decimal weight = weights.TryGetValue(component.Key, out var w) ? w : 0m;
                 weightedSum += weight * componentCompletion;
             }
@@ -615,34 +743,84 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Compute completion fraction (0.0 – 1.0) for an individual component type.
         /// </summary>
-        private static decimal ComputeComponentCompletion(string componentKey, StageComponent component, OnboardingStageProgress progress)
+        private decimal ComputeComponentCompletion(
+            string componentKey,
+            StageComponent component,
+            OnboardingStageProgress progress,
+            Dictionary<long, List<ChecklistTaskCompletion>> completionsByStage,
+            Dictionary<long, List<ChecklistTask>> tasksByChecklist,
+            Dictionary<(long stageId, long questionnaireId), QuestionnaireAnswer> answerLookup,
+            Dictionary<long, List<StaticFieldValue>> fieldValuesByStage)
         {
             switch (componentKey)
             {
                 case "checklist":
                 {
                     if (!component.ChecklistIds.Any()) return 0m;
-                    // Each checklist contributes equally; we cannot query checklist tasks here
-                    // without injecting additional services, so we return 0 as a safe default.
-                    // A richer implementation would inject IChecklistTaskRepository.
-                    return 0m;
+
+                    var stageCompletions = completionsByStage.TryGetValue(progress.StageId, out var sc)
+                        ? sc
+                        : new List<ChecklistTaskCompletion>();
+                    var completedTaskIds = stageCompletions
+                        .Where(c => c.IsCompleted)
+                        .Select(c => c.TaskId)
+                        .ToHashSet();
+
+                    int totalTasks = 0, completedTasks = 0;
+                    foreach (var checklistId in component.ChecklistIds)
+                    {
+                        var tasks = tasksByChecklist.TryGetValue(checklistId, out var tl) ? tl : new List<ChecklistTask>();
+                        totalTasks += tasks.Count;
+                        completedTasks += tasks.Count(t => completedTaskIds.Contains(t.Id));
+                    }
+                    return totalTasks == 0 ? 0m : Math.Round((decimal)completedTasks / totalTasks * 100m, 2);
                 }
+
                 case "questionnaires":
                 case "questionnaire":
                 {
-                    // Cannot query questionnaire answers without additional services injection.
-                    return 0m;
+                    if (!component.QuestionnaireIds.Any()) return 0m;
+                    int submitted = 0;
+                    foreach (var qId in component.QuestionnaireIds)
+                    {
+                        if (answerLookup.TryGetValue((progress.StageId, qId), out var answer)
+                            && (answer.Status == "Submitted" || answer.Status == "Approved"))
+                            submitted++;
+                    }
+                    return Math.Round((decimal)submitted / component.QuestionnaireIds.Count * 100m, 2);
                 }
+
                 case "fields":
                 {
-                    // Cannot query static-field values without additional services injection.
-                    return 0m;
+                    // Required fields are identified by StaticFieldConfig.Id == StaticFieldValue.FieldName
+                    var requiredFieldIds = component.StaticFields?
+                        .Where(f => f.IsRequired && !string.IsNullOrWhiteSpace(f.Id))
+                        .Select(f => f.Id!)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                        ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    // No required fields — treat as complete only if stage has been started
+                    if (requiredFieldIds.Count == 0)
+                        return progress.StartTime.HasValue ? 100m : 0m;
+
+                    var filledValues = fieldValuesByStage.TryGetValue(progress.StageId, out var fvs)
+                        ? fvs
+                        : new List<StaticFieldValue>();
+                    var filledFieldIds = filledValues
+                        .Where(fv => !string.IsNullOrWhiteSpace(fv.FieldValueJson)
+                                     && fv.FieldValueJson != "{}"
+                                     && fv.FieldValueJson != "null"
+                                     && fv.FieldId.HasValue)
+                        .Select(fv => fv.FieldId!.Value.ToString())
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    int filled = requiredFieldIds.Count(id => filledFieldIds.Contains(id));
+                    return Math.Round((decimal)filled / requiredFieldIds.Count * 100m, 2);
                 }
+
                 case "files":
-                {
-                    // Cannot query uploaded file counts without additional services injection.
-                    return 0m;
-                }
+                    return 0m; // file completion tracking out of scope
+
                 default:
                     return 0m;
             }
@@ -701,7 +879,14 @@ namespace FlowFlex.Application.Services.OW
                         foreach (var item in items)
                         {
                             if (!string.IsNullOrEmpty(item.Type))
-                                result[item.Type] = item.Weight;
+                            {
+                                // Normalise singular "questionnaire" to plural "questionnaires" so it matches
+                                // the component Key used in components_json (frontend always stores "questionnaires")
+                                var normalizedType = item.Type.Equals("questionnaire", StringComparison.OrdinalIgnoreCase)
+                                    ? "questionnaires"
+                                    : item.Type;
+                                result[normalizedType] = item.Weight;
+                            }
                         }
                         if (result.Any())
                             return result;
@@ -812,14 +997,39 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Build a GanttComponentsDto from the Stage entity's component configuration.
-        /// Counts are structural (total counts), not completion counts,
-        /// since completion data requires separate service calls.
+        /// Build a GanttComponentsDto from the Stage entity's component configuration,
+        /// filling both total and completion counts using the pre-fetched lookup data.
         /// </summary>
-        private static GanttComponentsDto BuildComponentsSummary(Stage stage)
+        private GanttComponentsDto BuildComponentsSummary(
+            Stage stage,
+            OnboardingStageProgress progress,
+            Dictionary<long, List<ChecklistTaskCompletion>> completionsByStage,
+            Dictionary<long, List<ChecklistTask>> tasksByChecklist,
+            Dictionary<(long stageId, long questionnaireId), QuestionnaireAnswer> answerLookup,
+            Dictionary<long, List<StaticFieldValue>> fieldValuesByStage,
+            Dictionary<long, int> fileCountByStage)
         {
             var dto = new GanttComponentsDto();
             var components = ParseStageComponents(stage.ComponentsJson);
+
+            var stageCompletions = completionsByStage.TryGetValue(progress.StageId, out var sc)
+                ? sc
+                : new List<ChecklistTaskCompletion>();
+            var completedTaskIds = stageCompletions
+                .Where(c => c.IsCompleted)
+                .Select(c => c.TaskId)
+                .ToHashSet();
+
+            var filledValues = fieldValuesByStage.TryGetValue(progress.StageId, out var fvs)
+                ? fvs
+                : new List<StaticFieldValue>();
+            var filledFieldIds = filledValues
+                .Where(fv => !string.IsNullOrWhiteSpace(fv.FieldValueJson)
+                             && fv.FieldValueJson != "{}"
+                             && fv.FieldValueJson != "null"
+                             && fv.FieldId.HasValue)
+                .Select(fv => fv.FieldId!.Value.ToString())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var component in components)
             {
@@ -827,16 +1037,39 @@ namespace FlowFlex.Application.Services.OW
                 switch (key)
                 {
                     case "checklist":
-                        dto.ChecklistsTotal += component.ChecklistIds?.Count ?? 0;
+                        foreach (var checklistId in component.ChecklistIds ?? new List<long>())
+                        {
+                            var tasks = tasksByChecklist.TryGetValue(checklistId, out var tl)
+                                ? tl
+                                : new List<ChecklistTask>();
+                            dto.ChecklistsTotal += tasks.Count;
+                            dto.ChecklistsCompleted += tasks.Count(t => completedTaskIds.Contains(t.Id));
+                        }
                         break;
+
                     case "questionnaires":
                     case "questionnaire":
                         dto.QuestionnairesTotal += component.QuestionnaireIds?.Count ?? 0;
+                        foreach (var qId in component.QuestionnaireIds ?? new List<long>())
+                        {
+                            if (answerLookup.TryGetValue((progress.StageId, qId), out var ans)
+                                && (ans.Status == "Submitted" || ans.Status == "Approved"))
+                                dto.QuestionnairesSubmitted++;
+                        }
                         break;
+
                     case "fields":
-                        dto.FieldsTotal += component.StaticFields?.Count(f => f.IsRequired) ?? 0;
+                        var requiredConfigs = component.StaticFields?
+                            .Where(f => f.IsRequired && !string.IsNullOrWhiteSpace(f.Id))
+                            .ToList()
+                            ?? new List<StaticFieldConfig>();
+                        dto.FieldsTotal += requiredConfigs.Count;
+                        dto.FieldsFilled += requiredConfigs.Count(f => filledFieldIds.Contains(f.Id!));
                         break;
-                    // files and quickLinks don't contribute structural totals here
+
+                    case "files":
+                        dto.FilesUploaded = fileCountByStage.TryGetValue(progress.StageId, out var fc) ? fc : 0;
+                        break;
                 }
             }
 
