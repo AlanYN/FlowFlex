@@ -319,6 +319,19 @@ namespace FlowFlex.Application.Services.OW
             // Validate team IDs in ViewTeams and OperateTeams (only when provided)
             await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
 
+            // Validate component weights if provided
+            if (input.ComponentWeights != null && input.ComponentWeights.Count > 0)
+            {
+                var invalidWeights = input.ComponentWeights.Where(w => w.Weight < 0 || w.Weight > 100).ToList();
+                if (invalidWeights.Any())
+                    throw new CRMException(ErrorCodeEnum.CustomError,
+                        $"Component weight value must be between 0 and 100");
+                var weightSum = input.ComponentWeights.Sum(w => w.Weight);
+                if (weightSum != 100)
+                    throw new CRMException(ErrorCodeEnum.CustomError,
+                        $"Component weights must sum to 100. Current sum: {weightSum}");
+            }
+
             // Validate stage name uniqueness within workflow (excluding current stage)
             if (await _stageRepository.IsNameExistsInWorkflowAsync(stage.WorkflowId, input.Name, id))
             {
@@ -379,6 +392,14 @@ namespace FlowFlex.Application.Services.OW
 
                 // Map update data
                 _mapper.Map(input, stageInTransaction);
+
+                // Persist component weights (null = no change; empty list = clear)
+                if (input.ComponentWeights != null)
+                {
+                    stageInTransaction.ComponentWeights = input.ComponentWeights.Count > 0
+                        ? JsonSerializer.Serialize(input.ComponentWeights, _jsonOptions)
+                        : null;
+                }
 
                 // Filter CoAssignees to exclude any IDs already in DefaultAssignee
                 if (!string.IsNullOrEmpty(stageInTransaction.CoAssignees) && !string.IsNullOrEmpty(stageInTransaction.DefaultAssignee))

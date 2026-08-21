@@ -1,0 +1,328 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 确认 `Stage.cs` 上 `ComponentWeights` 属性已存在（无需修改）": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787269314480
+      },
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270116847
+      }
+    ],
+    "1.2 新建 `ComponentWeightItem.cs` DTO": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787269321741
+      },
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270128547
+      }
+    ],
+    "1.3 `StageInputDto.cs` 新增 `ComponentWeights` 字段": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270142624
+      },
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270152684
+      }
+    ],
+    "1.4 `StageOutputDto.cs` 新增 `ComponentWeights` 字段": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270143883
+      },
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270153224
+      }
+    ],
+    "1.5 `StageMapProfile.cs` 新增反序列化映射": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270161639
+      },
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270169842
+      }
+    ],
+    "1. Phase 1：后端数据模型与 DTO": [
+      {
+        "executionId": "e6e23c75-4c62-42ac-9352-fd826629f5b5",
+        "chatSessionId": "sess_fd18f4f7-445f-4b47-809b-c6bf0108e666",
+        "timestamp": 1787270170003
+      }
+    ],
+    "2.1 `StageService.UpdateAsync`：校验 WeightSum == 100": [
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270246367
+      },
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270453818
+      }
+    ],
+    "2.2 `StageService.UpdateAsync`：事务块内序列化 ComponentWeights": [
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270461248
+      },
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270570926
+      }
+    ],
+    "2.3 `GanttService.ComputeCompletionPercentage`：完善加权计算与孤立记录过滤": [
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270469562
+      },
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270825363
+      }
+    ],
+    "2.4 Checkpoint — 编译后端确保无错误": [
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270833873
+      },
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270913339
+      }
+    ],
+    "2. Phase 2：后端业务逻辑": [
+      {
+        "executionId": "39f31f5f-5dda-46a0-ae30-fb2169d34544",
+        "chatSessionId": "sess_0c638ca1-16ad-4bb4-bc5c-183db4bfe220",
+        "timestamp": 1787270913473
+      }
+    ],
+    "4.1 `types/onboard.d.ts` 新增 `ComponentWeightItem` 接口，扩展 `ComponentsData`": [
+      {
+        "executionId": "9a2ad3c3-55b3-4ffe-96da-412a940269c2",
+        "chatSessionId": "sess_69fc0139-b3b3-4b9e-b73a-687e5de9aaf7",
+        "timestamp": 1787271019335
+      },
+      {
+        "executionId": "9a2ad3c3-55b3-4ffe-96da-412a940269c2",
+        "chatSessionId": "sess_69fc0139-b3b3-4b9e-b73a-687e5de9aaf7",
+        "timestamp": 1787271145749
+      }
+    ],
+    "4. Phase 4：前端类型定义": [
+      {
+        "executionId": "9a2ad3c3-55b3-4ffe-96da-412a940269c2",
+        "chatSessionId": "sess_69fc0139-b3b3-4b9e-b73a-687e5de9aaf7",
+        "timestamp": 1787271145889
+      }
+    ],
+    "5.1 新增 `componentWeights` 响应式状态和工具函数": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271213970
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272015580
+      }
+    ],
+    "5.2 实现 `getWeightableItems`（排除 quickLink）": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271215049
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272026566
+      }
+    ],
+    "5.3 实现 `applyFallbackWeights`（均分非 QuickLink，Quick Link 固定 0）": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271216085
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272027648
+      }
+    ],
+    "5.4 watch `props.modelValue.componentWeights`，加载已保存数据或触发 fallback": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271216942
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272029040
+      }
+    ],
+    "5.5 实现 `balanceWeights`（均分非 QuickLink，余数补第一个）": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271217737
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272030179
+      }
+    ],
+    "5.6 实现 `emitWeights`（拼装 `ComponentWeightItem[]` 并 emit）": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271218504
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272031412
+      }
+    ],
+    "5.7 WeightEditor 模板：每个 SelectedItem 卡片内新增 Slider + 数字输入框行": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271219344
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272032947
+      }
+    ],
+    "5.8 Balance 按钮：SelectedItems 区域右上角，空列表时禁用": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271220118
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272034198
+      }
+    ],
+    "5.9 联动：新增 Component 时权重初始化为 0，删除时从 Map 移除": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271221356
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272035532
+      }
+    ],
+    "5.10 TotalWeightIndicator：底部合计行，绿色/橙色状态": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271221802
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272036814
+      }
+    ],
+    "5.11 PreviewPanel：以 100% 假设完成度展示每行公式，含进度条": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271222580
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272038146
+      }
+    ],
+    "5.12 Checkpoint — 前端开发服务器可正常运行，选中 Component 时 WeightEditor 正确渲染": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787271223413
+      },
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272039845
+      }
+    ],
+    "5. Phase 5：前端 StageComponentsSelector 核心改造": [
+      {
+        "executionId": "9e6041e5-a44e-4f57-906f-f95a4935c8cf",
+        "chatSessionId": "sess_c0c87592-5957-4e13-aec4-6c4b16b328e0",
+        "timestamp": 1787272040005
+      }
+    ],
+    "6. Phase 6：前端 StageForm 集成": [
+      {
+        "executionId": "693d9748-5db9-4b16-833e-cc96b07b1c53",
+        "chatSessionId": "sess_7e9ef99e-7abb-4310-81dc-043fc3ba25fd",
+        "timestamp": 1787272083220
+      },
+      {
+        "executionId": "693d9748-5db9-4b16-833e-cc96b07b1c53",
+        "chatSessionId": "sess_7e9ef99e-7abb-4310-81dc-043fc3ba25fd",
+        "timestamp": 1787272666919
+      }
+    ],
+    "7.1 `apis/ow/index.ts` Stage Update 请求体和 Stage 查询响应体新增 `componentWeights`": [
+      {
+        "executionId": "6a4dcc95-7054-42a6-a6a9-b25a973f62a8",
+        "chatSessionId": "sess_ddaeb8bf-36fb-4e55-8102-7df2ba7d4ab8",
+        "timestamp": 1787277799068
+      },
+      {
+        "executionId": "6a4dcc95-7054-42a6-a6a9-b25a973f62a8",
+        "chatSessionId": "sess_ddaeb8bf-36fb-4e55-8102-7df2ba7d4ab8",
+        "timestamp": 1787278410222
+      }
+    ],
+    "7. Phase 7：前端 API 类型更新": [
+      {
+        "executionId": "6a4dcc95-7054-42a6-a6a9-b25a973f62a8",
+        "chatSessionId": "sess_ddaeb8bf-36fb-4e55-8102-7df2ba7d4ab8",
+        "timestamp": 1787278410338
+      }
+    ]
+  }
+}
