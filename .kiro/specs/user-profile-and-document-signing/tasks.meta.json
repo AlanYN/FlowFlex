@@ -1,0 +1,425 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 创建 `Migration_20260810000001_CreateUserSignatureTable`": [
+      {
+        "executionId": "85ab6619-881d-40b8-9b02-3194c8f5899d",
+        "chatSessionId": "sess_5559b6ef-3528-4068-bd4c-c7f2925cdeab",
+        "timestamp": 1786604294590
+      },
+      {
+        "executionId": "85ab6619-881d-40b8-9b02-3194c8f5899d",
+        "chatSessionId": "sess_5559b6ef-3528-4068-bd4c-c7f2925cdeab",
+        "timestamp": 1786604622856
+      }
+    ],
+    "1.2 创建 `Migration_20260810000002_AddSigningFieldsToOnboardingFile`": [
+      {
+        "executionId": "55b38dc8-a4e7-4405-96ce-30e9b1752388",
+        "chatSessionId": "sess_4822cb37-de6e-4a83-b94e-9beb78deacd9",
+        "timestamp": 1786604666279
+      },
+      {
+        "executionId": "55b38dc8-a4e7-4405-96ce-30e9b1752388",
+        "chatSessionId": "sess_4822cb37-de6e-4a83-b94e-9beb78deacd9",
+        "timestamp": 1786604856267
+      }
+    ],
+    "1.3 新建 `UserSignature` Entity 及 Repository": [
+      {
+        "executionId": "5449ddae-68d7-4c8c-b823-77b0661b523e",
+        "chatSessionId": "sess_c61417bd-ed0f-40bc-88c9-92667ae2586f",
+        "timestamp": 1786604913437
+      },
+      {
+        "executionId": "5449ddae-68d7-4c8c-b823-77b0661b523e",
+        "chatSessionId": "sess_c61417bd-ed0f-40bc-88c9-92667ae2586f",
+        "timestamp": 1786605275606
+      }
+    ],
+    "1.4 更新 `OnboardingFile` Entity 新增签署字段": [
+      {
+        "executionId": "09df100e-e7db-4205-9751-f1084535838f",
+        "chatSessionId": "sess_168b7852-b486-4b75-83e2-11e8ea37213a",
+        "timestamp": 1786605301128
+      },
+      {
+        "executionId": "09df100e-e7db-4205-9751-f1084535838f",
+        "chatSessionId": "sess_168b7852-b486-4b75-83e2-11e8ea37213a",
+        "timestamp": 1786605512801
+      }
+    ],
+    "2.1 新建签名 DTOs": [
+      {
+        "executionId": "2e2c76e9-5efa-45a6-b20a-a0392ccf464b",
+        "chatSessionId": "sess_b2f49126-f27a-46a0-be30-cf1b2d1f313a",
+        "timestamp": 1786605868980
+      },
+      {
+        "executionId": "2e2c76e9-5efa-45a6-b20a-a0392ccf464b",
+        "chatSessionId": "sess_b2f49126-f27a-46a0-be30-cf1b2d1f313a",
+        "timestamp": 1786606014382
+      }
+    ],
+    "2.2 新建 `IUserSignatureService` 及 `UserSignatureService`": [
+      {
+        "executionId": "f5842eae-e90f-4512-91c8-33f5000add67",
+        "chatSessionId": "sess_bb02b520-f0c4-432e-81e5-f029389e26ee",
+        "timestamp": 1786606435669
+      },
+      {
+        "executionId": "f5842eae-e90f-4512-91c8-33f5000add67",
+        "chatSessionId": "sess_bb02b520-f0c4-432e-81e5-f029389e26ee",
+        "timestamp": 1786607183028
+      }
+    ],
+    "2.3 新建 `UserSignatureMapProfile` 及注册": [
+      {
+        "executionId": "63c3b269-8478-4ccd-9dab-3bf0031d5a9d",
+        "chatSessionId": "sess_8710323b-bded-45e5-8e05-6c834e002a73",
+        "timestamp": 1786607567981
+      },
+      {
+        "executionId": "63c3b269-8478-4ccd-9dab-3bf0031d5a9d",
+        "chatSessionId": "sess_8710323b-bded-45e5-8e05-6c834e002a73",
+        "timestamp": 1786608074938
+      }
+    ],
+    "2.4 新建 `ProfileController`": [
+      {
+        "executionId": "6750bbc2-04b9-4a3c-8eea-2eb8261987f8",
+        "chatSessionId": "sess_3dd2687f-5f85-46f2-aff2-4c8e80f27af9",
+        "timestamp": 1786608257580
+      },
+      {
+        "executionId": "6750bbc2-04b9-4a3c-8eea-2eb8261987f8",
+        "chatSessionId": "sess_3dd2687f-5f85-46f2-aff2-4c8e80f27af9",
+        "timestamp": 1786608486473
+      }
+    ],
+    "3.1 新建签署 DTOs": [
+      {
+        "executionId": "f2d8c6b5-d19c-45df-86dd-08636a804232",
+        "chatSessionId": "sess_4477fa55-2817-4fe2-b43a-55decd339775",
+        "timestamp": 1786610817981
+      },
+      {
+        "executionId": "f2d8c6b5-d19c-45df-86dd-08636a804232",
+        "chatSessionId": "sess_4477fa55-2817-4fe2-b43a-55decd339775",
+        "timestamp": 1786610974563
+      }
+    ],
+    "3.2 新建 `IDocumentSigningService` 及 `DocumentSigningService`": [
+      {
+        "executionId": "ecebf113-bcb0-4240-a59e-39209bc118f3",
+        "chatSessionId": "sess_b07d509d-599c-4e80-b1b5-448b8c84130b",
+        "timestamp": 1786611993600
+      },
+      {
+        "executionId": "ecebf113-bcb0-4240-a59e-39209bc118f3",
+        "chatSessionId": "sess_b07d509d-599c-4e80-b1b5-448b8c84130b",
+        "timestamp": 1786612802448
+      }
+    ],
+    "3.3 新建 `DocumentSigningController`": [
+      {
+        "executionId": "9b4da50b-bac0-4d8a-a7d1-13f72596bfaa",
+        "chatSessionId": "sess_8a27d6c0-47d1-4add-973a-300b2be4f04c",
+        "timestamp": 1786613972128
+      },
+      {
+        "executionId": "9b4da50b-bac0-4d8a-a7d1-13f72596bfaa",
+        "chatSessionId": "sess_8a27d6c0-47d1-4add-973a-300b2be4f04c",
+        "timestamp": 1786615220045
+      }
+    ],
+    "4.1 安装前端新依赖": [
+      {
+        "executionId": "02e9e4c4-a794-4fd5-be9a-b20edb79e86d",
+        "chatSessionId": "sess_9d518a16-17e8-41fa-ba47-bae6d3e695c7",
+        "timestamp": 1786615852107
+      },
+      {
+        "executionId": "02e9e4c4-a794-4fd5-be9a-b20edb79e86d",
+        "chatSessionId": "sess_9d518a16-17e8-41fa-ba47-bae6d3e695c7",
+        "timestamp": 1786618644905
+      }
+    ],
+    "4.2 新建坐标与边界工具函数": [
+      {
+        "executionId": "652e67ee-b8ae-480f-aef4-e9b2651e2881",
+        "chatSessionId": "sess_9b8762e2-6ae9-4e5c-adf1-d6d1b7705be8",
+        "timestamp": 1786673315231
+      },
+      {
+        "executionId": "652e67ee-b8ae-480f-aef4-e9b2651e2881",
+        "chatSessionId": "sess_9b8762e2-6ae9-4e5c-adf1-d6d1b7705be8",
+        "timestamp": 1786673467084
+      }
+    ],
+    "4.4 新建 Profile 路由模块": [
+      {
+        "executionId": "4cdad4ac-e5b6-49bb-8ecf-a88e7d0d1603",
+        "chatSessionId": "sess_8da71558-83c9-41fe-9839-6a56ecdb2fba",
+        "timestamp": 1786673599710
+      },
+      {
+        "executionId": "4cdad4ac-e5b6-49bb-8ecf-a88e7d0d1603",
+        "chatSessionId": "sess_8da71558-83c9-41fe-9839-6a56ecdb2fba",
+        "timestamp": 1786673712719
+      }
+    ],
+    "4.5 新建 Profile API 模块": [
+      {
+        "executionId": "ccb4c732-1e21-427f-9bba-565a9c3d1b65",
+        "chatSessionId": "sess_802bf83f-5ae6-4b74-b619-07e5519c43ca",
+        "timestamp": 1786673825564
+      },
+      {
+        "executionId": "ccb4c732-1e21-427f-9bba-565a9c3d1b65",
+        "chatSessionId": "sess_802bf83f-5ae6-4b74-b619-07e5519c43ca",
+        "timestamp": 1786674076521
+      }
+    ],
+    "4.6 新建 DocumentSigning API 模块": [
+      {
+        "executionId": "e8305970-db15-4156-ac14-d18676e0f1ff",
+        "chatSessionId": "sess_d8563824-9945-45ea-b03e-70205d10ced5",
+        "timestamp": 1786674186686
+      },
+      {
+        "executionId": "e8305970-db15-4156-ac14-d18676e0f1ff",
+        "chatSessionId": "sess_d8563824-9945-45ea-b03e-70205d10ced5",
+        "timestamp": 1786674323286
+      }
+    ],
+    "5.1 改造 `userLayout.vue`：添加 My Profile 入口": [
+      {
+        "executionId": "f76f0d47-6772-48c9-a97b-90d6828bed7f",
+        "chatSessionId": "sess_7d570ba9-816b-4bfb-a183-b124af232c3c",
+        "timestamp": 1786674394031
+      },
+      {
+        "executionId": "f76f0d47-6772-48c9-a97b-90d6828bed7f",
+        "chatSessionId": "sess_7d570ba9-816b-4bfb-a183-b124af232c3c",
+        "timestamp": 1786674603920
+      }
+    ],
+    "5.2 新建 `DrawTab.vue`（可复用画板组件）": [
+      {
+        "executionId": "d12fda87-e8e9-4ca9-a728-ece5cb49516b",
+        "chatSessionId": "sess_d635822e-5350-4262-b7bb-4b10546afbfd",
+        "timestamp": 1786674801261
+      },
+      {
+        "executionId": "d12fda87-e8e9-4ca9-a728-ece5cb49516b",
+        "chatSessionId": "sess_d635822e-5350-4262-b7bb-4b10546afbfd",
+        "timestamp": 1786675178886
+      }
+    ],
+    "5.3 新建 `AddSignatureDialog.vue`（Profile 页用）": [
+      {
+        "executionId": "7ea33703-bf03-4e7e-b301-08923ef6e2e2",
+        "chatSessionId": "sess_c519d8d6-214c-425e-ad1a-274ed2fb4c55",
+        "timestamp": 1786675228437
+      },
+      {
+        "executionId": "7ea33703-bf03-4e7e-b301-08923ef6e2e2",
+        "chatSessionId": "sess_c519d8d6-214c-425e-ad1a-274ed2fb4c55",
+        "timestamp": 1786675965719
+      }
+    ],
+    "5.4 新建 Profile 页面 `index.vue`": [
+      {
+        "executionId": "3806033c-7622-481d-8669-8e18e6911c02",
+        "chatSessionId": "sess_221e05ee-0480-4e14-a33b-6e8fe602019b",
+        "timestamp": 1786676014836
+      },
+      {
+        "executionId": "3806033c-7622-481d-8669-8e18e6911c02",
+        "chatSessionId": "sess_221e05ee-0480-4e14-a33b-6e8fe602019b",
+        "timestamp": 1786676202555
+      }
+    ],
+    "6.1 改造 `previewFile.vue`：新增 `allowSign`、`isSigned`、`fileId` props": [
+      {
+        "executionId": "b0e2ea35-8a11-480f-891c-17dace1a8c87",
+        "chatSessionId": "sess_ef00bfb7-2c3d-4919-a275-96be67e28a17",
+        "timestamp": 1786676280432
+      },
+      {
+        "executionId": "b0e2ea35-8a11-480f-891c-17dace1a8c87",
+        "chatSessionId": "sess_ef00bfb7-2c3d-4919-a275-96be67e28a17",
+        "timestamp": 1786676555109
+      }
+    ],
+    "7.1 新建 `PdfViewer.vue`": [
+      {
+        "executionId": "ba5b0325-e9a0-4f33-85e2-a721a1194165",
+        "chatSessionId": "sess_86fc5fa5-35d7-4fd6-86dc-62dcfea36a1d",
+        "timestamp": 1786678040941
+      },
+      {
+        "executionId": "ba5b0325-e9a0-4f33-85e2-a721a1194165",
+        "chatSessionId": "sess_86fc5fa5-35d7-4fd6-86dc-62dcfea36a1d",
+        "timestamp": 1786678490296
+      }
+    ],
+    "7.2 新建 `SigningOverlay.vue`": [
+      {
+        "executionId": "6135e4de-c2d8-405c-a65b-e5522e11385a",
+        "chatSessionId": "sess_d43c4e51-8834-40da-b0ea-04ed89deaa9a",
+        "timestamp": 1786678541574
+      },
+      {
+        "executionId": "6135e4de-c2d8-405c-a65b-e5522e11385a",
+        "chatSessionId": "sess_d43c4e51-8834-40da-b0ea-04ed89deaa9a",
+        "timestamp": 1786678912257
+      }
+    ],
+    "7.3 新建 `PageThumbnails.vue`": [
+      {
+        "executionId": "2d17b80e-234e-4182-a555-ddd6503ee125",
+        "chatSessionId": "sess_d1c302bc-3a7c-49ee-8c46-b0d37e54282b",
+        "timestamp": 1786680901632
+      },
+      {
+        "executionId": "2d17b80e-234e-4182-a555-ddd6503ee125",
+        "chatSessionId": "sess_d1c302bc-3a7c-49ee-8c46-b0d37e54282b",
+        "timestamp": 1786681083907
+      }
+    ],
+    "7.4 新建 `SigningToolbar.vue`": [
+      {
+        "executionId": "376b5856-956c-48b1-96fc-136b5033f766",
+        "chatSessionId": "sess_fbf4f85e-f33e-4f5d-a651-5243ef47d1f1",
+        "timestamp": 1786684017523
+      },
+      {
+        "executionId": "376b5856-956c-48b1-96fc-136b5033f766",
+        "chatSessionId": "sess_fbf4f85e-f33e-4f5d-a651-5243ef47d1f1",
+        "timestamp": 1786684132911
+      }
+    ],
+    "8.1 新建 `FromProfileTab.vue`": [
+      {
+        "executionId": "e1f49a95-ba81-410a-9b24-12574b22024c",
+        "chatSessionId": "sess_cea3b204-4467-4e22-ac62-2bc33dab4cad",
+        "timestamp": 1786684191718
+      },
+      {
+        "executionId": "e1f49a95-ba81-410a-9b24-12574b22024c",
+        "chatSessionId": "sess_cea3b204-4467-4e22-ac62-2bc33dab4cad",
+        "timestamp": 1786686630324
+      }
+    ],
+    "8.2 新建 `AddSignatureDialog.vue`（签署流程版）": [
+      {
+        "executionId": "cab355fa-77a0-4edb-a618-e1ae934c9732",
+        "chatSessionId": "sess_b085f68a-cf74-4e8b-b118-c0d3f4a9f5ab",
+        "timestamp": 1786687180033
+      },
+      {
+        "executionId": "cab355fa-77a0-4edb-a618-e1ae934c9732",
+        "chatSessionId": "sess_b085f68a-cf74-4e8b-b118-c0d3f4a9f5ab",
+        "timestamp": 1786687311405
+      }
+    ],
+    "9.1 新建 `pdfSynthesis.ts`": [
+      {
+        "executionId": "f89798cd-2054-497c-86d4-a04df6ada68c",
+        "chatSessionId": "sess_02ba8d1f-fc2d-43d8-bd33-98f9d31cacdc",
+        "timestamp": 1786687432714
+      },
+      {
+        "executionId": "f89798cd-2054-497c-86d4-a04df6ada68c",
+        "chatSessionId": "sess_02ba8d1f-fc2d-43d8-bd33-98f9d31cacdc",
+        "timestamp": 1786689661410
+      }
+    ],
+    "10.1 新建 `DocumentSigningDialog.vue`": [
+      {
+        "executionId": "4d7f0ea0-a5a8-40cf-bb3b-24be7ea7c21f",
+        "chatSessionId": "sess_be2282ff-f3d3-44b4-91e8-e133bf410af4",
+        "timestamp": 1786693313786
+      },
+      {
+        "executionId": "4d7f0ea0-a5a8-40cf-bb3b-24be7ea7c21f",
+        "chatSessionId": "sess_be2282ff-f3d3-44b4-91e8-e133bf410af4",
+        "timestamp": 1786693837110
+      }
+    ],
+    "10.2 实现 Add Signature 流程": [
+      {
+        "executionId": "2e04f009-d9c3-4e4f-beef-341d60429f2d",
+        "chatSessionId": "sess_e8193040-f757-4c7e-8975-9ec6b5a9bee9",
+        "timestamp": 1786694433517
+      },
+      {
+        "executionId": "2e04f009-d9c3-4e4f-beef-341d60429f2d",
+        "chatSessionId": "sess_e8193040-f757-4c7e-8975-9ec6b5a9bee9",
+        "timestamp": 1786694879371
+      }
+    ],
+    "10.3 实现 Add Date 流程": [
+      {
+        "executionId": "d063e345-8d2e-4651-9d86-a8bf98e5279c",
+        "chatSessionId": "sess_dfb8c690-af6b-4fc2-8e07-35611a7e8210",
+        "timestamp": 1786695006719
+      },
+      {
+        "executionId": "d063e345-8d2e-4651-9d86-a8bf98e5279c",
+        "chatSessionId": "sess_dfb8c690-af6b-4fc2-8e07-35611a7e8210",
+        "timestamp": 1786696070077
+      }
+    ],
+    "10.4 实现 SigningOverlay 元素交互联动": [
+      {
+        "executionId": "9a753413-cf73-4752-b361-f1d4d8f8e187",
+        "chatSessionId": "sess_6ca41f53-1c03-4a6b-9802-3f73819d16f2",
+        "timestamp": 1786696440130
+      },
+      {
+        "executionId": "9a753413-cf73-4752-b361-f1d4d8f8e187",
+        "chatSessionId": "sess_6ca41f53-1c03-4a6b-9802-3f73819d16f2",
+        "timestamp": 1786696716540
+      }
+    ],
+    "10.5 实现 Confirm Signature 流程（pdf-lib 合成 + 上传）": [
+      {
+        "executionId": "5aefa037-55ca-47e3-a4a8-aaa08794bca2",
+        "chatSessionId": "sess_272b3b6d-3277-4846-81b5-3b4ee1e18c51",
+        "timestamp": 1786699779312
+      },
+      {
+        "executionId": "5aefa037-55ca-47e3-a4a8-aaa08794bca2",
+        "chatSessionId": "sess_272b3b6d-3277-4846-81b5-3b4ee1e18c51",
+        "timestamp": 1786700218113
+      }
+    ],
+    "10.6 实现已签署只读模式": [
+      {
+        "executionId": "ebcf8644-49b2-4a39-a6d2-8877bd74541b",
+        "chatSessionId": "sess_7a5fc6ba-3b50-487c-8763-4c6ef0f8e9d0",
+        "timestamp": 1786700283414
+      },
+      {
+        "executionId": "ebcf8644-49b2-4a39-a6d2-8877bd74541b",
+        "chatSessionId": "sess_7a5fc6ba-3b50-487c-8763-4c6ef0f8e9d0",
+        "timestamp": 1786700681131
+      }
+    ],
+    "11.1 改造 `Documents.vue`：集成签署入口与状态展示": [
+      {
+        "executionId": "6ac2ccf6-5191-4b56-a44f-c0fad0ad0371",
+        "chatSessionId": "sess_84c8fcec-0d7d-471f-9c10-0995df41e6b0",
+        "timestamp": 1786701849411
+      },
+      {
+        "executionId": "6ac2ccf6-5191-4b56-a44f-c0fad0ad0371",
+        "chatSessionId": "sess_84c8fcec-0d7d-471f-9c10-0995df41e6b0",
+        "timestamp": 1786702260613
+      }
+    ]
+  }
+}

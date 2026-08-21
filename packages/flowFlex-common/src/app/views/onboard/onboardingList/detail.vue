@@ -268,6 +268,7 @@
 							@set-active-stage="setActiveStage"
 							@stage-completed="loadOnboardingDetail"
 							@stage-rolled-back="handleStageRolledBack"
+							@stage-block-changed="loadOnboardingDetail"
 						/>
 
 						<!-- 笔记区域 -->
@@ -321,6 +322,8 @@
 		>
 			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
 		</el-dialog>
+
+		<!-- 甘特图模态框 (从列表页入口打开，detail 页通过 stage hover 展示详情) -->
 	</div>
 </template>
 
@@ -687,8 +690,15 @@ const processOnboardingData = (responseData: OnboardingItem) => {
 		(stage) => !stage.isCompleted && stage.status != 'Skipped'
 	);
 
+	// 如果 URL 中带有 stageId（从甘特图 Go to Stage 跳转），优先使用它
+	const urlStageId = route.query.stageId as string | undefined;
+	const urlStageExists =
+		urlStageId &&
+		workflowStages.value.some((s) => s.stageId === urlStageId || (s as any).id === urlStageId);
+
 	// 如果所有阶段都完成了，返回最后一个阶段
 	const newStageId =
+		(urlStageExists ? urlStageId : null) ||
 		responseData.currentStageId ||
 		firstIncompleteStage?.stageId ||
 		sortedStages[sortedStages.length - 1]?.stageId;

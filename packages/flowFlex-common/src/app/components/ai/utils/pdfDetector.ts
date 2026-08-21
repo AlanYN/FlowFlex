@@ -5,10 +5,10 @@
  * and extract page images for OCR processing.
  */
 
-// PDF.js CDN configuration (reuse from AIFileAnalyzer)
-const PDF_JS_VERSION = '3.11.174';
-const PDF_JS_CDN_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.min.js`;
-const PDF_JS_WORKER_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_JS_VERSION}/pdf.worker.min.js`;
+// PDF.js is loaded from the local npm package (pdfjs-dist) to avoid CDN
+// blocking by browser Tracking Prevention (Edge/Safari block cdnjs.cloudflare.com).
+
+// Worker is served from public/ as a static asset at /pdf.worker.min.js.
 
 // PDF type detection result interface
 export interface PDFDetectionResult {
@@ -81,15 +81,14 @@ declare global {
 let pdfJsLoadingPromise: Promise<any> | null = null;
 
 /**
- * Load script from URL once
+ * Loads a script by injecting a <script> tag once.
+ * This bypasses Vite/esbuild entirely — the script runs as-is in the browser.
  */
 const loadScriptOnce = (src: string): Promise<void> => {
 	return new Promise((resolve, reject) => {
-		const existing = Array.from(document.getElementsByTagName('script')).find(
-			(s) => s.src === src
-		);
+		const existing = document.querySelector(`script[src="${src}"]`) as any;
 		if (existing) {
-			if ((existing as any)._loaded) {
+			if (existing._loaded) {
 				resolve();
 			} else {
 				existing.addEventListener('load', () => resolve());
@@ -101,7 +100,7 @@ const loadScriptOnce = (src: string): Promise<void> => {
 		}
 		const script = document.createElement('script');
 		script.src = src;
-		script.async = true;
+		script.async = false; // keep execution order deterministic
 		script.addEventListener('load', () => {
 			(script as any)._loaded = true;
 			resolve();
@@ -112,22 +111,33 @@ const loadScriptOnce = (src: string): Promise<void> => {
 };
 
 /**
- * Lazy load PDF.js from CDN
+ * Load PDF.js from self-hosted files in public/ via script tag injection.
+ *
+ * Why script tag and not import('pdfjs-dist')?
+ * pdfjs-dist@3.11.174 is a webpack UMD bundle that uses internal __privateGet
+ * helpers for ES2022 private class fields. When Vite's esbuild pre-bundles it,
+ * those helpers are broken — getPage() throws "Cannot read from private field".
+ * Loading via <script> tag bypasses Vite entirely; the browser runs the
+ * original unmodified UMD bundle, so private field access works correctly.
  */
 export const loadPdfJs = async (): Promise<any> => {
 	if (window.pdfjsLib) return window.pdfjsLib;
+	if (pdfJsLoadingPromise) return pdfJsLoadingPromise;
 
-	if (!pdfJsLoadingPromise) {
-		pdfJsLoadingPromise = (async () => {
-			await loadScriptOnce(PDF_JS_CDN_URL);
-			const pdfjsLib = window.pdfjsLib;
-			if (!pdfjsLib) {
-				throw new Error('PDF.js not available after loading');
-			}
-			pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_JS_WORKER_URL;
-			return pdfjsLib;
-		})();
-	}
+	pdfJsLoadingPromise = (async () => {
+		// Load from self-hosted public/ files — no CDN, no Vite transform
+		await loadScriptOnce('/pdf.min.js');
+
+		const pdfjsLib = window.pdfjsLib;
+		if (!pdfjsLib) {
+			throw new Error('PDF.js failed to initialise on window.pdfjsLib');
+		}
+
+		// Worker is also self-hosted in public/ — set before any getDocument() call
+		pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+
+		return pdfjsLib;
+	})();
 
 	return pdfJsLoadingPromise;
 };

@@ -1,6 +1,7 @@
 <template>
 	<!-- FAB replay button — fixed bottom-right, rendered via Teleport -->
-	<Teleport :to="fabTarget">
+	<!-- 当 fabTarget 为 null（getter 还未 resolve 到真实容器）时不渲染，避免短暂挂到 body -->
+	<Teleport v-if="fabTarget" :to="fabTarget">
 		<Transition name="ff-tour-fab">
 			<!-- 用单元素 div 包裹，避免 el-tooltip (fragment) 直接作为 Transition 子节点触发警告 -->
 			<div v-if="showFab" class="ff-tour-fab-wrapper">
@@ -83,13 +84,42 @@ const props = withDefaults(defineProps<Props>(), {
 // resolved after mount (and re-resolved a tick later) so the FAB lands in the
 // dialog's overlay even if the dialog content mounts slightly after this
 // component; non-function targets are used as-is.
+// 当 fabContainer 是 getter 时，初始设为 null（不渲染 FAB），
+// 等 onMounted 后 resolve 到真实容器再渲染，避免短暂挂在 body 上
 const fabTarget = ref<string | HTMLElement | null>(
-	typeof props.fabContainer === 'function' ? 'body' : props.fabContainer
+	typeof props.fabContainer === 'function' ? null : props.fabContainer
 );
 
 function _resolveFabTarget() {
 	if (typeof props.fabContainer !== 'function') return;
-	fabTarget.value = props.fabContainer() ?? 'body';
+	const target = props.fabContainer();
+	if (target) {
+		fabTarget.value = target;
+	}
+	// target 为 null 时保持当前值不变（不 fallback 到 body）
+}
+
+/**
+ * 对 getter 型 fabContainer 进行带重试的 resolve：
+ * El Dialog 动画结束前 overlay 可能还不在 DOM 里，最多重试 10 次（共约 500ms）。
+ */
+async function _resolveFabTargetWithRetry() {
+	if (typeof props.fabContainer !== 'function') return;
+	let attempts = 0;
+	const tryResolve = async () => {
+		const target = props.fabContainer!();
+		if (target) {
+			fabTarget.value = target;
+			return;
+		}
+		if (attempts < 10) {
+			attempts++;
+			await new Promise((r) => setTimeout(r, 50));
+			await tryResolve();
+		}
+		// 超过重试次数且仍找不到目标容器，保持 null 不渲染 FAB
+	};
+	await tryResolve();
 }
 
 // ─── Emits ─────────────────────────────────────────────────────────────────────
@@ -171,9 +201,10 @@ onBeforeUnmount(() => {
 
 // Re-resolve getter-based FAB targets after mount: the dialog content may
 // mount one tick later, and the FAB must still land inside its overlay.
+// Use retry version to handle El Dialog animation delay.
 onMounted(() => {
 	if (typeof props.fabContainer === 'function') {
-		nextTick(_resolveFabTarget);
+		nextTick(_resolveFabTargetWithRetry);
 	}
 });
 

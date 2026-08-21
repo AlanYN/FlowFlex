@@ -21,6 +21,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using System.Text.Json;
+using FlowFlex.Domain.Shared.Events;
+using MediatR;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
@@ -50,6 +52,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IUserService _userService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<OnboardingCrudService> _logger;
+        private readonly IMediator _mediator;
 
         // Shared JSON serializer options - use OnboardingSharedUtilities.JsonOptions for consistency
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -76,7 +79,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IPropertyService propertyService,
             IUserService userService,
             IServiceProvider serviceProvider,
-            ILogger<OnboardingCrudService> logger)
+            ILogger<OnboardingCrudService> logger,
+            IMediator mediator)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -96,6 +100,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         }
 
         #endregion
@@ -782,6 +787,29 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 if (!updateResult)
                 {
                     _logger.LogWarning("Failed to update stages progress for Onboarding {OnboardingId}", insertedId);
+                }
+
+                // Publish OnboardingStartedEvent so GanttPlannedTimeInitHandler can write
+                // PlannedStartDate / PlannedEndDate for all stages.
+                // Case creation sets Status = "Started" directly (bypasses StartOnboardingAsync),
+                // so we must fire the event here as well, after StagesProgress is persisted.
+                try
+                {
+                    await _mediator.Publish(new OnboardingStartedEvent
+                    {
+                        OnboardingId = insertedId,
+                        StartDate = insertedEntity.StartDate ?? DateTimeOffset.UtcNow,
+                        EstimatedCompletionDate = insertedEntity.EstimatedCompletionDate,
+                        TenantId = _userContext.TenantId,
+                        UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0,
+                        UserName = _userContext.UserName
+                    });
+                }
+                catch (Exception evtEx)
+                {
+                    _logger.LogError(evtEx,
+                        "ProcessPostCreationAsync - Failed to publish OnboardingStartedEvent for Onboarding {OnboardingId}. Gantt planned times may not be initialized.",
+                        insertedId);
                 }
 
                 // Create default UserInvitation record if email is available

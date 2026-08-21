@@ -80,183 +80,191 @@
 						<el-table-column type="selection" fixed="left" width="50" align="center" />
 						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
-								<el-dropdown trigger="click">
-									<el-button size="small" link :icon="ArrowDownBold" />
+								<div class="flex items-center gap-1">
+									<el-dropdown trigger="click">
+										<el-button size="small" link :icon="ArrowDownBold" />
 
-									<template #dropdown>
-										<el-dropdown-menu>
-											<!-- Start Onboarding - 只对Inactive状态显示 -->
-											<el-dropdown-item
-												v-if="
-													row.status === 'Inactive' &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleStartOnboarding(row)"
-											>
-												<el-icon><VideoPlay /></el-icon>
-												Start Onboarding
-											</el-dropdown-item>
+										<template #dropdown>
+											<el-dropdown-menu>
+												<!-- Start Onboarding - 只对Inactive状态显示 -->
+												<el-dropdown-item
+													v-if="
+														row.status === 'Inactive' &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleStartOnboarding(row)"
+												>
+													<el-icon><VideoPlay /></el-icon>
+													Start Onboarding
+												</el-dropdown-item>
 
-											<!-- Proceed - 对进行中状态显示 -->
-											<el-dropdown-item
-												v-if="
-													isInProgressStatus(row.status) &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleEdit(row.id)"
-											>
-												<el-icon><Link /></el-icon>
-												Proceed
-											</el-dropdown-item>
+												<!-- Proceed - 对进行中状态显示 -->
+												<el-dropdown-item
+													v-if="
+														isInProgressStatus(row.status) &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleEdit(row.id)"
+												>
+													<el-icon><Link /></el-icon>
+													Proceed
+												</el-dropdown-item>
 
-											<!-- Edit Case -->
-											<el-dropdown-item
-												@click="handleEditCase(row)"
-												v-if="
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-											>
-												<el-icon><Edit /></el-icon>
-												Edit
-											</el-dropdown-item>
+												<!-- Edit Case -->
+												<el-dropdown-item
+													@click="handleEditCase(row)"
+													v-if="
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+												>
+													<el-icon><Edit /></el-icon>
+													Edit
+												</el-dropdown-item>
 
-											<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
-											<el-dropdown-item
-												v-if="
-													(row.status === 'Completed' ||
-														row.status === 'Force Completed' ||
-														row.status === 'Paused' ||
-														isAbortedStatus(row.status)) &&
-													functionPermission(
-														ProjectPermissionEnum.case.read
-													)
-												"
-												@click="handleEdit(row.id)"
-											>
-												<el-icon><View /></el-icon>
-												View
-											</el-dropdown-item>
+												<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
+												<el-dropdown-item
+													v-if="
+														(row.status === 'Completed' ||
+															row.status === 'Force Completed' ||
+															row.status === 'Paused' ||
+															isAbortedStatus(row.status)) &&
+														functionPermission(
+															ProjectPermissionEnum.case.read
+														)
+													"
+													@click="handleEdit(row.id)"
+												>
+													<el-icon><View /></el-icon>
+													View
+												</el-dropdown-item>
 
-											<el-divider title="Continue" class="my-0" />
-											<!-- Pause - 对进行中状态显示 -->
-											<el-dropdown-item
-												v-if="
-													isInProgressStatus(row.status) &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handlePause(row)"
-											>
-												<el-icon><VideoPause /></el-icon>
-												Pause
-											</el-dropdown-item>
+												<el-divider title="Continue" class="my-0" />
+												<!-- Pause - 对进行中状态显示 -->
+												<el-dropdown-item
+													v-if="
+														isInProgressStatus(row.status) &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handlePause(row)"
+												>
+													<el-icon><VideoPause /></el-icon>
+													Pause
+												</el-dropdown-item>
 
-											<!-- Resume - 对Paused状态显示 -->
-											<el-dropdown-item
-												v-if="
-													row.status === 'Paused' &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleResume(row)"
-											>
-												<el-icon><VideoPlay /></el-icon>
-												Resume
-											</el-dropdown-item>
+												<!-- Resume - 对Paused状态显示 -->
+												<el-dropdown-item
+													v-if="
+														row.status === 'Paused' &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleResume(row)"
+												>
+													<el-icon><VideoPlay /></el-icon>
+													Resume
+												</el-dropdown-item>
 
-											<!-- Abort - 对进行中状态和暂停状态显示 -->
-											<el-dropdown-item
-												v-if="
-													(isInProgressStatus(row.status) ||
-														row.status === 'Paused') &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleAbort(row)"
-											>
-												<el-icon><Close /></el-icon>
-												Abort
-											</el-dropdown-item>
+												<!-- Abort - 对进行中状态和暂停状态显示 -->
+												<el-dropdown-item
+													v-if="
+														(isInProgressStatus(row.status) ||
+															row.status === 'Paused') &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleAbort(row)"
+												>
+													<el-icon><Close /></el-icon>
+													Abort
+												</el-dropdown-item>
 
-											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
-											<el-dropdown-item
-												v-if="
-													(isInProgressStatus(row.status) ||
-														row.status === 'Paused') &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleForceComplete(row)"
-											>
-												<el-icon><Check /></el-icon>
-												Force Complete
-											</el-dropdown-item>
+												<!-- Force Complete - 对进行中状态和暂停状态显示 -->
+												<el-dropdown-item
+													v-if="
+														(isInProgressStatus(row.status) ||
+															row.status === 'Paused') &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleForceComplete(row)"
+												>
+													<el-icon><Check /></el-icon>
+													Force Complete
+												</el-dropdown-item>
 
-											<!-- Reactivate - 只对已中止状态显示 -->
-											<el-dropdown-item
-												v-if="
-													isAbortedStatus(row.status) &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleReactivate(row)"
-											>
-												<el-icon><RefreshRight /></el-icon>
-												Reactivate
-											</el-dropdown-item>
+												<!-- Reactivate - 只对已中止状态显示 -->
+												<el-dropdown-item
+													v-if="
+														isAbortedStatus(row.status) &&
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.update
+														)
+													"
+													@click="handleReactivate(row)"
+												>
+													<el-icon><RefreshRight /></el-icon>
+													Reactivate
+												</el-dropdown-item>
 
-											<el-divider title="Delete" class="my-0" />
+												<el-divider title="Delete" class="my-0" />
 
-											<!-- Change History -->
-											<el-dropdown-item
-												v-if="
-													functionPermission(
-														ProjectPermissionEnum.case.read
-													)
-												"
-											>
-												<HistoryButton
-													:id="row.id"
-													:type="WFEMoudels.Onboarding"
-												/>
-											</el-dropdown-item>
+												<!-- Change History -->
+												<el-dropdown-item
+													v-if="
+														functionPermission(
+															ProjectPermissionEnum.case.read
+														)
+													"
+												>
+													<HistoryButton
+														:id="row.id"
+														:type="WFEMoudels.Onboarding"
+													/>
+												</el-dropdown-item>
 
-											<!-- Delete - 对所有状态显示，但有不同的限制 -->
-											<el-dropdown-item
-												@click="handleDelete(row.id)"
-												v-if="
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.delete
-													)
-												"
-												class="text-red-500 hover:!bg-red-500 hover:!text-white"
-											>
-												<el-icon><Delete /></el-icon>
-												Delete
-											</el-dropdown-item>
-										</el-dropdown-menu>
-									</template>
-								</el-dropdown>
+												<!-- Delete - 对所有状态显示，但有不同的限制 -->
+												<el-dropdown-item
+													@click="handleDelete(row.id)"
+													v-if="
+														hasCasePermission(
+															row.id,
+															ProjectPermissionEnum.case.delete
+														)
+													"
+													class="text-red-500 hover:!bg-red-500 hover:!text-white"
+												>
+													<el-icon><Delete /></el-icon>
+													Delete
+												</el-dropdown-item>
+											</el-dropdown-menu>
+										</template>
+									</el-dropdown>
+									<!-- 甘特图预览按钮（下拉菜单右侧） -->
+									<GanttPreview
+										v-if="functionPermission(ProjectPermissionEnum.case.read)"
+										:onboarding-id="row.id"
+										@click="handleOpenGantt(row.id)"
+									/>
+								</div>
 							</template>
 						</el-table-column>
 						<el-table-column
@@ -644,6 +652,9 @@
 				</div>
 			</template>
 		</el-dialog>
+
+		<!-- 甘特图模态框 -->
+		<GanttModal ref="ganttModalRef" />
 	</div>
 </template>
 
@@ -711,6 +722,8 @@ import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
 import { functionPermission } from '@/hooks';
 import { WFEMoudels } from '@/enums/appEnum';
+import GanttPreview from './components/GanttPreview.vue';
+import GanttModal from './components/GanttModal.vue';
 
 defineOptions({ name: 'OnboardList' });
 
@@ -745,6 +758,9 @@ const onboardingStages = ref<any[]>([]);
 const router = useRouter();
 const route = useRoute();
 const loading = ref(false);
+
+// 甘特图相关状态
+const ganttModalRef = ref<InstanceType<typeof GanttModal> | null>(null);
 const onboardingList = ref<OnboardingItem[]>([]);
 
 const selectedItems = ref<OnboardingItem[]>([]);
@@ -1155,6 +1171,11 @@ const handleSortChange = (event: any) => {
 
 const handleEdit = (itemId: string) => {
 	router.push(`/onboard/onboardDetail?onboardingId=${itemId}`);
+};
+
+/** 打开甘特图模态框 */
+const handleOpenGantt = (id: string) => {
+	ganttModalRef.value?.open(id);
 };
 
 const handleNewOnboarding = async () => {

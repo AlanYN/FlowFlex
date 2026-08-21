@@ -155,6 +155,12 @@ export interface DocumentItem {
 	uploadedById: string;
 	uploadedByName: string;
 	uploadedDate: string;
+	/** Whether this file has been signed (Requirement 16.4) */
+	isSigned?: boolean;
+	/** Signer's name, populated when isSigned=true */
+	signerName?: string | null;
+	/** Signing timestamp (ISO 8601 UTC), populated when isSigned=true */
+	signTime?: string | null;
 }
 
 export interface CompStageComponentDataonentData {
@@ -352,6 +358,11 @@ export interface Stage {
 	required: boolean;
 	rollBackTeams?: string[];
 	canRollBack?: boolean;
+	isBlocked?: boolean;
+	blockedBy?: string;
+	blockedByName?: string;
+	blockReason?: string;
+	blockedAt?: string;
 }
 
 // 检查清单任务完成记录相关类型定义

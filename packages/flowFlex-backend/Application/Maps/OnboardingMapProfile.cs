@@ -103,7 +103,27 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsSaved, opt => opt.MapFrom(src => src.IsSaved))
                 .ForMember(dest => dest.SaveTime, opt => opt.MapFrom(src => src.SaveTime))
                 .ForMember(dest => dest.SavedById, opt => opt.MapFrom(src => src.SavedById))
-                .ForMember(dest => dest.SavedBy, opt => opt.MapFrom(src => src.SavedBy));
+                .ForMember(dest => dest.SavedBy, opt => opt.MapFrom(src => src.SavedBy))
+                // Blocker fields
+                .ForMember(dest => dest.IsBlocked, opt => opt.MapFrom(src => src.IsBlocked))
+                .ForMember(dest => dest.BlockerReason, opt => opt.MapFrom(src =>
+                    src.IsBlocked
+                        ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue) != null
+                            ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue).BlockerReason
+                            : null
+                        : null))
+                .ForMember(dest => dest.BlockedByName, opt => opt.MapFrom(src =>
+                    src.IsBlocked
+                        ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue) != null
+                            ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue).BlockedByName
+                            : null
+                        : null))
+                .ForMember(dest => dest.BlockedAt, opt => opt.MapFrom(src =>
+                    src.IsBlocked
+                        ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue) != null
+                            ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue).BlockerStartDate
+                            : (DateTimeOffset?)null
+                        : null));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()

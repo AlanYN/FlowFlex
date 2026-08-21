@@ -179,6 +179,31 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "source")]
         public string Source { get; set; }
 
+        /// <summary>
+        /// Whether the file has been signed
+        /// </summary>
+        [SugarColumn(ColumnName = "is_signed")]
+        public bool IsSigned { get; set; } = false;
+
+        /// <summary>
+        /// Source file ID (signed file points to the original file)
+        /// </summary>
+        [SugarColumn(ColumnName = "source_file_id")]
+        public long? SourceFileId { get; set; }
+
+        /// <summary>
+        /// Signer name
+        /// </summary>
+        [StringLength(200)]
+        [SugarColumn(ColumnName = "signer_name", Length = 200)]
+        public string SignerName { get; set; }
+
+        /// <summary>
+        /// Sign time (UTC)
+        /// </summary>
+        [SugarColumn(ColumnName = "sign_time")]
+        public DateTimeOffset? SignTime { get; set; }
+
         // Navigation Properties (SqlSugar doesn't need configuration, only for code logic)
 
         /// <summary>

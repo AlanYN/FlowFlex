@@ -124,6 +124,13 @@ namespace FlowFlex.Domain.Entities.OW
         public DateTimeOffset? ActualCompletionDate { get; set; }
 
         /// <summary>
+        /// Overall variance in days = Case actualEndDate - plannedEndDate.
+        /// Updated when the Case completes. Null for in-progress cases.
+        /// </summary>
+        [SugarColumn(ColumnName = "total_variance_days")]
+        public int? TotalVarianceDays { get; set; }
+
+        /// <summary>
         /// Current Assignee ID
         /// </summary>
         [SugarColumn(ColumnName = "current_assignee_id")]

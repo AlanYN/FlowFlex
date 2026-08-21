@@ -148,6 +148,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationType, businessModule, businessId, onboardingId, stageId,
                     operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
+                // File-related modules: route to questionnaireLogService which already handles
+                // file upload/delete/update operations (LogFileUploadAsync, LogFileDeleteAsync, etc.)
+                BusinessModuleEnum.File => _questionnaireLogService.LogOperationAsync(
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
+                    changedFields?.FirstOrDefault(), extendedData),
                 _ => throw new NotSupportedException($"Business module {businessModule} is not supported by the legacy adapter.")
             };
         }
