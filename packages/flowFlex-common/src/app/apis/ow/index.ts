@@ -171,6 +171,10 @@ export function createStage(params: any) {
  * 获取工作流的所有阶段 [S02]
  * @param workflowId 工作流ID
  * @returns List<StageOutputDto>
+ *   Each stage object may include:
+ *   - `componentWeights?: ComponentWeightItem[]` — weight configuration deserialized from
+ *     ff_stage.component_weights (JSONB). Null when no weights have been configured.
+ *     ComponentWeightItem: { type, id, name, weight } — see types/onboard.d.ts
  */
 export function getStagesByWorkflow(workflowId: string | number) {
 	return defHttp.get({ url: `${Api(workflowId).stagesByWorkflow}` });
@@ -189,6 +193,11 @@ export function sortStages(params: any) {
  * 更新阶段 [S05]
  * @param id 阶段ID
  * @param params StageInputDto
+ *   Additional fields:
+ *   - `params.componentWeights?: ComponentWeightItem[]` — weight configuration for this stage's
+ *     components. Null = do not update existing weights; empty array = clear weights;
+ *     non-empty array = all weights must sum to 100.
+ *     ComponentWeightItem: { type, id, name, weight } — see types/onboard.d.ts
  * @returns bool
  */
 export function updateStage(id: string | number, params: any) {
@@ -457,7 +466,9 @@ export function checkTourSeen(tourKey: string): Promise<{ code: string; data: bo
 export function markTourSeen(tourKey: string): Promise<{ code: string; data: boolean }> {
 	return defHttp.post(
 		{
-			url: `${globSetting.apiProName}/ow/tour-records/${globSetting.apiVersion}/seen?tourKey=${encodeURIComponent(tourKey)}`,
+			url: `${globSetting.apiProName}/ow/tour-records/${
+				globSetting.apiVersion
+			}/seen?tourKey=${encodeURIComponent(tourKey)}`,
 		},
 		{ errorMessageMode: 'none' }
 	);

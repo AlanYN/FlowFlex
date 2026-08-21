@@ -136,5 +136,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// NULL or empty means no one can roll back (security default).
         /// </summary>
         public List<string> RollBackTeams { get; set; }
+
+        /// <summary>
+        /// Component weight configuration for CompletionPercentage calculation.
+        /// null = do not update existing weights (preserve current value).
+        /// Non-null and non-empty: all weights must sum to 100.
+        /// Empty list = clear all weight configuration (revert to equal distribution).
+        /// </summary>
+        public List<ComponentWeightItem>? ComponentWeights { get; set; }
     }
 }

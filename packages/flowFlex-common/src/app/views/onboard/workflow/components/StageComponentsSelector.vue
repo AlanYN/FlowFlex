@@ -360,7 +360,35 @@
 		<div class="space-y-4 w-full overflow-hidden">
 			<el-scrollbar ref="scrollbarRefRight" class="stage-components-selector">
 				<div class="space-y-2">
-					<label class="text-base font-bold">Selected Items</label>
+					<div class="flex items-center justify-between">
+						<label class="text-base font-bold">Selected Items</label>
+						<el-button
+							size="small"
+							:disabled="selectedItems.length === 0"
+							@click="balanceWeights"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="mr-1"
+								aria-hidden="true"
+							>
+								<path d="M12 3v18" />
+								<path d="m17 8 3 8a5 5 0 0 1-6 0" />
+								<path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" />
+								<path d="m7 8-3 8a5 5 0 0 0 6 0" />
+								<path d="M7 21h10" />
+							</svg>
+							Balance
+						</el-button>
+					</div>
 					<p class="text-sm">
 						Items that will be included in this stage (drag to reorder)
 					</p>
@@ -446,6 +474,57 @@
 											</el-button>
 										</div>
 									</div>
+									<!-- Weight Editor row (5.7) -->
+									<div class="border-t px-3 py-2 flex items-center gap-3">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="text-gray-500 flex-shrink-0"
+											aria-hidden="true"
+										>
+											<path d="M12 3v18" />
+											<path d="m17 8 3 8a5 5 0 0 1-6 0" />
+											<path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" />
+											<path d="m7 8-3 8a5 5 0 0 0 6 0" />
+											<path d="M7 21h10" />
+										</svg>
+										<span class="text-xs text-gray-500 flex-shrink-0">
+											Weight
+										</span>
+										<el-slider
+											:model-value="getWeight(element.type, element.key)"
+											:min="0"
+											:max="100"
+											:step="1"
+											class="flex-1"
+											size="small"
+											@input="
+												(v: number) =>
+													setWeight(element.type, element.key, Number(v))
+											"
+										/>
+										<el-input-number
+											:model-value="getWeight(element.type, element.key)"
+											:min="0"
+											:max="100"
+											:precision="0"
+											:step="1"
+											size="small"
+											class="w-20 flex-shrink-0"
+											@change="
+												(v: number | undefined) =>
+													setWeight(element.type, element.key, v ?? 0)
+											"
+										/>
+										<span class="text-xs text-gray-500 flex-shrink-0">%</span>
+									</div>
 									<div
 										v-if="shouldShowPortalAccess"
 										class="border-t p-2 flex justify-between items-center"
@@ -481,7 +560,10 @@
 										</el-dropdown>
 									</div>
 									<div
-										v-if="element.type === 'files' && expandedFileConfigs.has(element.id)"
+										v-if="
+											element.type === 'files' &&
+											expandedFileConfigs.has(element.id)
+										"
 										class="border-t p-3 space-y-3"
 									>
 										<div class="space-y-1">
@@ -521,6 +603,63 @@
 							<p class="text-sm">No items selected</p>
 							<p class="text-xs">Select items from the left panel to add them here</p>
 						</div>
+						<!-- TotalWeightIndicator (5.10) -->
+						<div
+							class="mt-3 px-2 py-2 rounded-lg flex items-center gap-2 text-sm"
+							:class="isWeightSumValid ? 'text-green-600' : 'text-orange-500'"
+						>
+							<el-icon>
+								<CircleCheck v-if="isWeightSumValid" />
+								<Warning v-else />
+							</el-icon>
+							<template v-if="isWeightSumValid">
+								<span>Total weight</span>
+								<span class="ml-auto font-semibold">100%</span>
+							</template>
+							<template v-else>
+								<span class="flex-1">
+									Weights should add up to 100%. Currently
+									{{
+										weightSum < 100
+											? `${
+													100 - weightSum
+											  }% short — raise a component's weight to fill the gap.`
+											: `${
+													weightSum - 100
+											  }% over — lower a component's weight.`
+									}}
+								</span>
+								<span class="ml-auto font-semibold flex-shrink-0">
+									{{ weightSum }}%
+								</span>
+							</template>
+						</div>
+						<!-- PreviewPanel (5.11) -->
+						<div class="mt-2 border rounded-lg p-3 bg-blue-50 dark:bg-blue-900/10">
+							<div class="flex items-center justify-between mb-2">
+								<span class="text-sm font-medium text-blue-700">
+									Stage completion preview
+								</span>
+								<span class="text-sm font-bold text-blue-700">
+									{{ totalCompletion }}%
+								</span>
+							</div>
+							<div
+								v-for="row in completionPreview"
+								:key="row.name"
+								class="text-xs text-gray-600 py-0.5"
+							>
+								{{ row.name }} · 100% done
+								<span class="text-gray-400">
+									{{ row.weight }}% × 100% = {{ row.weight }}.0%
+								</span>
+							</div>
+							<el-progress
+								:percentage="totalCompletion"
+								:show-text="false"
+								class="mt-2"
+							/>
+						</div>
 					</div>
 				</div>
 			</el-scrollbar>
@@ -529,7 +668,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import {
 	Search,
 	Close,
@@ -540,6 +679,8 @@ import {
 	ArrowDown,
 	Link,
 	EditPen,
+	CircleCheck,
+	Warning,
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
@@ -551,6 +692,7 @@ import {
 	Checklist,
 	Questionnaire,
 	Stage,
+	ComponentWeightItem,
 } from '#/onboard';
 import { IQuickLink } from '#/integration';
 
@@ -594,6 +736,118 @@ const toggleFileConfig = (elementId: string) => {
 		expandedFileConfigs.value.add(elementId);
 	}
 };
+
+// ─── Weight state (5.1) ───────────────────────────────────────────────────────
+
+const componentWeights = ref<Map<string, number>>(new Map());
+
+function getWeightKey(type: string, id: string): string {
+	return `${type}_${id}`;
+}
+
+function getWeight(type: string, id: string): number {
+	return componentWeights.value.get(getWeightKey(type, id)) ?? 0;
+}
+
+function setWeight(type: string, id: string, value: number): void {
+	const clamped = Math.min(100, Math.max(0, Math.round(value)));
+	componentWeights.value.set(getWeightKey(type, id), clamped);
+	emitWeights();
+}
+
+// 5.2 — getWeightableItems (excludes quickLink)
+function getWeightableItems(): SelectedItem[] {
+	return selectedItems.value.filter((i) => i.type !== 'quickLink');
+}
+
+// 5.3 — applyFallbackWeights
+function applyFallbackWeights(): void {
+	const newMap = new Map<string, number>();
+	const weightables = getWeightableItems();
+	// quickLink items always 0
+	selectedItems.value
+		.filter((i) => i.type === 'quickLink')
+		.forEach((i) => {
+			newMap.set(getWeightKey(i.type, i.key), 0);
+		});
+	if (weightables.length === 0) {
+		componentWeights.value = newMap;
+		return;
+	}
+	const base = Math.floor(100 / weightables.length);
+	const remainder = 100 % weightables.length;
+	weightables.forEach((item, idx) => {
+		newMap.set(getWeightKey(item.type, item.key), idx === 0 ? base + remainder : base);
+	});
+	componentWeights.value = newMap;
+}
+
+// Build a snapshot of current componentWeights for use in a combined emit
+function buildWeightsSnapshot(): ComponentWeightItem[] {
+	return selectedItems.value.map((item) => {
+		const dtoType = item.type === 'questionnaires' ? 'questionnaire' : item.type;
+		return {
+			type: dtoType as ComponentWeightItem['type'],
+			id: item.type === 'fields' ? 'fields' : item.key,
+			name: item.name,
+			weight: componentWeights.value.get(getWeightKey(item.type, item.key)) ?? 0,
+		};
+	});
+}
+
+// 5.6 — emitWeights (declared before the watch that calls it)
+function emitWeights(): void {
+	const weights: ComponentWeightItem[] = selectedItems.value.map((item) => {
+		// Map 'questionnaires' → 'questionnaire' for DTO
+		const dtoType = item.type === 'questionnaires' ? 'questionnaire' : item.type;
+		return {
+			type: dtoType as ComponentWeightItem['type'],
+			id: item.type === 'fields' ? 'fields' : item.key,
+			name: item.name,
+			weight: componentWeights.value.get(getWeightKey(item.type, item.key)) ?? 0,
+		};
+	});
+	emit('update:modelValue', { ...props.modelValue, componentWeights: weights });
+}
+
+// 5.5 — balanceWeights
+function balanceWeights(): void {
+	const weightables = getWeightableItems();
+	if (weightables.length === 0) return;
+	const newMap = new Map(componentWeights.value);
+	const base = Math.floor(100 / weightables.length);
+	const remainder = 100 % weightables.length;
+	weightables.forEach((item, idx) => {
+		newMap.set(getWeightKey(item.type, item.key), idx === 0 ? base + remainder : base);
+	});
+	componentWeights.value = newMap;
+	emitWeights();
+}
+
+// 5.10 — weightSum and isWeightSumValid computed
+const weightSum = computed(() =>
+	getWeightableItems().reduce(
+		(sum, item) => sum + (componentWeights.value.get(getWeightKey(item.type, item.key)) ?? 0),
+		0
+	)
+);
+
+const isWeightSumValid = computed(
+	() => selectedItems.value.length === 0 || weightSum.value === 100
+);
+
+// 5.11 — completionPreview and totalCompletion
+const completionPreview = computed(() =>
+	selectedItems.value.map((item) => ({
+		name: item.name,
+		weight: componentWeights.value.get(getWeightKey(item.type, item.key)) ?? 0,
+		subtotal: componentWeights.value.get(getWeightKey(item.type, item.key)) ?? 0,
+	}))
+);
+
+const totalCompletion = computed(
+	() => Math.round(completionPreview.value.reduce((s, r) => s + r.subtotal, 0) * 10) / 10
+);
 
 // 选中的字段列表（用于拖动排序）- 使用 computed
 interface SelectedFieldItem {
@@ -773,7 +1027,11 @@ const getFileComponent = (): StageComponentData => {
 };
 
 // Helper method to update component
-const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
+const updateComponent = (
+	key: string,
+	updates: Partial<StageComponentData>,
+	weightsOverride?: ComponentWeightItem[]
+) => {
 	const components = props.modelValue.components || [];
 	const newComponents = [...components];
 	const index = newComponents.findIndex((c) => c.key === key);
@@ -803,23 +1061,44 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 			}),
 	};
 	// 发送整个 formData 对象，只更新 components 字段
-	emit('update:modelValue', newModelValue);
+	emit(
+		'update:modelValue',
+		weightsOverride !== undefined
+			? { ...newModelValue, componentWeights: weightsOverride }
+			: newModelValue
+	);
 };
 
 // 添加新的组件项
-const addComponentItem = (StageComponentData: StageComponentData) => {
+const addComponentItem = (
+	StageComponentData: StageComponentData,
+	weightsOverride?: ComponentWeightItem[]
+) => {
 	const components = props.modelValue.components || [];
 	const newComponents = [...components, StageComponentData];
 	const newModelValue = { ...props.modelValue, components: newComponents };
-	emit('update:modelValue', newModelValue);
+	emit(
+		'update:modelValue',
+		weightsOverride !== undefined
+			? { ...newModelValue, componentWeights: weightsOverride }
+			: newModelValue
+	);
 };
 
 // 删除组件项
-const removeComponentItem = (predicate: (component: StageComponentData) => boolean) => {
+const removeComponentItem = (
+	predicate: (component: StageComponentData) => boolean,
+	weightsOverride?: ComponentWeightItem[]
+) => {
 	const components = props.modelValue.components || [];
 	const newComponents = components.filter((c) => !predicate(c));
 	const newModelValue = { ...props.modelValue, components: newComponents };
-	emit('update:modelValue', newModelValue);
+	emit(
+		'update:modelValue',
+		weightsOverride !== undefined
+			? { ...newModelValue, componentWeights: weightsOverride }
+			: newModelValue
+	);
 };
 
 // 更新所有组件
@@ -883,13 +1162,25 @@ const toggleField = (fieldId: string, checked: boolean) => {
 	}
 
 	const componen = selectedItems.value.find((item) => item.type == 'fields');
-	updateComponent('fields', {
-		staticFields: normalizedFields,
-		isEnabled: normalizedFields.length > 0,
-		customerPortalAccess: componen
-			? componen.customerPortalAccess
-			: StageComponentPortal.Hidden,
-	});
+	// Initialize weight for the 'fields' component when it becomes enabled for the first time
+	if (
+		checked &&
+		normalizedFields.length === 1 &&
+		!componentWeights.value.has(getWeightKey('fields', 'fields'))
+	) {
+		componentWeights.value.set(getWeightKey('fields', 'fields'), 0);
+	}
+	updateComponent(
+		'fields',
+		{
+			staticFields: normalizedFields,
+			isEnabled: normalizedFields.length > 0,
+			customerPortalAccess: componen
+				? componen.customerPortalAccess
+				: StageComponentPortal.Hidden,
+		},
+		buildWeightsSnapshot()
+	);
 };
 
 const toggleChecklist = (checklistId: string, checked: boolean) => {
@@ -915,11 +1206,16 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 				quickLinkNames: [],
 				customerPortalAccess: StageComponentPortal.Hidden,
 			};
-			addComponentItem(newComponent);
+			componentWeights.value.set(getWeightKey('checklist', checklistId), 0);
+			addComponentItem(newComponent, buildWeightsSnapshot());
 		}
 	} else {
 		// 删除包含该checklistId的组件
-		removeComponentItem((c) => c.key === 'checklist' && c.checklistIds.includes(checklistId));
+		componentWeights.value.delete(getWeightKey('checklist', checklistId));
+		removeComponentItem(
+			(c) => c.key === 'checklist' && c.checklistIds.includes(checklistId),
+			buildWeightsSnapshot()
+		);
 	}
 };
 
@@ -946,12 +1242,15 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 				questionnaireNames: [questionnaireName],
 				customerPortalAccess: StageComponentPortal.Hidden,
 			};
-			addComponentItem(newComponent);
+			componentWeights.value.set(getWeightKey('questionnaires', questionnaireId), 0);
+			addComponentItem(newComponent, buildWeightsSnapshot());
 		}
 	} else {
 		// 删除包含该questionnaireId的组件
+		componentWeights.value.delete(getWeightKey('questionnaires', questionnaireId));
 		removeComponentItem(
-			(c) => c.key === 'questionnaires' && c.questionnaireIds.includes(questionnaireId)
+			(c) => c.key === 'questionnaires' && c.questionnaireIds.includes(questionnaireId),
+			buildWeightsSnapshot()
 		);
 	}
 };
@@ -977,19 +1276,33 @@ const toggleQuickLink = (quickLinkId: string, checked: boolean) => {
 				quickLinkNames: [quickLinkName],
 				customerPortalAccess: StageComponentPortal.Hidden,
 			};
-			addComponentItem(newComponent);
+			componentWeights.value.set(getWeightKey('quickLink', quickLinkId), 0);
+			addComponentItem(newComponent, buildWeightsSnapshot());
 		}
 	} else {
 		// 删除包含该quickLinkId的组件
-		removeComponentItem((c) => c.key === 'quickLink' && c.quickLinkIds.includes(quickLinkId));
+		componentWeights.value.delete(getWeightKey('quickLink', quickLinkId));
+		removeComponentItem(
+			(c) => c.key === 'quickLink' && c.quickLinkIds.includes(quickLinkId),
+			buildWeightsSnapshot()
+		);
 	}
 };
 
 const toggleFileComponent = (enabled: boolean) => {
-	updateComponent('files', {
-		isEnabled: enabled,
-		customerPortalAccess: StageComponentPortal.Hidden,
-	});
+	if (enabled && !componentWeights.value.has(getWeightKey('files', 'files'))) {
+		componentWeights.value.set(getWeightKey('files', 'files'), 0);
+	} else if (!enabled) {
+		componentWeights.value.delete(getWeightKey('files', 'files'));
+	}
+	updateComponent(
+		'files',
+		{
+			isEnabled: enabled,
+			customerPortalAccess: StageComponentPortal.Hidden,
+		},
+		buildWeightsSnapshot()
+	);
 };
 
 const updateAttachmentManagementNeeded = (needed: boolean) => {
@@ -1196,7 +1509,8 @@ const updateItemsDisplay = () => {
 						...component,
 						id: component.key,
 						name: component.title || 'File Attachments',
-						description: component.description || 'Upload and manage files in this stage',
+						description:
+							component.description || 'Upload and manage files in this stage',
 						type: 'files',
 						order: component.order,
 						key: component.key,
@@ -1237,28 +1551,50 @@ const updateItemsDisplay = () => {
 const removeItem = (item: SelectedItem) => {
 	if (item.type === 'fields') {
 		// 删除整个 fields 组件
-		updateComponent('fields', {
-			isEnabled: false,
-			staticFields: [],
-			checklistIds: [],
-			questionnaireIds: [],
-		});
+		componentWeights.value.delete(getWeightKey('fields', 'fields'));
+		updateComponent(
+			'fields',
+			{
+				isEnabled: false,
+				staticFields: [],
+				checklistIds: [],
+				questionnaireIds: [],
+			},
+			buildWeightsSnapshot()
+		);
 	} else if (item.type === 'checklist') {
 		// 删除包含该checklistId的组件
-		removeComponentItem((c) => c.key === 'checklist' && c.checklistIds.includes(item.key));
+		componentWeights.value.delete(getWeightKey('checklist', item.key));
+		removeComponentItem(
+			(c) => c.key === 'checklist' && c.checklistIds.includes(item.key),
+			buildWeightsSnapshot()
+		);
 	} else if (item.type === 'questionnaires') {
 		// 删除包含该questionnaireId的组件
+		componentWeights.value.delete(getWeightKey('questionnaires', item.key));
 		removeComponentItem(
-			(c) => c.key === 'questionnaires' && c.questionnaireIds.includes(item.key)
+			(c) => c.key === 'questionnaires' && c.questionnaireIds.includes(item.key),
+			buildWeightsSnapshot()
 		);
 	} else if (item.type === 'files') {
 		// 删除整个 files 组件
-		updateComponent('files', {
-			isEnabled: false,
-			staticFields: [],
-			checklistIds: [],
-			questionnaireIds: [],
-		});
+		componentWeights.value.delete(getWeightKey('files', 'files'));
+		updateComponent(
+			'files',
+			{
+				isEnabled: false,
+				staticFields: [],
+				checklistIds: [],
+				questionnaireIds: [],
+			},
+			buildWeightsSnapshot()
+		);
+	} else if (item.type === 'quickLink') {
+		componentWeights.value.delete(getWeightKey('quickLink', item.key));
+		removeComponentItem(
+			(c) => c.key === 'quickLink' && c.quickLinkIds.includes(item.key),
+			buildWeightsSnapshot()
+		);
 	}
 };
 
@@ -1374,6 +1710,35 @@ const getItemTypeLabel = (type: string) => {
 
 // Watch for changes and update items display
 watch(() => props.modelValue, updateItemsDisplay, { deep: true, immediate: true });
+
+// 5.4 — watch componentWeights from props to restore saved weights
+function isItemInSelectedList(type: string, id: string): boolean {
+	return selectedItems.value.some((item) => {
+		const itemType = item.type === 'questionnaires' ? 'questionnaire' : item.type;
+		return itemType === type && item.key === id;
+	});
+}
+
+watch(
+	() => props.modelValue.componentWeights,
+	async (saved) => {
+		await nextTick(); // ensure selectedItems is populated by the other watch first
+		if (saved && saved.length > 0) {
+			const newMap = new Map<string, number>();
+			saved.forEach((item) => {
+				if (isItemInSelectedList(item.type, item.id)) {
+					// Map DTO type 'questionnaire' back to SelectedItem type 'questionnaires' for the key
+					const itemType = item.type === 'questionnaire' ? 'questionnaires' : item.type;
+					newMap.set(getWeightKey(itemType, item.id), item.weight);
+				}
+			});
+			componentWeights.value = newMap;
+		} else {
+			applyFallbackWeights();
+		}
+	},
+	{ immediate: true }
+);
 
 // 获取统计信息的辅助函数
 const getChecklistComponent = (): { checklistIds: string[] } => {

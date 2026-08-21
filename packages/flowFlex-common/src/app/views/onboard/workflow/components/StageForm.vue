@@ -147,6 +147,7 @@
 						visibleInPortal: formData.visibleInPortal,
 						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
+						componentWeights: formData.componentWeights,
 					}"
 					:stage="stage"
 					:staticFields="staticFields"
@@ -189,7 +190,14 @@ import StageComponentsSelector from './StageComponentsSelector.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
+import {
+	Checklist,
+	Questionnaire,
+	Stage,
+	ComponentsData,
+	StageComponentData,
+	ComponentWeightItem,
+} from '#/onboard';
 import StagePermissions from './StagePermissions.vue';
 import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 import { useUserStore } from '@/stores/modules/user';
@@ -351,6 +359,7 @@ const formData = ref({
 	coAssignees: [] as string[],
 	required: false,
 	rollBackTeams: [] as string[],
+	componentWeights: [] as ComponentWeightItem[],
 });
 
 // 表单验证规则
@@ -463,6 +472,8 @@ onMounted(async () => {
 				} else {
 					formData.value[key] = [];
 				}
+			} else if (key === 'componentWeights') {
+				formData.value[key] = (props.stage as any)?.componentWeights ?? [];
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
@@ -479,6 +490,7 @@ function updateComponentsData(val: ComponentsData) {
 		formData.value.portalPermission = val.portalPermission;
 	}
 	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
+	formData.value.componentWeights = val.componentWeights ?? [];
 }
 
 // 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
@@ -660,6 +672,23 @@ async function submitForm() {
 		}
 	}
 
+	// Validate component weights
+	if (formData.value.components.length > 0) {
+		const weightSum = formData.value.componentWeights
+			.filter((w) => w.type !== 'quickLink')
+			.reduce((s, w) => s + w.weight, 0);
+		const hasNonQuickLink = formData.value.componentWeights.some((w) => w.type !== 'quickLink');
+		if (hasNonQuickLink && weightSum !== 100) {
+			ElMessage.error(
+				`Component weights must add up to 100%. Current total: ${formData.value.componentWeights.reduce(
+					(s, w) => s + w.weight,
+					0
+				)}%`
+			);
+			return;
+		}
+	}
+
 	// 透传表单数据
 	const isValid = await formRef.value?.validate();
 	if (!isValid) {
@@ -668,6 +697,8 @@ async function submitForm() {
 	const payload = { ...formData.value } as any;
 	// 颜色值
 	payload.color = formData.value.color;
+	payload.componentWeights =
+		formData.value.components.length > 0 ? formData.value.componentWeights : [];
 	// 发出提交事件
 	// @ts-ignore
 	emit('submit', payload);

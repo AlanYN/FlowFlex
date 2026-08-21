@@ -82,7 +82,11 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
                 .ForMember(dest => dest.ModifyBy, opt => opt.MapFrom(src => src.ModifyBy))
                 .ForMember(dest => dest.CreateUserId, opt => opt.MapFrom(src => src.CreateUserId))
-                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId));
+                .ForMember(dest => dest.ModifyUserId, opt => opt.MapFrom(src => src.ModifyUserId))
+                .ForMember(dest => dest.ComponentWeights, opt => opt.MapFrom(src =>
+                    string.IsNullOrWhiteSpace(src.ComponentWeights)
+                        ? null
+                        : TryDeserializeComponentWeights(src.ComponentWeights)));
 
             // InputDto to Entity mapping
             CreateMap<StageInputDto, Stage>()
@@ -120,10 +124,30 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
 
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
-                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components));
+                .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components))
+                // ComponentWeights is persisted manually by StageService; AutoMapper must not overwrite it
+                .ForMember(dest => dest.ComponentWeights, opt => opt.Ignore());
         }
 
 
+
+        /// <summary>
+        /// Deserializes the component_weights JSONB column into a list of ComponentWeightItem.
+        /// Returns null (with a logged warning) if deserialization fails, so callers get graceful fallback.
+        /// </summary>
+        private static List<ComponentWeightItem> TryDeserializeComponentWeights(string json)
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<List<ComponentWeightItem>>(json, options);
+            }
+            catch (Exception ex)
+            {
+                LogWarning(ex, $"Failed to deserialize component_weights JSON: {json}");
+                return null;
+            }
+        }
 
         private static List<StageComponent> ParseComponents(string componentsJson)
         {

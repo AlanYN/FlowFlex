@@ -196,5 +196,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// Includes view and operate permissions
         /// </summary>
         public PermissionInfoDto Permission { get; set; }
+
+        /// <summary>
+        /// Component weight configuration deserialized from ff_stage.component_weights.
+        /// null = no weights have been configured (equal distribution is used for completion calculation).
+        /// </summary>
+        public List<ComponentWeightItem>? ComponentWeights { get; set; }
     }
 }
