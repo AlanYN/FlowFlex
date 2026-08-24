@@ -71,6 +71,7 @@
 							<el-select
 								v-model="action.targetStageId"
 								placeholder="Select target stage"
+								filterable
 							>
 								<el-option
 									v-for="stage in availableTargetStages"
@@ -96,6 +97,7 @@
 								v-model="action.integrationId"
 								placeholder="Select integration (optional)"
 								clearable
+								filterable
 								@change="(val: string) => handleIntegrationChange(action, val)"
 							>
 								<el-option
@@ -117,6 +119,7 @@
 							<el-select
 								v-model="action.actionDefinitionId"
 								placeholder="Select action"
+								filterable
 							>
 								<el-option-group
 									v-for="(actions, groupName) in getFilteredActions(action)"
@@ -168,6 +171,7 @@
 									multiple
 									collapse-tags
 									collapse-tags-tooltip
+									filterable
 									placeholder="Select fields"
 									class="w-full mb-2"
 									@update:model-value="
@@ -237,6 +241,7 @@
 									v-model="getActionParams(action).fieldPath"
 									placeholder="Select field"
 									@change="(val: string) => handleFieldSelect(action, val)"
+									filterable
 								>
 									<el-option-group
 										v-for="group in getAvailableFieldOptions(action)"
