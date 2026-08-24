@@ -188,6 +188,19 @@
 										}}
 									</span>
 								</div>
+								<!-- Auto skipped hint -->
+								<div
+									v-else-if="stage.status === 'Skipped' && stage.skippedTime"
+									class="text-xs text-gray-400 ml-2 min-w-0"
+								>
+									<span
+										class="completion-info-text block min-w-0"
+										:title="`Auto skipped based on previous action on ${stage.skippedTime}`"
+									>
+										Auto skipped based on previous action on
+										{{ stage.skippedTime }}
+									</span>
+								</div>
 								<!-- Blocked info -->
 								<div v-if="stage.isBlocked" class="mt-1.5 ml-2">
 									<div class="blocked-badge">
@@ -393,8 +406,8 @@
 						</template>
 					</div>
 
-					<!-- TIMELINE -->
-					<div class="gsp-section">
+					<!-- TIMELINE (hidden for Skipped stages as they have no timestamps) -->
+					<div v-if="hoveredStage.status !== 'Skipped'" class="gsp-section">
 						<div class="gsp-section__title">
 							<el-icon><Calendar /></el-icon>
 							TIMELINE
@@ -502,6 +515,13 @@
 							<strong>{{ hoveredStage.completedBy }}</strong>
 							<span v-if="hoveredStage.date">on {{ hoveredStage.date }}</span>
 						</template>
+					</div>
+					<!-- Auto skipped hint in popover -->
+					<div
+						v-else-if="hoveredStage.status === 'Skipped' && hoveredStage.skippedTime"
+						class="gsp-meta"
+					>
+						Auto skipped based on previous action on {{ hoveredStage.skippedTime }}
 					</div>
 
 					<!-- Mark as Blocked（仅对当前活跃且未 blocked 的 stage 显示） -->
@@ -758,26 +778,49 @@ const getSaveOrCompleteFlag = (completionTime: string, saveTime: string): boolea
 // 计算属性
 const stages = computed(() => {
 	// 根据传入的工作流阶段和当前业务数据设置阶段完成状态
-	return props.workflowStages.map((stage, index) => ({
-		...stage,
-		title: stage.stageName, // 使用 name 作为 title
-		completed: stage.isCompleted,
-		date: timeZoneConvert(stage?.completionTime || '', false, projectTenMinutesSsecondsDate),
-		saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
-		assignedGroup: stage.defaultAssignedGroup || '',
-		completedBy: stage.completedBy,
-		showSaveOrComplete: getSaveOrCompleteFlag(
-			stage?.completionTime || '',
-			stage?.saveTime || ''
-		),
-		canRollBack: (stage as any).canRollBack ?? false,
-		isBlocked: (stage as any).isBlocked ?? false,
-		blockerReason: (stage as any).blockerReason ?? null,
-		blockedByName: (stage as any).blockedByName ?? null,
-		blockedAt: (stage as any).blockedAt
-			? timeZoneConvert((stage as any).blockedAt, false, projectTenMinutesSsecondsDate)
-			: null,
-	}));
+	return props.workflowStages.map((stage, index) => {
+		// 对 Skipped stage，向前找最近一个有 completionTime 的 stage，将其完成时间作为 skip 触发时间
+		let skippedTime: string | null = null;
+		if (stage.status === 'Skipped') {
+			for (let i = index - 1; i >= 0; i--) {
+				const prevStage = props.workflowStages[i];
+				if ((prevStage as any).completionTime) {
+					skippedTime = timeZoneConvert(
+						(prevStage as any).completionTime,
+						false,
+						projectTenMinutesSsecondsDate
+					);
+					break;
+				}
+			}
+		}
+
+		return {
+			...stage,
+			title: stage.stageName, // 使用 name 作为 title
+			completed: stage.isCompleted,
+			date: timeZoneConvert(
+				stage?.completionTime || '',
+				false,
+				projectTenMinutesSsecondsDate
+			),
+			saveTime: timeZoneConvert(stage?.saveTime || '', false, projectTenMinutesSsecondsDate),
+			assignedGroup: stage.defaultAssignedGroup || '',
+			completedBy: stage.completedBy,
+			showSaveOrComplete: getSaveOrCompleteFlag(
+				stage?.completionTime || '',
+				stage?.saveTime || ''
+			),
+			skippedTime,
+			canRollBack: (stage as any).canRollBack ?? false,
+			isBlocked: (stage as any).isBlocked ?? false,
+			blockerReason: (stage as any).blockerReason ?? null,
+			blockedByName: (stage as any).blockedByName ?? null,
+			blockedAt: (stage as any).blockedAt
+				? timeZoneConvert((stage as any).blockedAt, false, projectTenMinutesSsecondsDate)
+				: null,
+		};
+	});
 });
 
 const progressPercentage = computed(() => {
