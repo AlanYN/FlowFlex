@@ -631,7 +631,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Explicitly set "Started" as the correct initial status for a newly created case.
             // Note: "Started" is the historical initial value used throughout the system (not in OnboardingStatusEnum).
             entity.Status = "Started";
-            entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
+            entity.StartDate = entity.StartDate ?? OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
             entity.CurrentStageStartTime = null;
             entity.CompletionRate = 0;
             entity.IsPrioritySet = false;

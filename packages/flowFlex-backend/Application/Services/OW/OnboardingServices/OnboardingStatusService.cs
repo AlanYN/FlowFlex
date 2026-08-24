@@ -188,8 +188,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var originalStagesProgressJson = entity.StagesProgressJson;
 
             entity.Status = OnboardingStatusEnum.Active.ToDbString();
-            entity.StartDate = NormalizeToStartOfDay(DateTimeOffset.UtcNow);
-            entity.CurrentStageStartTime = GetNormalizedUtcNow();
+            entity.StartDate = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
+            entity.CurrentStageStartTime = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
 
             if (input.ResetProgress)
             {

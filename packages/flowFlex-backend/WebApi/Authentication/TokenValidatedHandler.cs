@@ -78,6 +78,16 @@ namespace WebApi.Authentication
                 userContext.UserId = user.Id.ToString();
                 userContext.UserName = user.Username;
                 userContext.Email = user.Email;
+
+                // 从请求头读取用户时区，仅在用户 profile 未设置时使用（用于修正 start date 时区问题）
+                if (string.IsNullOrEmpty(userContext.DefaultTimeZone))
+                {
+                    var timeZoneHeader = context.Request.Headers["Time-Zone"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(timeZoneHeader))
+                    {
+                        userContext.DefaultTimeZone = timeZoneHeader;
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -169,6 +179,16 @@ namespace WebApi.Authentication
                     else
                     {
                         logger.LogDebug("Skipping team loading for admin user (IsSystemAdmin={IsSystemAdmin})", userContext.IsSystemAdmin);
+                    }
+
+                    // 从请求头读取用户时区，仅在用户 profile 未设置时使用
+                    if (string.IsNullOrEmpty(userContext.DefaultTimeZone))
+                    {
+                        var timeZoneHeader = context.Request.Headers["Time-Zone"].FirstOrDefault();
+                        if (!string.IsNullOrEmpty(timeZoneHeader))
+                        {
+                            userContext.DefaultTimeZone = timeZoneHeader;
+                        }
                     }
                 }
             }
@@ -270,6 +290,16 @@ namespace WebApi.Authentication
                         else
                         {
                             logger.LogDebug("Skipping team loading for admin user (IsSystemAdmin={IsSystemAdmin})", userContext.IsSystemAdmin);
+                        }
+
+                        // 从请求头读取用户时区，仅在用户 profile 未设置时使用
+                        if (string.IsNullOrEmpty(userContext.DefaultTimeZone))
+                        {
+                            var timeZoneHeader = context.Request.Headers["Time-Zone"].FirstOrDefault();
+                            if (!string.IsNullOrEmpty(timeZoneHeader))
+                            {
+                                userContext.DefaultTimeZone = timeZoneHeader;
+                            }
                         }
                         break;
                     case "client_credentials":

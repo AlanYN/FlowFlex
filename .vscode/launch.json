@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch FlowFlex WebApi",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/packages/flowFlex-backend/WebApi/bin/Debug/net8.0/WebApi.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/packages/flowFlex-backend/WebApi",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://0.0.0.0:5018"
+            },
+            "console": "internalConsole",
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        },
+        {
+            "name": "Attach to FlowFlex WebApi",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ]
+}

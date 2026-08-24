@@ -837,8 +837,11 @@ const filteredAssigneeList = computed(() => {
 /** 过滤后的 Stage 列表 */
 const filteredStages = computed(() => {
 	return props.stages.filter((s) => {
-		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.ganttStatus))
-			return false;
+		if (selectedStatuses.value.length > 0) {
+			// Blocked is a separate isBlocked field, not part of ganttStatus
+			const effectiveStatus = s.isBlocked ? 'Blocked' : s.ganttStatus;
+			if (!selectedStatuses.value.includes(effectiveStatus)) return false;
+		}
 		if (selectedAssignees.value.length > 0) {
 			const stageAssignees = [
 				...(s.assignee ?? []).map((a) => a.name),
