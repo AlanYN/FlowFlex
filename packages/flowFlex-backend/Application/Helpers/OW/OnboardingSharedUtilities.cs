@@ -328,6 +328,39 @@ namespace FlowFlex.Application.Helpers.OW
             return new DateTimeOffset(chinaTime, TimeSpan.FromHours(8));
         }
 
+        /// <summary>
+        /// 将 UTC 当前时间转换为用户所在时区的当天 00:00:00，并以带时区偏移的 DateTimeOffset 返回。
+        /// 修复 OW-661：避免跨时区场景下 Stage Start Date 比用户本地日期早一天。
+        /// </summary>
+        /// <param name="ianaTimeZone">
+        /// IANA 时区标识，例如 "America/New_York"、"Asia/Shanghai"。
+        /// 若为 null/空，则回退到 <see cref="GetNormalizedUtcNowOffset"/>（UTC 当天 00:00:00）。
+        /// </param>
+        /// <returns>用户本地日期的当天起始时刻，带正确的 UTC 偏移</returns>
+        public static DateTimeOffset GetNormalizedUserLocalNowOffset(string? ianaTimeZone)
+        {
+            if (string.IsNullOrWhiteSpace(ianaTimeZone))
+                return GetNormalizedUtcNowOffset();
+
+            try
+            {
+                // TimeZoneInfo 在 .NET 6+ 跨平台均支持 IANA 时区 ID
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(ianaTimeZone);
+                var utcNow = DateTimeOffset.UtcNow;
+                var localNow = TimeZoneInfo.ConvertTime(utcNow, tz);
+
+                // 取用户本地日期的当天 00:00:00，保留时区偏移
+                return new DateTimeOffset(localNow.Year, localNow.Month, localNow.Day,
+                                          0, 0, 0,
+                                          localNow.Offset);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // 时区 ID 无效时回退到 UTC
+                return GetNormalizedUtcNowOffset();
+            }
+        }
+
         #endregion
 
         #region Stage Tracking Methods

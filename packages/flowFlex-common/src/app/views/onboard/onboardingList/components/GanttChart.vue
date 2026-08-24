@@ -546,11 +546,13 @@
 							<div class="gsp-time-rows">
 								<div class="gsp-time-row">
 									<span>Start</span>
-									<span>{{ formatDate(selectedStage.plannedStartDate) }}</span>
+									<span>
+										{{ formatShortDate(selectedStage.plannedStartDate) }}
+									</span>
 								</div>
 								<div class="gsp-time-row">
 									<span>ETA</span>
-									<span>{{ formatDate(selectedStage.plannedEndDate) }}</span>
+									<span>{{ formatShortDate(selectedStage.plannedEndDate) }}</span>
 								</div>
 								<div class="gsp-time-row">
 									<span>Duration</span>
@@ -578,7 +580,7 @@
 									<span>
 										{{
 											selectedStage.projectedStartDate
-												? formatDate(selectedStage.projectedStartDate)
+												? formatShortDate(selectedStage.projectedStartDate)
 												: '—'
 										}}
 									</span>
@@ -593,7 +595,7 @@
 									>
 										{{
 											selectedStage.projectedEndDate
-												? formatDate(selectedStage.projectedEndDate)
+												? formatShortDate(selectedStage.projectedEndDate)
 												: 'TBD'
 										}}
 									</span>
@@ -609,7 +611,9 @@
 								<div class="gsp-time-rows">
 									<div class="gsp-time-row">
 										<span>Start</span>
-										<span>{{ formatDate(selectedStage.actualStartDate) }}</span>
+										<span>
+											{{ formatShortDate(selectedStage.actualStartDate) }}
+										</span>
 									</div>
 									<div class="gsp-time-row">
 										<span>End</span>
@@ -621,7 +625,7 @@
 										>
 											{{
 												selectedStage.actualEndDate
-													? formatDate(selectedStage.actualEndDate)
+													? formatShortDate(selectedStage.actualEndDate)
 													: '—'
 											}}
 										</span>
@@ -833,8 +837,11 @@ const filteredAssigneeList = computed(() => {
 /** 过滤后的 Stage 列表 */
 const filteredStages = computed(() => {
 	return props.stages.filter((s) => {
-		if (selectedStatuses.value.length > 0 && !selectedStatuses.value.includes(s.ganttStatus))
-			return false;
+		if (selectedStatuses.value.length > 0) {
+			// Blocked is a separate isBlocked field, not part of ganttStatus
+			const effectiveStatus = s.isBlocked ? 'Blocked' : s.ganttStatus;
+			if (!selectedStatuses.value.includes(effectiveStatus)) return false;
+		}
 		if (selectedAssignees.value.length > 0) {
 			const stageAssignees = [
 				...(s.assignee ?? []).map((a) => a.name),
@@ -1656,39 +1663,43 @@ defineExpose({ scrollToToday });
 	cursor: help;
 }
 
-/* 两列网格：START / ETA 并排 */
+/* 单列纵排：每行 label 左对齐、value 右对齐 */
 .gsp-time-rows {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 10px 8px;
-}
-
-/* 单个时间字段：label 上，value 下 */
-.gsp-time-row {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 6px;
+}
+
+/* 单个时间字段：label 左，value 右 */
+.gsp-time-row {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
 
 	/* label */
 	span:first-child {
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--el-text-color-secondary);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		font-size: 13px;
+		font-weight: 400;
+		color: var(--el-text-color-regular);
+		letter-spacing: 0;
+		text-transform: none;
+		flex-shrink: 0;
 	}
 
 	/* value */
 	span:last-child {
-		font-size: 15px;
+		font-size: 13px;
 		font-weight: 700;
 		color: var(--el-text-color-primary);
 		line-height: 1.2;
+		text-align: right;
 	}
 
-	/* 跨两列（Duration、Days Elapsed 等单值行） */
+	/* Duration、Days Elapsed 等不需要特殊处理，已经在同一行 */
 	&--full {
-		grid-column: 1 / -1;
+		/* 保留兼容，不再需要 grid-column */
 	}
 
 	&__value--muted span:last-child,

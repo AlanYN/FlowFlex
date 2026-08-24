@@ -94,7 +94,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         StageId = stage.Id,
                         Status = isFirstStage ? "InProgress" : "Pending",
                         IsCompleted = false,
-                        StartTime = isFirstStage ? OnboardingSharedUtilities.GetNormalizedUtcNowOffset() : null,
+                        StartTime = isFirstStage ? OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone) : null,
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
@@ -157,7 +157,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                     if (!completedStage.StartTime.HasValue)
                     {
-                        completedStage.StartTime = OnboardingSharedUtilities.GetNormalizedUtcNowOffset();
+                        completedStage.StartTime = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
                     }
 
                     if (!string.IsNullOrEmpty(notes))
@@ -1433,7 +1433,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Normalize to start of day (00:00:00)
                 if (!stageProgress.StartTime.HasValue)
                 {
-                    stageProgress.StartTime = OnboardingSharedUtilities.GetNormalizedUtcNowOffset();
+                    stageProgress.StartTime = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
                 }
 
                 // IMPORTANT: If this is the current stage and CurrentStageStartTime is not set, set it now
