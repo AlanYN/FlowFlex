@@ -1,0 +1,273 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 扩展 `OnboardingStageProgress.cs`，新增 Gantt 时间字段与 Blocked 字段": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117114377
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117351929
+      }
+    ],
+    "1.2 扩展 `Stage.cs`，新增 `SlaDays` 和 `ComponentWeights` 属性": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117122188
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117364385
+      }
+    ],
+    "1.3 扩展 `Onboarding.cs`，新增 `TotalVarianceDays` 属性": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117129339
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117373433
+      }
+    ],
+    "1.4 新建 `Migration_20260819000001_AddGanttFieldsToStage.cs`": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117382787
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117499184
+      }
+    ],
+    "1.5 新建 `Migration_20260819000002_AddTotalVarianceDaysToOnboarding.cs`": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117383812
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117499791
+      }
+    ],
+    "1.6 在 `MigrationManager.cs` 的 migrations 数组末尾注册两条新 Migration": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117509857
+      },
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117616575
+      }
+    ],
+    "1. 扩展 OnboardingStageProgress、Stage、Onboarding 实体及数据库 Migration": [
+      {
+        "executionId": "03fcc17c-43d7-4c6b-bde2-7f683536855c",
+        "chatSessionId": "sess_3ea1caf1-f0a5-46bd-b83e-5302c4115032",
+        "timestamp": 1787117616752
+      }
+    ],
+    "2.1 新建 `OnboardingStartedEvent.cs`": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117677690
+      },
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117834855
+      }
+    ],
+    "2.2 新建 `OnboardingStageMovedEvent.cs`": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117685135
+      },
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117842360
+      }
+    ],
+    "2.3 修改 `OnboardingStatusService.StartOnboardingAsync`，在 `result == true` 后同步发布 `OnboardingStartedEvent`": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117851735
+      },
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787118461643
+      }
+    ],
+    "2.4 新建 `GanttPlannedTimeInitHandler.cs`": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117864763
+      },
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787118470868
+      }
+    ],
+    "2.5 新建 `GanttProjectedTimeRecalcHandler.cs`": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787117872705
+      },
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787118479502
+      }
+    ],
+    "2. 新建领域事件与 MediatR Handlers": [
+      {
+        "executionId": "5f7ce8eb-add5-4617-8207-1e73670ed46d",
+        "chatSessionId": "sess_2d4f1256-f660-457d-b61a-b9e6961336e4",
+        "timestamp": 1787118479670
+      }
+    ],
+    "3.1 新建所有 Gantt DTOs": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787118805523
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787120441217
+      }
+    ],
+    "3.2 新建 `IGanttService.cs` 接口": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787118813480
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787120449645
+      }
+    ],
+    "3.3 新建 `GanttService.cs` — GetGanttDataAsync 实现": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787120475264
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787121458798
+      }
+    ],
+    "3.6 新建 `IUserTourRecordService` 接口 + `UserTourRecordService` 实现": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787120485822
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787121468794
+      }
+    ],
+    "3.4 新建 `GanttService.cs` — BlockStageAsync + UnblockStageAsync 实现": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787121478143
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787122329142
+      }
+    ],
+    "3.5 新建 `GanttController.cs`（5 个接口）": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787121486677
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787122355307
+      }
+    ],
+    "3.7 在 DI 注册中确认 `IGanttService` → `GanttService` 和 `IUserTourRecordService` → `UserTourRecordService` 已自动注入": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787121495409
+      },
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787122372705
+      }
+    ],
+    "3. 新建 GanttService 完整实现与 GanttController": [
+      {
+        "executionId": "b8c154de-678f-47a0-9b2b-260b7834cd8f",
+        "chatSessionId": "sess_9e5fd39c-4619-4391-9731-4d8e784d7d2f",
+        "timestamp": 1787122372833
+      }
+    ],
+    "6.1 修复并完善 `gantt.ts`": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135290392
+      },
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135697994
+      }
+    ],
+    "6.2 新建 Pinia `ganttStore.ts`": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135297729
+      },
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135706186
+      }
+    ],
+    "6. 修复并完善前端 gantt.ts 和 Pinia Store": [
+      {
+        "executionId": "bc62832a-4c80-43d4-aa2c-9591a5f85866",
+        "chatSessionId": "sess_4f3750cd-fb0b-4256-8c2f-3f772326f745",
+        "timestamp": 1787135706337
+      }
+    ]
+  }
+}

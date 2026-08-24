@@ -228,11 +228,20 @@ export type StageComponentData = {
 	isRequired?: boolean;
 };
 
+/** Weight configuration for a single Component instance in a Stage. */
+export interface ComponentWeightItem {
+	type: 'fields' | 'checklist' | 'questionnaire' | 'files' | 'quickLink';
+	id: string; // "fields" for Fields type; stringified snowflake ID for others
+	name: string;
+	weight: number; // integer 0–100
+}
+
 export interface ComponentsData {
 	components: StageComponentData[];
 	visibleInPortal?: boolean;
 	portalPermission?: number;
 	attachmentManagementNeeded?: boolean;
+	componentWeights?: ComponentWeightItem[];
 }
 
 export interface StaticField {
@@ -358,6 +367,11 @@ export interface Stage {
 	required: boolean;
 	rollBackTeams?: string[];
 	canRollBack?: boolean;
+	isBlocked?: boolean;
+	blockedBy?: string;
+	blockedByName?: string;
+	blockReason?: string;
+	blockedAt?: string;
 }
 
 // 检查清单任务完成记录相关类型定义

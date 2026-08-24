@@ -268,6 +268,7 @@
 							@set-active-stage="setActiveStage"
 							@stage-completed="loadOnboardingDetail"
 							@stage-rolled-back="handleStageRolledBack"
+							@stage-block-changed="loadOnboardingDetail"
 						/>
 
 						<!-- 笔记区域 -->
@@ -321,11 +322,13 @@
 		>
 			<PortalAccessContent :onboarding-id="onboardingId" :onboarding-data="onboardingData" />
 		</el-dialog>
+
+		<!-- 甘特图模态框 (从列表页入口打开，detail 页通过 stage hover 展示详情) -->
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, onBeforeUpdate } from 'vue';
+import { ref, computed, onMounted, nextTick, onBeforeUpdate, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Loading, User, Document, Check, View } from '@element-plus/icons-vue';
@@ -394,6 +397,13 @@ const initialLoading = ref(true); // 初始页面加载状态
 // 使用自适应滚动条 hook
 const { scrollbarRef: leftScrollbarRef } = useAdaptiveScrollbar(100);
 const { scrollbarRef: rightScrollbarRef } = useAdaptiveScrollbar(100);
+
+// 向子孙组件提供左侧滚动区滚动到顶部的方法，供 dynamicForm section 切换使用
+provide('scrollLeftToTop', () => {
+	nextTick(() => {
+		(leftScrollbarRef.value as any)?.setScrollTop(0);
+	});
+});
 
 // 计算属性
 const onboardingId = computed(() => {
@@ -687,8 +697,15 @@ const processOnboardingData = (responseData: OnboardingItem) => {
 		(stage) => !stage.isCompleted && stage.status != 'Skipped'
 	);
 
+	// 如果 URL 中带有 stageId（从甘特图 Go to Stage 跳转），优先使用它
+	const urlStageId = route.query.stageId as string | undefined;
+	const urlStageExists =
+		urlStageId &&
+		workflowStages.value.some((s) => s.stageId === urlStageId || (s as any).id === urlStageId);
+
 	// 如果所有阶段都完成了，返回最后一个阶段
 	const newStageId =
+		(urlStageExists ? urlStageId : null) ||
 		responseData.currentStageId ||
 		firstIncompleteStage?.stageId ||
 		sortedStages[sortedStages.length - 1]?.stageId;

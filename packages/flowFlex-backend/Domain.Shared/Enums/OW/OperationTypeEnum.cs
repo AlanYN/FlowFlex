@@ -399,7 +399,19 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Stage condition deleted
         /// </summary>
         [Description("Stage Condition Delete")]
-        StageConditionDelete = 63
+        StageConditionDelete = 63,
+
+        /// <summary>
+        /// Stage blocked
+        /// </summary>
+        [Description("Stage Block")]
+        StageBlock = 64,
+
+        /// <summary>
+        /// Stage unblocked (blocker resolved)
+        /// </summary>
+        [Description("Stage Unblock")]
+        StageUnblock = 65
     }
 
     /// <summary>

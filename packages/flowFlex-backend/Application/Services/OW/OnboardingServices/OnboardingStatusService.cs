@@ -7,8 +7,10 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
+using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -28,6 +30,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStatusService> _logger;
+        private readonly IMediator _mediator;
 
         public OnboardingStatusService(
             IOnboardingRepository onboardingRepository,
@@ -38,7 +41,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOperatorContextService operatorContextService,
             IBackgroundTaskQueue backgroundTaskQueue,
             UserContext userContext,
-            ILogger<OnboardingStatusService> logger)
+            ILogger<OnboardingStatusService> logger,
+            IMediator mediator)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
@@ -49,6 +53,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         }
 
         #region Helper Methods
@@ -183,8 +188,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var originalStagesProgressJson = entity.StagesProgressJson;
 
             entity.Status = OnboardingStatusEnum.Active.ToDbString();
-            entity.StartDate = NormalizeToStartOfDay(DateTimeOffset.UtcNow);
-            entity.CurrentStageStartTime = GetNormalizedUtcNow();
+            entity.StartDate = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
+            entity.CurrentStageStartTime = OnboardingSharedUtilities.GetNormalizedUserLocalNowOffset(_userContext.DefaultTimeZone);
 
             if (input.ResetProgress)
             {
@@ -204,6 +209,26 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             if (result)
             {
+                // Publish OnboardingStartedEvent to trigger Planned time initialization for Gantt chart.
+                // This MUST run before the background task queue to ensure Planned times are written
+                // synchronously in the same request context.
+                try
+                {
+                    await _mediator.Publish(new OnboardingStartedEvent
+                    {
+                        OnboardingId = id,
+                        StartDate = entity.StartDate!.Value,
+                        EstimatedCompletionDate = entity.EstimatedCompletionDate,
+                        TenantId = _userContext.TenantId,
+                        UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0,
+                        UserName = _userContext.UserName
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish OnboardingStartedEvent for onboarding {OnboardingId}. Gantt planned times may not be initialized.", id);
+                }
+
                 _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try

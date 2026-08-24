@@ -498,12 +498,12 @@ const questionTypes = [
 	},
 	{
 		id: 'multiple_choice_grid',
-		name: 'Multiple Choice Grid',
+		name: 'Checkbox Grid',
 		icon: 'tabler:grid-dots',
 	},
 	{
 		id: 'checkbox_grid',
-		name: 'Checkbox Grid',
+		name: 'Multiple Choice Grid',
 		icon: 'gridicons:grid',
 	},
 	{

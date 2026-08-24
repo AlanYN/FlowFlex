@@ -173,7 +173,17 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "components_json", ColumnDataType = "jsonb", IsJson = true)]
         public string ComponentsJson { get; set; }
 
+        /// <summary>SLA requirement in days; null = no SLA</summary>
+        [SugarColumn(ColumnName = "sla_days")]
+        public int? SlaDays { get; set; }
 
+        /// <summary>
+        /// Component weights for CompletionPercentage calculation (JSONB).
+        /// Format: [{"type":"checklist","id":"1001","name":"CustomerInfo","weight":40}]
+        /// Sum of all weights must equal 100. Null = equal distribution.
+        /// </summary>
+        [SugarColumn(ColumnName = "component_weights", ColumnDataType = "jsonb", IsJson = true)]
+        public string ComponentWeights { get; set; }
 
         /// <summary>
         /// Stage Components List (not mapped to database)

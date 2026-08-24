@@ -97,7 +97,7 @@ function parseDateWithDefaultTime(dateString) {
 
 // Regular expression to check for timezone in time format
 const timezonePattern =
-	/^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}:\d{2}(\.\d{3})?\s?(Z|([+-]\d{2}:\d{2}))$/;
+	/^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}:\d{2}(\.\d+)?\s?(Z|([+-]\d{2}:\d{2}))$/;
 function isTimeZone(dateString) {
 	// Use regular expression to check if it matches the ISO 8601 UTC format
 	if (!timezonePattern.test(dateString)) {
