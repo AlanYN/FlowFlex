@@ -17,7 +17,6 @@ using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -44,8 +43,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IOperatorContextService _operatorContextService;
         private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
         private readonly IUserService _userService;
-        private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
@@ -72,8 +69,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOperatorContextService operatorContextService,
             ICaseCodeGeneratorService caseCodeGeneratorService,
             IUserService userService,
-            IServiceScopeFactory serviceScopeFactory,
-            IBackgroundTaskQueue backgroundTaskQueue,
             IHttpContextAccessor httpContextAccessor,
             UserContext userContext,
             IMediator mediator,
@@ -92,8 +87,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
             _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
-            _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
-            _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _httpContextAccessor = httpContextAccessor;
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
@@ -211,20 +204,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     _logger.LogDebug(ex, "Error appending debug metrics to business context");
                 }
 
-                // Use fire-and-forget pattern
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                // Publish synchronously — projected time recalc is lightweight and must run in the
+                // current DI scope so UserContext (tenant/appCode) is available to repository queries.
+                try
                 {
-                    try
-                    {
-                        using var scope = _serviceScopeFactory.CreateScope();
-                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                        await scopedMediator.Publish(onboardingStageCompletedEvent);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to publish stage completion event");
-                    }
-                });
+                    await _mediator.Publish(onboardingStageCompletedEvent);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to publish stage completion event");
+                }
             }
             catch (Exception ex)
             {
