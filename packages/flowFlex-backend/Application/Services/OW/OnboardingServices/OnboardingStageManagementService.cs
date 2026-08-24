@@ -8,8 +8,10 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -38,6 +40,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly EmailOptions _emailOptions;
         private readonly UserContext _userContext;
+        private readonly IMediator _mediator;
         private readonly ILogger<OnboardingStageManagementService> _logger;
         private readonly OnboardingCompleteLockService _completeLockService;
 
@@ -57,6 +60,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IHttpContextAccessor httpContextAccessor,
             IOptions<EmailOptions> emailOptions,
             UserContext userContext,
+            IMediator mediator,
             ILogger<OnboardingStageManagementService> logger,
             OnboardingCompleteLockService completeLockService)
         {
@@ -75,6 +79,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _httpContextAccessor = httpContextAccessor;
             _emailOptions = emailOptions.Value;
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _completeLockService = completeLockService ?? throw new ArgumentNullException(nameof(completeLockService));
         }
@@ -456,6 +461,24 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                     // Send email notification
                     await SendStageCompletionEmailAsync(entity, stageToComplete);
+
+                    // Publish event so GanttProjectedTimeRecalcHandler can update projected dates
+                    try
+                    {
+                        await _mediator.Publish(new OnboardingStageCompletedEvent
+                        {
+                            OnboardingId = entity.Id,
+                            CompletedStageId = stageToComplete.Id,
+                            CompletedStageName = stageToComplete.Name,
+                            TenantId = _userContext.TenantId,
+                            UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0,
+                            UserName = _userContext.UserName ?? "System",
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[GanttProjectedTimeRecalc] Failed to publish OnboardingStageCompletedEvent for OnboardingId={OnboardingId}", entity.Id);
+                    }
                 }
 
                 return result;
