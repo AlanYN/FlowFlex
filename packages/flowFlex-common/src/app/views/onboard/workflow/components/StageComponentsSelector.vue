@@ -475,56 +475,75 @@
 										</div>
 									</div>
 									<!-- Weight Editor row (5.7) -->
-									<div class="border-t px-3 py-2 flex items-center gap-3">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="14"
-											height="14"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											class="text-gray-500 flex-shrink-0"
-											aria-hidden="true"
+									<el-tooltip
+										:disabled="element.type !== 'quickLink'"
+										content="Quick Links do not contribute to stage completion and cannot have a weight"
+										placement="top"
+									>
+										<div
+											class="border-t px-3 py-2 flex items-center gap-3"
+											:class="{ 'opacity-50': element.type === 'quickLink' }"
 										>
-											<path d="M12 3v18" />
-											<path d="m17 8 3 8a5 5 0 0 1-6 0" />
-											<path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" />
-											<path d="m7 8-3 8a5 5 0 0 0 6 0" />
-											<path d="M7 21h10" />
-										</svg>
-										<span class="text-xs text-gray-500 flex-shrink-0">
-											Weight
-										</span>
-										<el-slider
-											:model-value="getWeight(element.type, element.key)"
-											:min="0"
-											:max="100"
-											:step="1"
-											class="flex-1"
-											size="small"
-											@input="
-												(v: number) =>
-													setWeight(element.type, element.key, Number(v))
-											"
-										/>
-										<el-input-number
-											:model-value="getWeight(element.type, element.key)"
-											:min="0"
-											:max="100"
-											:precision="0"
-											:step="1"
-											size="small"
-											class="w-20 flex-shrink-0"
-											@change="
-												(v: number | undefined) =>
-													setWeight(element.type, element.key, v ?? 0)
-											"
-										/>
-										<span class="text-xs text-gray-500 flex-shrink-0">%</span>
-									</div>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												class="text-gray-500 flex-shrink-0"
+												aria-hidden="true"
+											>
+												<path d="M12 3v18" />
+												<path d="m17 8 3 8a5 5 0 0 1-6 0" />
+												<path
+													d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"
+												/>
+												<path d="m7 8-3 8a5 5 0 0 0 6 0" />
+												<path d="M7 21h10" />
+											</svg>
+											<span class="text-xs text-gray-500 flex-shrink-0">
+												Weight
+											</span>
+											<el-slider
+												:model-value="getWeight(element.type, element.key)"
+												:min="0"
+												:max="100"
+												:step="1"
+												class="flex-1"
+												size="small"
+												:disabled="element.type === 'quickLink'"
+												@input="
+													(v: number) =>
+														setWeight(
+															element.type,
+															element.key,
+															Number(v)
+														)
+												"
+											/>
+											<el-input-number
+												:model-value="getWeight(element.type, element.key)"
+												:min="0"
+												:max="100"
+												:precision="0"
+												:step="1"
+												size="small"
+												class="w-20 flex-shrink-0"
+												:disabled="element.type === 'quickLink'"
+												@change="
+													(v: number | undefined) =>
+														setWeight(element.type, element.key, v ?? 0)
+												"
+											/>
+											<span class="text-xs text-gray-500 flex-shrink-0">
+												%
+											</span>
+										</div>
+									</el-tooltip>
 									<div
 										v-if="shouldShowPortalAccess"
 										class="border-t p-2 flex justify-between items-center"
