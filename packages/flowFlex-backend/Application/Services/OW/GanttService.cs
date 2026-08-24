@@ -697,9 +697,6 @@ namespace FlowFlex.Application.Services.OW
             Dictionary<(long stageId, long questionnaireId), QuestionnaireAnswer> answerLookup,
             Dictionary<long, List<StaticFieldValue>> fieldValuesByStage)
         {
-            // Short-circuit: completed stage is always 100%
-            if (progress.IsCompleted)
-                return 100m;
 
             // Parse components from Stage.ComponentsJson
             var components = ParseStageComponents(stage.ComponentsJson);
