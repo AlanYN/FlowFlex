@@ -605,6 +605,9 @@ const handleFileChange = async (file: any) => {
 		if (response.data?.code === '200') {
 			ElMessage.success(`${file.name} uploaded successfully`);
 
+			// 清空 el-upload 内部队列，避免累积文件数触发 exceed 限制
+			uploadRef.value?.clearFiles();
+
 			// 静默刷新文档列表（增量更新）
 			await refreshDocumentsSilently();
 
@@ -718,6 +721,8 @@ const handleDeleteDocument = async (documentId: string) => {
 
 		if (response.code === '200') {
 			ElMessage.success('Document deleted successfully');
+			// 清空 el-upload 内部队列
+			uploadRef.value?.clearFiles();
 			// 静默刷新文档列表（增量更新）
 			await refreshDocumentsSilently();
 			emit('documentDeleted', documentId);
