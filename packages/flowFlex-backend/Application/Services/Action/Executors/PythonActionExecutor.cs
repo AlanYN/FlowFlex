@@ -1,4 +1,4 @@
-ï»¿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Client;
 using FlowFlex.Application.Contracts.Dtos.Action;
@@ -19,6 +19,10 @@ namespace FlowFlex.Application.Services.Action.Executors
         private readonly JsonSerializerOptions _jsonOptions;
 
         private const int Python3LanguageId = 71;
+
+        // Judge0 time limits for Python scripts that perform multiple HTTP calls
+        private const double PythonCpuTimeLimitSeconds = 15.0;
+        private const double PythonWallTimeLimitSeconds = 20.0;
 
         public PythonActionExecutor(IdeClient ideClient, ILogger<PythonActionExecutor> logger)
         {
@@ -90,7 +94,9 @@ namespace FlowFlex.Application.Services.Action.Executors
                 Stdin = base64Stdin,
                 CompilerOptions = "",
                 CommandLineArguments = config.CommandLineArguments ?? "",
-                RedirectStderrToStdout = true
+                RedirectStderrToStdout = true,
+                CpuTimeLimit = PythonCpuTimeLimitSeconds,
+                WallTimeLimit = PythonWallTimeLimitSeconds
             };
 
             var submission = await _ideClient.SubmitCodeAsync(request);
@@ -145,7 +151,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                     if (parsed.TryGetValue("data", StringComparison.OrdinalIgnoreCase, out var dataToken))
                         data = dataToken;
 
-                    // Extract shouldBlock â€” default to true when success=false and field is absent
+                    // Extract shouldBlock ¡ª default to true when success=false and field is absent
                     if (parsed.TryGetValue("shouldBlock", StringComparison.OrdinalIgnoreCase, out var shouldBlockToken))
                         shouldBlock = shouldBlockToken.Value<bool>();
                     else if (!success)
