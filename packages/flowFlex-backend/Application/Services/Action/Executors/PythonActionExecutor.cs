@@ -119,10 +119,50 @@ namespace FlowFlex.Application.Services.Action.Executors
 
         private object CreateSuccessResult(Judge0SubmissionResultDto judge0Result)
         {
+            bool success = true;
+            bool shouldBlock = false;
+            string message = "Python script executed successfully";
+            JToken? data = null;
+
+            try
+            {
+                var rawStdout = judge0Result.Stdout ?? string.Empty;
+                var lastLine = rawStdout.Trim().Split('\n').LastOrDefault()?.Trim() ?? string.Empty;
+
+                if (lastLine.StartsWith("{") || lastLine.StartsWith("["))
+                {
+                    var parsed = JObject.Parse(lastLine);
+
+                    // Extract success
+                    if (parsed.TryGetValue("success", StringComparison.OrdinalIgnoreCase, out var successToken))
+                        success = successToken.Value<bool>();
+
+                    // Extract message
+                    if (parsed.TryGetValue("message", StringComparison.OrdinalIgnoreCase, out var messageToken))
+                        message = messageToken.Value<string>() ?? message;
+
+                    // Extract data
+                    if (parsed.TryGetValue("data", StringComparison.OrdinalIgnoreCase, out var dataToken))
+                        data = dataToken;
+
+                    // Extract shouldBlock — default to true when success=false and field is absent
+                    if (parsed.TryGetValue("shouldBlock", StringComparison.OrdinalIgnoreCase, out var shouldBlockToken))
+                        shouldBlock = shouldBlockToken.Value<bool>();
+                    else if (!success)
+                        shouldBlock = true; // safety-first: block by default when success=false
+                }
+            }
+            catch
+            {
+                // Parse failure: keep defaults (success=true, shouldBlock=false)
+            }
+
             return new
             {
-                success = true,
-                message = "Python script executed successfully",
+                success,
+                shouldBlock,
+                message,
+                data,
                 stdout = judge0Result.Stdout,
                 stderr = judge0Result.Stderr,
                 executionTime = judge0Result.Time,
@@ -140,6 +180,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             return new
             {
                 success = false,
+                shouldBlock = true,
                 message,
                 stdout = judge0Result?.Stdout,
                 stderr = judge0Result?.Stderr,
@@ -157,6 +198,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             return new
             {
                 success = false,
+                shouldBlock = true,
                 message,
                 errorDetails = message,
                 timestamp = DateTimeOffset.UtcNow
@@ -367,7 +409,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             scriptBuilder.AppendLine("# execute main function");
             var parameterNames = string.Join(", ", Enumerable.Range(0, parameterValues.Count).Select(i => $"param_{i}"));
             scriptBuilder.AppendLine($"output_obj = main({parameterNames})");
-            scriptBuilder.AppendLine("print(output_obj)");
+            scriptBuilder.AppendLine("print(json.dumps(output_obj) if output_obj is not None else 'null')");
 
             return scriptBuilder.ToString();
         }
