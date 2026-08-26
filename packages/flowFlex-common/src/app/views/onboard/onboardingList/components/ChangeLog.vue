@@ -1027,7 +1027,7 @@ const parseConditionEvaluate = (details: string): ConditionEvaluateInfo | null =
 		// 解析 Executed actions - 需要处理括号内可能包含特殊字符
 		const executedActions: string[] = [];
 		const executedActionsMatch = details.match(
-			/Executed actions: ([^.]+?)(?:\. Failed actions:|$)/
+			/Executed actions: (.*?)(?=\. Failed actions:|$)/s
 		);
 		if (executedActionsMatch?.[1]) {
 			// 使用更复杂的解析来处理嵌套括号
