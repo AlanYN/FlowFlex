@@ -21,8 +21,8 @@ namespace FlowFlex.Application.Services.Action.Executors
         private const int Python3LanguageId = 71;
 
         // Judge0 time limits for Python scripts that perform multiple HTTP calls
-        private const double PythonCpuTimeLimitSeconds = 15.0;
-        private const double PythonWallTimeLimitSeconds = 20.0;
+        private const double PythonCpuTimeLimitSeconds = 60.0;
+        private const double PythonWallTimeLimitSeconds = 120.0;
 
         public PythonActionExecutor(IdeClient ideClient, ILogger<PythonActionExecutor> logger)
         {
@@ -103,7 +103,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             var token = submission.Token;
 
             var startTime = DateTime.UtcNow;
-            while (DateTime.UtcNow - startTime < TimeSpan.FromSeconds(30))
+            while (DateTime.UtcNow - startTime < TimeSpan.FromSeconds(130))
             {
                 var judge0Result = await _ideClient.GetSubmissionResultAsync(token);
 
