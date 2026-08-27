@@ -123,7 +123,13 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogWarning("Action {ActionType} failed for condition {ConditionId}: {ErrorMessage}",
                             action.Type, context.ConditionId, actionResult.ErrorMessage);
-                        // Continue with next action even if one fails
+                        // TriggerAction failure immediately breaks the Action Chain
+                        if (action.Type?.Equals("triggeraction", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            result.Success = false;
+                            break;
+                        }
+                        // Other action types continue executing (original behavior)
                     }
 
                 // Save TriggerAction execution result for chain passing to next action
@@ -176,6 +182,21 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
+                // Python Action path: no "response" field, data is at the top-level "data" property
+                if (actionResult?["response"] == null && actionResult?["data"] is JObject pythonDataObj)
+                {
+                    foreach (var prop in pythonDataObj.Properties())
+                    {
+                        if (prop.Value.Type == JTokenType.Null) continue;
+                        var key = $"prev_{prop.Name}";
+                        accumulated[key] = prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array
+                            ? prop.Value.ToString()
+                            : (object)prop.Value.ToObject<object>();
+                    }
+                    return; // Python path handled, do not fall through to HTTP API path
+                }
+
+                // HTTP API path (original, unchanged)
                 var responseStr = actionResult?["response"]?.ToString();
                 if (string.IsNullOrEmpty(responseStr)) return;
 
@@ -1201,6 +1222,13 @@ namespace FlowFlex.Application.Services.OW
                 result.ResultData["actionName"] = actionDefinition.ActionName;
                 result.ResultData["status"] = "Executed";
                 result.ResultData["executionResult"] = executionResult ?? (object)"null";
+
+                // Extract businessMessage from Python Action result and write to ResultData for Change Log display
+                var businessMsg = executionResult?["message"]?.ToString();
+                if (!string.IsNullOrEmpty(businessMsg))
+                {
+                    result.ResultData["businessMessage"] = businessMsg;
+                }
             }
             catch (Exception ex)
             {
@@ -1675,6 +1703,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Check execution result for business-level errors from external APIs.
         /// External APIs may return HTTP 200 but with success:false in the response body.
+        /// Also handles Python Action results where success:false && shouldBlock:true means block.
         /// </summary>
         private string CheckForBusinessError(JToken executionResult, string actionName)
         {
@@ -1682,6 +1711,15 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
+                // Python Action detection: no "response" field, has "success" and "shouldBlock" fields
+                if (executionResult["response"] == null
+                    && executionResult["success"]?.Value<bool>() == false
+                    && executionResult["shouldBlock"]?.Value<bool>() == true)
+                {
+                    var message = executionResult["message"]?.ToString() ?? "Python script action failed";
+                    return $"[{actionName}] {message}";
+                }
+
                 // The executionResult from HttpApiActionExecutor has structure:
                 // { success: true/false, statusCode: 200, response: "...", headers: {...} }
                 var responseStr = executionResult["response"]?.ToString();

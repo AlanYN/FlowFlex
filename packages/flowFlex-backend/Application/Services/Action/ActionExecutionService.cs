@@ -159,6 +159,32 @@ namespace FlowFlex.Application.Services.Action
                     execution.InitUpdateInfo(_userContext);
                     await _actionExecutionRepository.UpdateAsync(execution);
 
+                    // Write business-level Serilog log if the action returned a message (Requirement 4)
+                    var businessMsg = execution.ExecutionOutput?["message"]?.ToString();
+                    if (!string.IsNullOrEmpty(businessMsg))
+                    {
+                        var scriptSuccess = execution.ExecutionOutput?["success"]?.Value<bool>() ?? true;
+                        var shouldBlock = execution.ExecutionOutput?["shouldBlock"]?.Value<bool>() ?? false;
+
+                        if (scriptSuccess)
+                        {
+                            _logger.LogInformation(
+                                "Action business result: ActionId={ActionId}, ActionName={ActionName}, Message={Message}",
+                                actionDefinitionId,
+                                execution.ActionName,
+                                businessMsg);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Action business failure: ActionId={ActionId}, ActionName={ActionName}, Message={Message}, ShouldBlock={ShouldBlock}",
+                                actionDefinitionId,
+                                execution.ActionName,
+                                businessMsg,
+                                shouldBlock);
+                        }
+                    }
+
                     _logger.LogInformation(
                         "Action executed successfully: ActionId={ActionId}, ExecutionId={ExecutionId}",
                         actionDefinitionId,

@@ -209,7 +209,7 @@ namespace FlowFlex.Domain.Shared.Const
         /// <summary>
         /// Timeout in seconds for TriggerAction action (external action execution)
         /// </summary>
-        public const int TriggerActionTimeoutSeconds = 45;
+        public const int TriggerActionTimeoutSeconds = 150;
 
         #endregion
 
