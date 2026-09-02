@@ -329,6 +329,19 @@
 												</el-icon>
 												Workflow Chart
 											</el-dropdown-item>
+											<el-dropdown-item
+												command="triggerRules"
+												v-if="
+													hasWorkflowPermission(
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+											>
+												<el-icon>
+													<Share />
+												</el-icon>
+												Trigger Rules
+											</el-dropdown-item>
 
 											<el-dropdown-item
 												divided
@@ -403,6 +416,18 @@
 									</el-tooltip>
 								</div>
 								<div class="action-buttons-group">
+									<el-button
+										v-if="
+											hasWorkflowPermission(
+												ProjectPermissionEnum.workflow.read
+											)
+										"
+										@click="openTriggerEditor()"
+										:icon="Share"
+										data-tour="workflow-trigger-rules-btn"
+									>
+										Trigger Rules
+									</el-button>
 									<el-button
 										v-if="
 											hasWorkflowPermission(
@@ -574,7 +599,7 @@
 
 		<!-- Tour 1: 列表页 tour — 数据加载完成后挂载（确保列表行锚点已渲染） -->
 		<TourGuide
-			v-if="viewMode === 'list' && !loading.workflows"
+			v-if="route.name === 'OnboardWorkflow' && viewMode === 'list' && !loading.workflows"
 			:persist-key="`workflow-list-tour`"
 			:steps="workflowListTourSteps"
 			:auto-start="true"
@@ -586,6 +611,7 @@
 		<!-- Tour 2: 详情页 tour — 详情视图挂载，右下角 "?" 重播（与弹窗 tour 互斥） -->
 		<TourGuide
 			v-if="
+				route.name === 'OnboardWorkflow' &&
 				viewMode === 'detail' &&
 				workflow &&
 				!dialogVisible.stageForm &&
@@ -601,7 +627,7 @@
 
 		<!-- Tour 3: Add/Edit Stage 弹窗 tour — "?" 渲染进该弹窗自己的 overlay（层级低于弹窗），用户点击右下角 "?" 手动触发 -->
 		<TourGuide
-			v-if="dialogVisible.stageForm"
+			v-if="route.name === 'OnboardWorkflow' && dialogVisible.stageForm"
 			:persist-key="`workflow-stage-form-tour`"
 			:steps="workflowStageFormTourSteps"
 			:auto-start="false"
@@ -626,6 +652,7 @@ import {
 	CopyDocument,
 	Download,
 	Connection,
+	Share,
 	Loading,
 	Star,
 	DocumentAdd,
@@ -1093,6 +1120,14 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 				router.push(`/onboard/workflow/${targetWorkflow.id}/conditions`);
 			}
 			// 清除loading状态
+			currentActionWorkflow.value = null;
+			currentActionType.value = null;
+			break;
+		case 'triggerRules':
+			// 跳转到 Trigger Rules 编辑器页面
+			if (targetWorkflow) {
+				router.push(`/onboard/workflow/${targetWorkflow.id}/triggers`);
+			}
 			currentActionWorkflow.value = null;
 			currentActionType.value = null;
 			break;
@@ -1570,6 +1605,13 @@ const setAsDefault = async (targetWorkflow?: any, isDefault: boolean = true) => 
 		// 清除当前操作状态
 		currentActionWorkflow.value = null;
 		currentActionType.value = null;
+	}
+};
+
+// 跳转到 Trigger Rules 编辑器
+const openTriggerEditor = () => {
+	if (workflow.value) {
+		router.push(`/onboard/workflow/${workflow.value.id}/triggers`);
 	}
 };
 

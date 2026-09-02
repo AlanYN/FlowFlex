@@ -47,6 +47,19 @@ const leads: AppRouteModule = {
 				activeMenu: '/onboard/onboardWorkflow',
 			},
 		},
+		{
+			path: 'workflow/:workflowId/triggers',
+			name: 'WorkflowTriggerEditor',
+			component: () => import('@/views/onboard/workflow/trigger-editor.vue'),
+			meta: {
+				title: 'Trigger Rules',
+				code: 'WORKFLOWS',
+				ordinal: 2,
+				hidden: true,
+				status: true,
+				activeMenu: '/onboard/onboardWorkflow',
+			},
+		},
 	],
 };
 
