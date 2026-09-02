@@ -106,10 +106,7 @@ namespace FlowFlex.Application.Services.OW
                     tenantId, appCode);
 
                 // Load source onboarding (needed for mapping values and CaseName)
-                var sourceOnboarding = await _db.Queryable<Onboarding>()
-                    .Where(o => o.Id == sourceOnboardingId && o.IsValid == true
-                             && o.TenantId == tenantId && o.AppCode == appCode)
-                    .FirstAsync();
+                var sourceOnboarding = await LoadSourceOnboardingAsync(sourceOnboardingId, tenantId, appCode);
 
                 if (sourceOnboarding == null)
                 {
@@ -120,14 +117,7 @@ namespace FlowFlex.Application.Services.OW
                 // Find all enabled outbound connections for this workflow via Repository.
                 // Repository now uses UserContext (set above) so tenant isolation is correct
                 // in both HTTP-request and background-task contexts.
-                var outbound = await _db.Queryable<WorkflowTriggerConnection>()
-                    .Where(c => c.SourceWorkflowId == sourceWorkflowId
-                             && c.IsEnabled == true
-                             && c.IsValid == true
-                             && c.TenantId == tenantId
-                             && c.AppCode == appCode)
-                    .OrderBy(c => c.ExecutionOrder)
-                    .ToListAsync();
+                var outbound = await LoadOutboundConnectionsAsync(sourceWorkflowId, tenantId, appCode);
 
                 if (!outbound.Any())
                 {
@@ -153,6 +143,32 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogError(ex,
                     "[TriggerEngine] Unhandled error in ExecuteTriggersAsync for OnboardingId={Id}", sourceOnboardingId);
             }
+        }
+
+        // ── Data-loading seams (virtual for unit-test overrides) ─────────────
+
+        /// <summary>Loads the source Onboarding entity. Virtual so tests can substitute without SqlSugar.</summary>
+        protected virtual async Task<Onboarding?> LoadSourceOnboardingAsync(
+            long sourceOnboardingId, string tenantId, string appCode)
+        {
+            return await _db.Queryable<Onboarding>()
+                .Where(o => o.Id == sourceOnboardingId && o.IsValid == true
+                         && o.TenantId == tenantId && o.AppCode == appCode)
+                .FirstAsync();
+        }
+
+        /// <summary>Loads the enabled outbound TriggerConnections. Virtual so tests can substitute without SqlSugar.</summary>
+        protected virtual async Task<List<WorkflowTriggerConnection>> LoadOutboundConnectionsAsync(
+            long sourceWorkflowId, string tenantId, string appCode)
+        {
+            return await _db.Queryable<WorkflowTriggerConnection>()
+                .Where(c => c.SourceWorkflowId == sourceWorkflowId
+                         && c.IsEnabled == true
+                         && c.IsValid == true
+                         && c.TenantId == tenantId
+                         && c.AppCode == appCode)
+                .OrderBy(c => c.ExecutionOrder)
+                .ToListAsync();
         }
 
         // ── Per-connection processing ─────────────────────────────────────────
@@ -869,9 +885,10 @@ namespace FlowFlex.Application.Services.OW
                 if (a.Answer == null) continue;
                 try
                 {
+                    var rawJson = a.Answer.ToString(Newtonsoft.Json.Formatting.None);
                     _logger.LogInformation("[TriggerEngine] Parsing answer for questionnaire {QId} (Status={Status} CreateDate={Date}): RawJson={Json}",
                         a.QuestionnaireId, a.Status, a.CreateDate,
-                        a.Answer.ToString(Newtonsoft.Json.Formatting.None)[..Math.Min(500, a.Answer.ToString().Length)]);
+                        rawJson[..Math.Min(500, rawJson.Length)]);
 
                     ParseAnswerToken(a.Answer, map);
                 }
