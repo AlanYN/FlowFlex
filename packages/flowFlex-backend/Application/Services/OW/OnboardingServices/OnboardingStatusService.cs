@@ -11,6 +11,7 @@ using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStatusService> _logger;
         private readonly IMediator _mediator;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public OnboardingStatusService(
             IOnboardingRepository onboardingRepository,
@@ -42,7 +44,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IBackgroundTaskQueue backgroundTaskQueue,
             UserContext userContext,
             ILogger<OnboardingStatusService> logger,
-            IMediator mediator)
+            IMediator mediator,
+            IServiceScopeFactory scopeFactory)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
@@ -54,6 +57,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         }
 
         #region Helper Methods
@@ -614,6 +618,30 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to log onboarding force complete operation for onboarding {OnboardingId}", id);
+                    }
+                });
+
+                // OW-724: Fire trigger engine for Force Complete (MediatR event is not published here)
+                var workflowId   = entity.WorkflowId;
+                var tenantId     = _userContext.TenantId;
+                var appCode      = _userContext.AppCode ?? "default";
+                var userId       = _userContext.UserId;
+                var userName     = _userContext.UserName;
+                var scopeFactory = _scopeFactory;
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        using var scope = scopeFactory.CreateScope();
+                        var triggerSvc = scope.ServiceProvider.GetRequiredService<ITriggerExecutionService>();
+                        // Pass tenantId/appCode explicitly — background tasks have no HttpContext
+                        // so UserContext in the new scope would otherwise default to "default".
+                        await triggerSvc.ExecuteTriggersAsync(id, workflowId, "ForceCompleted", tenantId, appCode, userId, userName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "[TriggerEngine] ForceComplete trigger failed for onboarding {OnboardingId}", id);
                     }
                 });
             }

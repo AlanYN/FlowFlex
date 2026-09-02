@@ -471,8 +471,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                             CompletedStageId = stageToComplete.Id,
                             CompletedStageName = stageToComplete.Name,
                             TenantId = _userContext.TenantId,
+                            AppCode = _userContext.AppCode ?? "default",
                             UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0,
                             UserName = _userContext.UserName ?? "System",
+                            WorkflowId = entity.WorkflowId,
+                            CompletionRate = entity.CompletionRate,
+                            IsFinalStage = allStagesCompleted,
                         });
                     }
                     catch (Exception ex)
