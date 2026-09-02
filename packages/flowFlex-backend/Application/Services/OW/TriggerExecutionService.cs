@@ -91,6 +91,16 @@ namespace FlowFlex.Application.Services.OW
                 operatorId   ??= _userContext?.UserId;
                 operatorName ??= _userContext?.UserName ?? "System";
 
+                // Warn if still using fallback values — helps diagnose silent multi-tenancy failures
+                if (tenantId == "default")
+                    _logger.LogWarning(
+                        "[TriggerEngine] TenantId resolved to 'default' — UserContext may not have been populated correctly. " +
+                        "Trigger results may be incorrect for non-default tenants. OnboardingId={Id}", sourceOnboardingId);
+                if (appCode == "default")
+                    _logger.LogWarning(
+                        "[TriggerEngine] AppCode resolved to 'default' — UserContext may not have been populated correctly. " +
+                        "Trigger results may be incorrect for non-default apps. OnboardingId={Id}", sourceOnboardingId);
+
                 _logger.LogDebug(
                     "[TriggerEngine] Using TenantId={TenantId} AppCode={AppCode}",
                     tenantId, appCode);
@@ -107,10 +117,9 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
-                // Find all enabled outbound connections for this workflow.
-                // NOTE: Query _db directly (not via _connRepo) to avoid IHttpContextAccessor
-                // falling back to "default" in background tasks that have no HttpContext.
-                // tenantId/appCode are already correctly captured from UserContext above.
+                // Find all enabled outbound connections for this workflow via Repository.
+                // Repository now uses UserContext (set above) so tenant isolation is correct
+                // in both HTTP-request and background-task contexts.
                 var outbound = await _db.Queryable<WorkflowTriggerConnection>()
                     .Where(c => c.SourceWorkflowId == sourceWorkflowId
                              && c.IsEnabled == true
@@ -174,6 +183,10 @@ namespace FlowFlex.Application.Services.OW
                 if (!string.IsNullOrEmpty(operatorId))    _userContext.UserId   = operatorId;
                 if (string.IsNullOrEmpty(_userContext.UserName)) _userContext.UserName = "System";
             }
+
+            // ── 0. 幂等检查（已禁用）────────────────────────────────────────
+            // Product decision: rollback + re-complete SHOULD create a new downstream Case.
+            // Do NOT add HasAlreadyTriggeredAsync guard here — every completion is intentional.
 
             var log = new WorkflowTriggerLog
             {
@@ -314,6 +327,12 @@ namespace FlowFlex.Application.Services.OW
             var fieldValues  = BuildFieldValueMap(fields);
             var answerValues = BuildAnswerValueMap(answers);
 
+            _logger.LogInformation(
+                "[TriggerEngine] EvaluateConditions | ConditionCount={Count} AnswerMapKeys=[{Keys}] FieldMapKeys=[{FKeys}]",
+                conditions.Count,
+                string.Join(",", answerValues.Keys),
+                string.Join(",", fieldValues.Keys.Take(5)));
+
             var results = new List<(string logic, bool result)>();
             foreach (var cond in conditions)
             {
@@ -354,7 +373,12 @@ namespace FlowFlex.Application.Services.OW
             if (string.Equals(cond.ComponentType, "fields", StringComparison.OrdinalIgnoreCase))
             {
                 var fieldId = ExtractIdFromKey(cond.ComponentKey, "field_");
-                if (string.IsNullOrEmpty(fieldId)) return true;
+                if (string.IsNullOrEmpty(fieldId)) return false;
+                if (string.IsNullOrEmpty(cond.Operator))
+                {
+                    _logger.LogWarning("[TriggerEngine] Field condition has empty Operator — skipping (treating as not passed)");
+                    return false;
+                }
                 fieldValues.TryGetValue(fieldId, out var actual);
                 return CompareValues(actual ?? string.Empty, cond.Operator ?? "==", cond.Value ?? string.Empty);
             }
@@ -362,7 +386,16 @@ namespace FlowFlex.Application.Services.OW
             if (string.Equals(cond.ComponentType, "questionnaires", StringComparison.OrdinalIgnoreCase))
             {
                 var questionId = cond.ResourceId;
-                if (string.IsNullOrEmpty(questionId)) return true;
+                if (string.IsNullOrEmpty(questionId))
+                {
+                    _logger.LogWarning("[TriggerEngine] Questionnaire condition has empty ResourceId — skipping (treating as not passed)");
+                    return false;
+                }
+                if (string.IsNullOrEmpty(cond.Operator))
+                {
+                    _logger.LogWarning("[TriggerEngine] Questionnaire condition has empty Operator — skipping (treating as not passed)");
+                    return false;
+                }
                 answerValues.TryGetValue(questionId, out var token);
                 var actual = token?.ToString() ?? string.Empty;
                 _logger.LogInformation(
@@ -375,9 +408,10 @@ namespace FlowFlex.Application.Services.OW
                 return CompareValues(actual, cond.Operator ?? "==", cond.Value ?? string.Empty);
             }
 
-            // Unknown component type: treat as passed to avoid blocking on unrecognised types
-            _logger.LogWarning("[TriggerEngine] Unknown component type '{Type}' in condition — treating as passed", cond.ComponentType);
-            return true;
+            // Unknown component type: skip rather than blocking on unrecognised types,
+            // but log a warning so developers know the config is incomplete.
+            _logger.LogWarning("[TriggerEngine] Unknown component type '{Type}' in condition — treating as not passed", cond.ComponentType);
+            return false;
         }
 
         /// <summary>
@@ -419,8 +453,8 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 default:
-                    _logger.LogWarning("[TriggerEngine] Unknown checklist operator '{Op}' — treating as passed", cond.Operator);
-                    return true;
+                    _logger.LogWarning("[TriggerEngine] Unknown checklist operator '{Op}' — treating as not passed", cond.Operator);
+                    return false;
             }
         }
 
@@ -435,7 +469,8 @@ namespace FlowFlex.Application.Services.OW
                 ">=" => double.TryParse(actual, out var a2) && double.TryParse(expected, out var e2) && a2 >= e2,
                 "<"  => double.TryParse(actual, out var a3) && double.TryParse(expected, out var e3) && a3 < e3,
                 "<=" => double.TryParse(actual, out var a4) && double.TryParse(expected, out var e4) && a4 <= e4,
-                _    => true
+                // Unknown operator must NOT pass — returning true here would allow every trigger through
+                _ => false
             };
         }
 
@@ -530,7 +565,9 @@ namespace FlowFlex.Application.Services.OW
             var dto = new OnboardingInputDto
             {
                 WorkflowId    = conn.TargetWorkflowId,
-                CaseName      = source.CaseName ?? $"{source.CaseName} (Triggered)",
+                CaseName      = !string.IsNullOrEmpty(source.CaseName)
+                                    ? $"{source.CaseName} (Triggered)"
+                                    : $"{source.CaseCode ?? "Unknown"} (Triggered)",
                 ContactEmail  = source.ContactEmail,
                 ContactPerson = source.ContactPerson,
                 Priority      = source.Priority ?? "Medium",
@@ -822,13 +859,19 @@ namespace FlowFlex.Application.Services.OW
         private Dictionary<string, JToken?> BuildAnswerValueMap(List<QuestionnaireAnswer> answers)
         {
             var map = new Dictionary<string, JToken?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var a in answers)
+
+            // Sort by CreateDate descending so the latest answer wins when same questionId appears in multiple records.
+            // TryAddQuestion uses "first one wins" (ContainsKey guard), so processing latest first is correct.
+            var sorted = answers.OrderByDescending(a => a.CreateDate);
+
+            foreach (var a in sorted)
             {
                 if (a.Answer == null) continue;
                 try
                 {
-                    _logger.LogDebug("[TriggerEngine] Parsing answer for questionnaire {QId}: {Json}",
-                        a.QuestionnaireId, a.Answer.ToString(Newtonsoft.Json.Formatting.None));
+                    _logger.LogInformation("[TriggerEngine] Parsing answer for questionnaire {QId} (Status={Status} CreateDate={Date}): RawJson={Json}",
+                        a.QuestionnaireId, a.Status, a.CreateDate,
+                        a.Answer.ToString(Newtonsoft.Json.Formatting.None)[..Math.Min(500, a.Answer.ToString().Length)]);
 
                     ParseAnswerToken(a.Answer, map);
                 }
@@ -847,7 +890,9 @@ namespace FlowFlex.Application.Services.OW
         ///   B) {sections: [{questions: [{id, value}]}]}
         ///   C) {answers: [{questionId, value}, ...]}
         ///   D) {questions: [{id, value}]}
-        ///   E) Direct dict: {questionId: value, ...}
+        ///   E) {responses: [{questionId, answer, responseText, ...}]}   ← this project's primary format
+        ///   F) {sectionInstances: [{responses: [...]}]}                 ← repeatable-section variant
+        ///   G) Direct dict: {questionId: value, ...}
         /// </summary>
         private static void ParseAnswerToken(JToken token, Dictionary<string, JToken?> map)
         {
@@ -860,6 +905,24 @@ namespace FlowFlex.Application.Services.OW
             }
 
             if (token is not JObject obj) return;
+
+            // Layout E (this project's primary format): {responses: [...]}
+            if (obj["responses"] is JArray responses)
+            {
+                foreach (var q in responses) TryAddQuestion(q, map);
+                return;
+            }
+
+            // Layout F: {sectionInstances: [{responses: [...]}]}  — repeatable sections
+            if (obj["sectionInstances"] is JArray sectionInstances)
+            {
+                foreach (var instance in sectionInstances)
+                {
+                    if (instance["responses"] is JArray instResponses)
+                        foreach (var q in instResponses) TryAddQuestion(q, map);
+                }
+                return;
+            }
 
             // Layout B: {sections: [...]}
             if (obj["sections"] is JArray sections)
@@ -887,14 +950,7 @@ namespace FlowFlex.Application.Services.OW
                 return;
             }
 
-            // Layout E (this project): {responses: [{questionId, answer, ...}]}
-            if (obj["responses"] is JArray responses)
-            {
-                foreach (var q in responses) TryAddQuestion(q, map);
-                return;
-            }
-
-            // Layout E: flat dict where every key is a question ID
+            // Layout G: flat dict where every key is a question ID
             foreach (var prop in obj.Properties())
             {
                 if (!map.ContainsKey(prop.Name))
@@ -906,7 +962,12 @@ namespace FlowFlex.Application.Services.OW
         {
             var qId = q["id"]?.ToString() ?? q["questionId"]?.ToString() ?? q["question_id"]?.ToString();
             if (string.IsNullOrEmpty(qId) || map.ContainsKey(qId)) return;
-            map[qId] = q["value"] ?? q["answer"] ?? q["values"];
+            // For this project's response format: answer field holds the stored value,
+            // responseText holds the display text (labels). We prefer "answer" for comparison
+            // since condition values are configured against stored option values, not labels.
+            // Fall back to "value", then "values", then "responseText" as last resort.
+            var val = q["answer"] ?? q["value"] ?? q["values"] ?? q["responseText"];
+            map[qId] = val;
         }
 
         private static string ExtractIdFromKey(string? key, string prefix)

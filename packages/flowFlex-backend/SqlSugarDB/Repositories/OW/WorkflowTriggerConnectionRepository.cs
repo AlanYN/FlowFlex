@@ -1,11 +1,11 @@
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using Microsoft.AspNetCore.Http;
+using FlowFlex.Domain.Shared.Helpers;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
@@ -15,23 +15,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class WorkflowTriggerConnectionRepository : BaseRepository<WorkflowTriggerConnection>, IWorkflowTriggerConnectionRepository, IScopedService
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly UserContext _userContext;
         private readonly ILogger<WorkflowTriggerConnectionRepository> _logger;
 
         public WorkflowTriggerConnectionRepository(
             ISqlSugarClient sqlSugarClient,
-            IHttpContextAccessor httpContextAccessor,
+            UserContext userContext,
             ILogger<WorkflowTriggerConnectionRepository> logger) : base(sqlSugarClient)
         {
-            _httpContextAccessor = httpContextAccessor;
+            _userContext = userContext;
             _logger = logger;
         }
 
-        private string GetCurrentTenantId() =>
-            _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "default";
-
-        private string GetCurrentAppCode() =>
-            _httpContextAccessor.HttpContext?.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
+        private string GetCurrentTenantId() => TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        private string GetCurrentAppCode()  => TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         /// <inheritdoc />
         public async Task<List<WorkflowTriggerConnection>> GetByGraphIdAsync(long graphId)

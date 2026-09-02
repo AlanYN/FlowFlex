@@ -1,10 +1,10 @@
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using Microsoft.AspNetCore.Http;
+using FlowFlex.Domain.Shared.Helpers;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
@@ -14,28 +14,27 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class WorkflowTriggerGraphRepository : BaseRepository<WorkflowTriggerGraph>, IWorkflowTriggerGraphRepository, IScopedService
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly UserContext _userContext;
         private readonly ILogger<WorkflowTriggerGraphRepository> _logger;
 
         public WorkflowTriggerGraphRepository(
             ISqlSugarClient sqlSugarClient,
-            IHttpContextAccessor httpContextAccessor,
+            UserContext userContext,
             ILogger<WorkflowTriggerGraphRepository> logger) : base(sqlSugarClient)
         {
-            _httpContextAccessor = httpContextAccessor;
+            _userContext = userContext;
             _logger = logger;
         }
 
-        private string GetCurrentTenantId() =>
-            _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "default";
-
-        private string GetCurrentAppCode() =>
-            _httpContextAccessor.HttpContext?.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
+        private string GetCurrentTenantId() => TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        private string GetCurrentAppCode()  => TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         /// <inheritdoc />
         /// <remarks>
         /// workflowId is used only for logging/context. The actual graph loaded is the
         /// GLOBAL graph for this tenant+appCode (workflow_id = 0). All workflows share one graph.
+        /// Renamed internally to GetGlobalGraphAsync semantics; the parameter is kept for
+        /// interface compatibility and call-site readability only.
         /// </remarks>
         public async Task<WorkflowTriggerGraph> GetByWorkflowIdAsync(long workflowId)
         {

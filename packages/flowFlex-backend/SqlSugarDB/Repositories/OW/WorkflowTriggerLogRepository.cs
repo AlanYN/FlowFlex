@@ -1,12 +1,11 @@
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
@@ -14,23 +13,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     public class WorkflowTriggerLogRepository
         : BaseRepository<WorkflowTriggerLog>, IWorkflowTriggerLogRepository, IScopedService
     {
-        private readonly IHttpContextAccessor _http;
+        private readonly UserContext _userContext;
         private readonly ILogger<WorkflowTriggerLogRepository> _logger;
 
         public WorkflowTriggerLogRepository(
             ISqlSugarClient db,
-            IHttpContextAccessor http,
+            UserContext userContext,
             ILogger<WorkflowTriggerLogRepository> logger) : base(db)
         {
-            _http = http;
+            _userContext = userContext;
             _logger = logger;
         }
 
-        private string TenantId =>
-            _http.HttpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "default";
-
-        private string AppCode =>
-            _http.HttpContext?.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
+        private string TenantId => TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        private string AppCode  => TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         public async Task<List<WorkflowTriggerLog>> GetBySourceOnboardingIdAsync(long sourceOnboardingId)
             => await db.Queryable<WorkflowTriggerLog>()

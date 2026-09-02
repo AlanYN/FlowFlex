@@ -44,6 +44,7 @@
 						'ts-item--current': wf.id === currentWorkflowId,
 						'ts-item--inactive': wf.status === 'inactive',
 					}"
+					@dblclick.stop="canvasWorkflowIds.has(wf.id) && emit('focus', wf.id)"
 				>
 					<!-- 左侧状态点 -->
 					<span
@@ -72,7 +73,8 @@
 							@click.stop="emit('add', wf.id)"
 						/>
 					</div>
-					<div v-else>
+					<!-- current workflow 不可删除，只显示 Current tag，无 × -->
+					<div v-else-if="wf.id !== currentWorkflowId">
 						<el-button
 							:icon="Close"
 							:title="`Remove ${wf.name}`"
@@ -128,6 +130,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
 	add: [workflowId: string];
 	remove: [workflowId: string];
+	focus: [workflowId: string];
 	'update:modelValue': [value: { keyword: string; filter: string }];
 }>();
 

@@ -13,7 +13,7 @@
 		tabindex="0"
 	>
 		<div
-			class="relative min-w-[2400px] min-h-[1200px] w-full h-full"
+			class="relative w-full h-full"
 			:style="{
 				transform: `translate(${panX}px, ${panY}px) scale(${props.zoomLevel ?? 1})`,
 				transformOrigin: '0 0',
@@ -212,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import WorkflowCard from './WorkflowCard.vue';
 import type { CanvasCard, TriggerConnection } from '@/hooks/useTriggerEditor';
 
@@ -314,16 +314,56 @@ const onCanvasMouseDown = (e: MouseEvent) => {
 	};
 };
 
-// ── 滚轮缩放 ──────────────────────────────────────────
+// ── 画布平移边界限制 ──────────────────────────────────────────
+// CSS: transform: translate(panX, panY) scale(zoom)
+// 实际变换顺序：先 scale，再 translate
+// ∴ screen = canvas * zoom + pan
+// 保证至少 PAN_MARGIN 屏幕 px 的卡片区域仍在视口内。
+const PAN_MARGIN = 80; // 屏幕 px
+
+const clampPan = (px: number, py: number): { x: number; y: number } => {
+	const rect = canvasRef.value?.getBoundingClientRect();
+	if (!rect || props.cards.length === 0) return { x: px, y: py };
+	const zoom = props.zoomLevel ?? 1;
+
+	// 所有卡片的包围盒（画布 px）
+	let minX = Infinity,
+		minY = Infinity,
+		maxX = -Infinity,
+		maxY = -Infinity;
+	for (const c of props.cards) {
+		minX = Math.min(minX, c.x);
+		minY = Math.min(minY, c.y);
+		maxX = Math.max(maxX, c.x + CARD_W);
+		maxY = Math.max(maxY, c.y + CARD_H);
+	}
+
+	// screen = canvas * zoom + pan
+	// 卡片右边界屏幕坐标 >= PAN_MARGIN:  maxX * zoom + pan >= PAN_MARGIN
+	//   → pan >= PAN_MARGIN - maxX * zoom
+	const minPanX = PAN_MARGIN - maxX * zoom;
+	const minPanY = PAN_MARGIN - maxY * zoom;
+
+	// 卡片左边界屏幕坐标 <= vw - PAN_MARGIN:  minX * zoom + pan <= vw - PAN_MARGIN
+	//   → pan <= vw - PAN_MARGIN - minX * zoom
+	const maxPanX = rect.width - PAN_MARGIN - minX * zoom;
+	const maxPanY = rect.height - PAN_MARGIN - minY * zoom;
+
+	return {
+		x: Math.min(maxPanX, Math.max(minPanX, px)),
+		y: Math.min(maxPanY, Math.max(minPanY, py)),
+	};
+};
 const onWheel = (e: WheelEvent) => {
 	if (e.ctrlKey || e.metaKey) {
 		// Ctrl/Cmd + wheel → zoom
 		const delta = e.deltaY > 0 ? -10 : 10;
 		emit('zoom', delta);
 	} else {
-		// Plain scroll → pan the canvas
-		panX.value -= e.deltaX;
-		panY.value -= e.deltaY;
+		// Plain scroll → pan the canvas (with boundary)
+		const clamped = clampPan(panX.value - e.deltaX, panY.value - e.deltaY);
+		panX.value = clamped.x;
+		panY.value = clamped.y;
 	}
 };
 
@@ -409,8 +449,8 @@ const onHandleDragStart = (workflowId: string, mouseX: number, mouseY: number) =
 	previewLine.value = {
 		x1: src ? src.x : 0,
 		y1: src ? src.y : 0,
-		x2: (mouseX - rect.left) / zoom - panX.value,
-		y2: (mouseY - rect.top) / zoom - panY.value,
+		x2: (mouseX - rect.left - panX.value) / zoom,
+		y2: (mouseY - rect.top - panY.value) / zoom,
 	};
 	emit('connecting-start', workflowId);
 };
@@ -432,8 +472,11 @@ const onMouseMove = (e: MouseEvent) => {
 
 	// Canvas pan — use translate so we can pan in all directions
 	if (panState.value) {
-		panX.value = panState.value.startPanX + (e.clientX - panState.value.startMouseX);
-		panY.value = panState.value.startPanY + (e.clientY - panState.value.startMouseY);
+		const rawX = panState.value.startPanX + (e.clientX - panState.value.startMouseX);
+		const rawY = panState.value.startPanY + (e.clientY - panState.value.startMouseY);
+		const clamped = clampPan(rawX, rawY);
+		panX.value = clamped.x;
+		panY.value = clamped.y;
 		return;
 	}
 
@@ -442,14 +485,14 @@ const onMouseMove = (e: MouseEvent) => {
 		const dx = (e.clientX - dragState.value.startMouseX) / zoom;
 		const dy = (e.clientY - dragState.value.startMouseY) / zoom;
 		const nx = dragState.value.startCardX + dx;
-		const ny = Math.max(0, dragState.value.startCardY + dy);
+		const ny = dragState.value.startCardY + dy;
 		emit('update-position', dragState.value.workflowId, nx, ny);
 	}
 
 	if (previewLine.value) {
 		const zoom = props.zoomLevel ?? 1;
-		previewLine.value.x2 = (e.clientX - rect.left) / zoom - panX.value;
-		previewLine.value.y2 = (e.clientY - rect.top) / zoom - panY.value;
+		previewLine.value.x2 = (e.clientX - rect.left - panX.value) / zoom;
+		previewLine.value.y2 = (e.clientY - rect.top - panY.value) / zoom;
 	}
 };
 
@@ -477,6 +520,38 @@ const onMouseLeave = () => {
 		emit('connecting-cancel');
 	}
 };
+
+// ── 定位到指定卡片（双击 sidebar 时调用）─────────────────────
+const focusCard = (workflowId: string) => {
+	const card = props.cards.find((c) => c.workflowId === workflowId);
+	const canvasEl = canvasRef.value;
+	if (!card || !canvasEl) return;
+	const zoom = props.zoomLevel ?? 1;
+	const rect = canvasEl.getBoundingClientRect();
+	// screen = canvas * zoom + pan
+	// 目标：卡片中心在屏幕中央
+	//   cardCenter * zoom + pan = viewport / 2
+	//   pan = viewport / 2 - cardCenter * zoom
+	const cardCenterX = card.x + CARD_W / 2;
+	const cardCenterY = card.y + CARD_H / 2;
+	const rawX = rect.width / 2 - cardCenterX * zoom;
+	const rawY = rect.height / 2 - cardCenterY * zoom;
+	const clamped = clampPan(rawX, rawY);
+	panX.value = clamped.x;
+	panY.value = clamped.y;
+};
+
+// 缩放变化时重新 clamp pan，避免缩小后内容跑到边界外
+watch(
+	() => props.zoomLevel,
+	() => {
+		const clamped = clampPan(panX.value, panY.value);
+		panX.value = clamped.x;
+		panY.value = clamped.y;
+	}
+);
+
+defineExpose({ focusCard });
 </script>
 
 <style scoped lang="scss">

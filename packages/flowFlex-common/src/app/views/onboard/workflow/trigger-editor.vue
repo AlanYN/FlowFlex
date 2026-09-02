@@ -40,6 +40,7 @@
 				v-model="sidebarModel"
 				@add="editor.addToCanvas"
 				@remove="editor.removeFromCanvas"
+				@focus="handleFocusCard"
 			/>
 
 			<!-- 画布区域 -->
@@ -61,6 +62,7 @@
 				<!-- 画布 -->
 				<TriggerCanvas
 					v-else
+					ref="canvasRef"
 					:cards="editor.cards.value"
 					:connections="editor.connections.value"
 					:current-workflow-id="workflowId"
@@ -143,6 +145,11 @@ const workflowId = route.params.workflowId as string;
 const editor = useTriggerEditor(workflowId);
 const sidebarModel = ref({ keyword: '', filter: 'all' });
 const zoomPercent = ref(100);
+const canvasRef = ref<InstanceType<typeof TriggerCanvas> | null>(null);
+
+const handleFocusCard = (workflowId: string) => {
+	canvasRef.value?.focusCard(workflowId);
+};
 
 const zoom = (delta: number) => {
 	zoomPercent.value = Math.min(200, Math.max(25, zoomPercent.value + delta));
