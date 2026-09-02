@@ -246,6 +246,11 @@ namespace FlowFlex.Tests.Services.OW
 
         // ── Questionnaire == ─────────────────────────────────────────────────
 
+        [Fact]
+        public async Task ExecuteTriggersAsync_QuestionnaireEquals_Match_Triggered()
+        {
+            // Arrange
+            SetupConnections(BuildConnection(QnConfig(QuestionId, "==", "testwzy")));
             _questionnaireAnswerRepo
                 .Setup(r => r.GetByOnboardingIdAsync(SourceOnboardingId))
                 .ReturnsAsync(new List<QuestionnaireAnswer> { BuildAnswer(QuestionId, "testwzy") });
@@ -632,7 +637,7 @@ namespace FlowFlex.Tests.Services.OW
             _logRepo
                 .Setup(r => r.InsertAsync(It.IsAny<WorkflowTriggerLog>(),
                     It.IsAny<System.Threading.CancellationToken>(), It.IsAny<bool>()))
-                .Callback<WorkflowTriggerLog, System.Threading.CancellationToken, bool>((l, _, _) => log = l)
+                .Callback<WorkflowTriggerLog, System.Threading.CancellationToken, bool>((l, ct, cp) => log = l)
                 .ReturnsAsync(true);
 
             // Act
@@ -659,7 +664,7 @@ namespace FlowFlex.Tests.Services.OW
             _logRepo
                 .Setup(r => r.InsertAsync(It.IsAny<WorkflowTriggerLog>(),
                     It.IsAny<System.Threading.CancellationToken>(), It.IsAny<bool>()))
-                .Callback<WorkflowTriggerLog, System.Threading.CancellationToken, bool>((l, _, _) => log = l)
+                .Callback<WorkflowTriggerLog, System.Threading.CancellationToken, bool>((l, ct, cp) => log = l)
                 .ReturnsAsync(true);
 
             // Act
@@ -671,4 +676,5 @@ namespace FlowFlex.Tests.Services.OW
             log!.Status.Should().Be("Skipped");
             log.TargetOnboardingId.Should().BeNull();
         }
+    }
 }
