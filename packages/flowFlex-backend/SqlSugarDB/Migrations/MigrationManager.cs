@@ -131,6 +131,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         (Action)(() => Migration_20260825000002_CreateWorkflowTriggerLogTable.Up(_db))),
                     ("20260828000001_GlobalTriggerGraph",
                         (Action)(() => Migration_20260828000001_GlobalTriggerGraph.Up(_db)))
+                    ("20260828001_AddWhatsNew", (Action)(() => Migration_20260828001_AddWhatsNew.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

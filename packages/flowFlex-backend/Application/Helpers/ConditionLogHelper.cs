@@ -282,7 +282,7 @@ namespace FlowFlex.Application.Helpers
                 "endworkflow" => GetEndWorkflowDetail(action.ResultData),
                 "sendnotification" => GetSendNotificationDetail(action.ResultData),
                 "updatefield" => GetUpdateFieldDetail(action.ResultData),
-                "triggeraction" => GetResultDataString(action.ResultData, "actionName") ?? "",
+                "triggeraction" => GetTriggerActionDetail(action.ResultData),
                 "assignuser" => GetAssignUserDetail(action.ResultData),
                 _ => ""
             };
@@ -396,6 +396,17 @@ namespace FlowFlex.Application.Helpers
 
             var assigneeCount = GetResultDataString(resultData, "assigneeCount") ?? "0";
             return $"{assigneeType}×{assigneeCount}";
+        }
+
+        private static string GetTriggerActionDetail(Dictionary<string, object> resultData)
+        {
+            var actionName = GetResultDataString(resultData, "actionName") ?? "";
+            var businessMessage = GetResultDataString(resultData, "businessMessage") ?? "";
+
+            if (!string.IsNullOrEmpty(businessMessage))
+                return string.IsNullOrEmpty(actionName) ? businessMessage : $"{actionName}: {businessMessage}";
+
+            return actionName;
         }
 
         private static string? GetResultDataString(Dictionary<string, object> resultData, string key)

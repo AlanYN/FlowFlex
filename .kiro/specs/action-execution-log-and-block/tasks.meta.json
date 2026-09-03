@@ -1,0 +1,153 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 修改 `CreateRunnerScript`：将末尾 `print(output_obj)` 改为 `print(json.dumps(output_obj) if output_obj is not None else 'null')`": [
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787644950424
+      },
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787645326823
+      }
+    ],
+    "1.2 修改 `CreateSuccessResult`：从 stdout 最后一行解析 `success`、`shouldBlock`、`message`、`data` 字段": [
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787644958492
+      },
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787645335232
+      }
+    ],
+    "1.3 修改两个 `CreateErrorResult` 重载：均增加 `shouldBlock = true` 字段": [
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787644966626
+      },
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787645343816
+      }
+    ],
+    "1. 修改 PythonActionExecutor — 三个方法改造": [
+      {
+        "executionId": "499d1375-597a-4ed7-82b9-7295fbbe7f38",
+        "chatSessionId": "sess_88c8d6fc-1266-48de-bae1-d9d9f0eb5781",
+        "timestamp": 1787645343907
+      }
+    ],
+    "2.1 在 `ExecuteActionAsync` 的成功路径中，`await _actionExecutionRepository.UpdateAsync(execution)` 之后，提取并写入业务日志": [
+      {
+        "executionId": "5d359606-00f4-45b9-ab4e-b353e194ac6a",
+        "chatSessionId": "sess_eac025bd-cb21-42eb-9a43-bdad392754a5",
+        "timestamp": 1787645511550
+      },
+      {
+        "executionId": "5d359606-00f4-45b9-ab4e-b353e194ac6a",
+        "chatSessionId": "sess_eac025bd-cb21-42eb-9a43-bdad392754a5",
+        "timestamp": 1787646092513
+      }
+    ],
+    "2. 修改 ActionExecutionService — 写业务 Serilog 日志": [
+      {
+        "executionId": "5d359606-00f4-45b9-ab4e-b353e194ac6a",
+        "chatSessionId": "sess_eac025bd-cb21-42eb-9a43-bdad392754a5",
+        "timestamp": 1787646092646
+      }
+    ],
+    "3.1 修改 `CheckForBusinessError`：在原有 HTTP API 检测逻辑之前，增加 Python Action 检测分支": [
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647275762
+      },
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647772104
+      }
+    ],
+    "3.2 修改 `ExecuteTriggerActionAsync`：在 `CheckForBusinessError` 返回 null（成功）后提取 `businessMessage` 写入 `ResultData`": [
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647282866
+      },
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647781138
+      }
+    ],
+    "3.3 修改 `ExecuteActionsAsync`：TriggerAction 失败时立刻中断 Action Chain": [
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647290842
+      },
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647788818
+      }
+    ],
+    "3.4 修改 `AccumulatePrevFields`：在原有 HTTP API 路径之前，增加 Python Action 路径处理": [
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647297688
+      },
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647798889
+      }
+    ],
+    "3. 修改 ConditionActionExecutor — 四个方法改造": [
+      {
+        "executionId": "c5e6599e-87a4-4944-aae7-434febb64df5",
+        "chatSessionId": "sess_1d15601c-1a5f-4073-a11a-4b3e5d6933fd",
+        "timestamp": 1787647798994
+      }
+    ],
+    "4.1 在 `GetActionResultDetail` 的 `switch` 表达式中，将 `\"triggeraction\"` 分支由直接读 `actionName` 改为调用新方法 `GetTriggerActionDetail(action.ResultData)`": [
+      {
+        "executionId": "356eeedc-91ea-4324-97ff-01d76f54cf75",
+        "chatSessionId": "sess_5d7a58c8-1506-4f67-b7e3-dfb0635d696a",
+        "timestamp": 1787647989527
+      },
+      {
+        "executionId": "356eeedc-91ea-4324-97ff-01d76f54cf75",
+        "chatSessionId": "sess_5d7a58c8-1506-4f67-b7e3-dfb0635d696a",
+        "timestamp": 1787648234398
+      }
+    ],
+    "4.2 在 `ConditionLogHelper` 中新增私有方法 `GetTriggerActionDetail`": [
+      {
+        "executionId": "356eeedc-91ea-4324-97ff-01d76f54cf75",
+        "chatSessionId": "sess_5d7a58c8-1506-4f67-b7e3-dfb0635d696a",
+        "timestamp": 1787647997073
+      },
+      {
+        "executionId": "356eeedc-91ea-4324-97ff-01d76f54cf75",
+        "chatSessionId": "sess_5d7a58c8-1506-4f67-b7e3-dfb0635d696a",
+        "timestamp": 1787648242352
+      }
+    ],
+    "4. 修改 ConditionLogHelper — GetActionResultDetail 及新增 GetTriggerActionDetail": [
+      {
+        "executionId": "356eeedc-91ea-4324-97ff-01d76f54cf75",
+        "chatSessionId": "sess_5d7a58c8-1506-4f67-b7e3-dfb0635d696a",
+        "timestamp": 1787648242441
+      }
+    ]
+  }
+}
