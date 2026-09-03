@@ -457,13 +457,19 @@ const buildAutoMappedFields = (
 	const sourceFields = extractAllFields(sourceData);
 	const targetFields = extractAllFields(targetData);
 	const stateMap = new Map(savedStates.map((s) => [s.id, s]));
-	const sourceByName = new Map<string, (typeof sourceFields)[0]>();
+
+	// Build a map of normalized name → list of source fields (may have multiple types with same name)
+	const sourceByName = new Map<string, (typeof sourceFields)[0][]>();
 	for (const f of sourceFields) {
 		const key = normalizeFieldName(f.name);
-		if (!sourceByName.has(key)) sourceByName.set(key, f);
+		if (!sourceByName.has(key)) sourceByName.set(key, []);
+		sourceByName.get(key)!.push(f);
 	}
+
 	return targetFields.map((tf) => {
-		const sf = sourceByName.get(normalizeFieldName(tf.name));
+		const candidates = sourceByName.get(normalizeFieldName(tf.name)) ?? [];
+		// Strict: only match source with the same fieldType (same kind and same type)
+		const sf = candidates.find((c) => c.fieldType === tf.fieldType) ?? null;
 		const id = sf ? `auto_${sf.id}_${tf.id}` : `auto_none_${tf.id}`;
 		const saved = stateMap.get(id);
 		return {
