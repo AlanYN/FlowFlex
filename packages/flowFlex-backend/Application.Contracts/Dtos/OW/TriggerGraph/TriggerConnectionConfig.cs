@@ -113,6 +113,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph
         [JsonProperty("staticValue")]
         public string StaticValue { get; set; }
 
+        /// <summary>
+        /// For questionnaire source: the question type (e.g. "short_answer", "short_answer_grid",
+        /// "checkboxes", "file_upload", etc.). Used by the trigger engine to write the answer
+        /// in the correct format for the target questionnaire.
+        /// </summary>
+        [JsonProperty("sourceQuestionType")]
+        public string? SourceQuestionType { get; set; }
+
         [JsonProperty("enabled")]
         public bool Enabled { get; set; } = true;
     }
