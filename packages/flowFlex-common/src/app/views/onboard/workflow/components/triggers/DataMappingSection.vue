@@ -171,6 +171,8 @@
 							mapping.sourceId = '';
 							mapping.sourceName = '';
 							mapping.staticValue = '';
+							mapping.targetFieldId = undefined;
+							mapping.targetFieldName = undefined;
 							emit('dirty');
 						}
 					"
@@ -195,7 +197,16 @@
 								mapping.sourceType === 'dynamic_field'
 									? dynamicFieldOptions
 									: questionnaireOptions;
-							mapping.sourceName = opts.find((o) => o.id === v)?.name;
+							const found = opts.find((o) => o.id === v) as any;
+							mapping.sourceName = found?.name;
+							// Carry the question type so the backend knows the exact format to write
+							mapping.sourceQuestionType =
+								mapping.sourceType === 'questionnaire'
+									? found?.fieldType
+									: undefined;
+							// Clear target when source changes — type may no longer be compatible
+							mapping.targetFieldId = undefined;
+							mapping.targetFieldName = undefined;
 							emit('dirty');
 						}
 					"
@@ -234,7 +245,7 @@
 					class="w-full"
 					filterable
 					:loading="loading"
-					:disabled="loading"
+					:disabled="loading || (!mapping.sourceId && mapping.sourceType !== 'static')"
 					@change="
 						(v: string) => {
 							mapping.targetFieldName = targetFieldOptions.find(
@@ -244,12 +255,23 @@
 						}
 					"
 				>
-					<el-option
-						v-for="f in targetFieldOptions"
-						:key="f.id"
-						:label="f.name"
-						:value="f.id"
-					/>
+					<el-option-group
+						v-for="group in getCompatibleTargetGroups(mapping)"
+						:key="group.label"
+						:label="group.label"
+					>
+						<el-option
+							v-for="f in group.options"
+							:key="f.id"
+							:label="f.name"
+							:value="f.id"
+						/>
+					</el-option-group>
+					<template v-if="getCompatibleTargetGroups(mapping).length === 0" #empty>
+						<div class="text-center text-xs text-[var(--el-text-color-secondary)] py-3">
+							No compatible target fields for this source type
+						</div>
+					</template>
 				</el-select>
 			</div>
 		</div>
@@ -287,6 +309,7 @@ interface MappingRow {
 	sourceType: 'dynamic_field' | 'questionnaire' | 'static';
 	sourceId?: string;
 	sourceName?: string;
+	sourceQuestionType?: string; // question type for questionnaire source (e.g. 'short_answer_grid')
 	targetFieldId?: string;
 	targetFieldName?: string;
 	staticValue?: string;
@@ -322,6 +345,59 @@ const fieldMappingCount = computed(
 		props.localMappings.filter((m) => m.enabled).length +
 		(props.autoMap ? props.autoMappedFields.filter((f) => f.enabled).length : 0)
 );
+
+// ── Type compatibility ──────────────────────────────────────────
+// Strict rules:
+//   - dynamic_field  → only dynamic_field target with EXACT same DataType (backend enum name)
+//   - questionnaire  → only questionnaire target with EXACT same question type string
+//   - static value   → only SingleLineText / MultilineText dynamic_field targets
+//   - cross-kind (dynamic ↔ questionnaire) is NOT allowed
+
+/**
+ * Returns targetFieldOptions compatible with the current mapping source.
+ * Strict: same kind + same type only. No compatibility fallbacks.
+ */
+const getCompatibleTargets = (mapping: MappingRow) => {
+	if (mapping.sourceType === 'static') {
+		// Static string → only text dynamic fields (SingleLineText / MultilineText)
+		return props.targetFieldOptions.filter((t) => {
+			const kind = (t as any).fieldKind ?? 'static_field';
+			const ft = (t as any).fieldType ?? '';
+			return kind === 'static_field' && (ft === 'SingleLineText' || ft === 'MultilineText');
+		});
+	}
+
+	if (!mapping.sourceId) return props.targetFieldOptions as any[];
+
+	const allSourceOpts = [
+		...(props.dynamicFieldOptions as any[]),
+		...(props.questionnaireOptions as any[]),
+	];
+	const sourceOpt = allSourceOpts.find((o) => o.id === mapping.sourceId);
+	if (!sourceOpt) return props.targetFieldOptions as any[];
+
+	const sourceKind: string = sourceOpt.fieldKind ?? 'static_field';
+	const sourceType: string = sourceOpt.fieldType ?? '';
+
+	// Strict: target must have same kind AND same type
+	return props.targetFieldOptions.filter((t) => {
+		const targetKind = (t as any).fieldKind ?? 'static_field';
+		const targetType = (t as any).fieldType ?? '';
+		return targetKind === sourceKind && targetType === sourceType;
+	});
+};
+
+// Grouped version for use in el-option-group
+const getCompatibleTargetGroups = (mapping: MappingRow) => {
+	const compatible = getCompatibleTargets(mapping);
+	const map = new Map<string, { id: string; name: string }[]>();
+	for (const f of compatible) {
+		const g = (f as any).group ?? 'Fields';
+		if (!map.has(g)) map.set(g, []);
+		map.get(g)!.push(f);
+	}
+	return Array.from(map.entries()).map(([label, options]) => ({ label, options }));
+};
 
 // ── Helpers ───────────────────────────────────────────────
 const handleSourceChange = (item: AutoMappedField, v: string) => {

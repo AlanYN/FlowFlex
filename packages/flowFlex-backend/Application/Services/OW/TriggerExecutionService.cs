@@ -677,8 +677,26 @@ namespace FlowFlex.Application.Services.OW
                         continue;
 
                     var targetFieldId = mapping.TargetFieldId;
-                    if (string.IsNullOrEmpty(targetFieldId) ||
-                        !targetFieldId.StartsWith("input.fields.", StringComparison.OrdinalIgnoreCase))
+                    if (string.IsNullOrEmpty(targetFieldId)) continue;
+
+                    // ── Target: questionnaire answer ────────────────────────
+                    if (targetFieldId.StartsWith("input.questionnaire.answers", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation(
+                            "[TriggerEngine] QuestionnaireMapping: targetId={TargetId} rawValue={RawValue}",
+                            targetFieldId, rawValue?[..Math.Min(200, rawValue?.Length ?? 0)]);
+                        await ApplyQuestionnaireAnswerMappingAsync(
+                            targetFieldId, rawValue, targetOnboardingId,
+                            mapping.SourceQuestionType,
+                            TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                            TenantContextHelper.GetAppCodeOrDefault(_userContext),
+                            _userContext?.UserName ?? "System",
+                            long.TryParse(_userContext?.UserId, out var uid2) ? uid2 : 0L);
+                        continue;
+                    }
+
+                    // ── Target: static field ────────────────────────────────
+                    if (!targetFieldId.StartsWith("input.fields.", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     var fieldIdStr = targetFieldId["input.fields.".Length..];
@@ -721,6 +739,366 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogWarning(ex, "[TriggerEngine] Failed to apply mapping {MappingId}", mapping.Id);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Writes a mapped value into a target questionnaire answer.
+        /// Target path format: input.questionnaire.answers["{questionnaireId}"]["{questionId}"]
+        ///
+        /// Strategy: load existing answer for (onboardingId, questionnaireId), merge/insert the
+        /// question's answer into the responses array, then upsert.  The stage is looked up from
+        /// the questionnaire-to-stage mapping inside the target workflow.
+        /// </summary>
+        private async Task ApplyQuestionnaireAnswerMappingAsync(
+            string targetId,
+            string rawValue,
+            long targetOnboardingId,
+            string? sourceQuestionType,
+            string tenantId,
+            string appCode,
+            string userName,
+            long userId)
+        {
+            // Parse path: input.questionnaire.answers["{qId}"]["{questionId}"]
+            var match = Regex.Match(targetId,
+                @"input\.questionnaire\.answers\[""(?<qId>[^""]+)""\]\[""(?<questionId>[^""]+)""\]",
+                RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                _logger.LogWarning("[TriggerEngine] Cannot parse questionnaire target path: {Path}", targetId);
+                return;
+            }
+
+            if (!long.TryParse(match.Groups["qId"].Value, out var questionnaireId))
+            {
+                _logger.LogWarning("[TriggerEngine] Cannot parse questionnaireId from path: {Path}", targetId);
+                return;
+            }
+            var questionId = match.Groups["questionId"].Value;
+
+            // Resolve the stageId for this questionnaire in the target onboarding.
+            // The answer must be saved with the correct stageId so it can be retrieved
+            // by GetAllAnswersAsync(onboardingId, stageId).
+            long targetStageId = 0;
+            try
+            {
+                // Look up which stage contains this questionnaire via the mapping table
+                var stageMapping = await _db.Queryable<QuestionnaireStageMapping>()
+                    .Where(m => m.QuestionnaireId == questionnaireId && m.IsValid == true
+                             && m.TenantId == tenantId)
+                    .FirstAsync();
+                if (stageMapping != null)
+                    targetStageId = stageMapping.StageId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[TriggerEngine] Could not resolve stageId for questionnaire {QId} — using 0", questionnaireId);
+            }
+
+            // Find the stage that contains this questionnaire in the target onboarding
+            var existing = await _questionnaireAnswerRepo
+                .GetByQuestionnaireIdAsync(questionnaireId);
+            var targetAnswer = existing.FirstOrDefault(a =>
+                a.OnboardingId == targetOnboardingId &&
+                a.TenantId == tenantId &&
+                a.AppCode == appCode);
+
+            var now = DateTimeOffset.UtcNow;
+
+            // Build response entry strictly based on the source question type.
+            // When sourceQuestionType is null (legacy config), detect short_answer_grid
+            // by checking if rawValue is a JSON object whose keys match the cell key format
+            // "questionId_columnId_rowId" (three underscore-separated numeric IDs).
+            string? resolvedType = sourceQuestionType;
+            if (resolvedType == null)
+            {
+                // Try to auto-detect short_answer_grid from rawValue structure
+                try
+                {
+                    var parsed = JToken.Parse(rawValue);
+                    if (parsed is JObject obj && obj.Count > 0)
+                    {
+                        // short_answer_grid cell keys look like: "2050329392391000074_2050329392391000071_2050329392391000069"
+                        // i.e. three segments of 19-digit snowflake IDs separated by underscores
+                        var firstKey = obj.Properties().First().Name;
+                        var parts = firstKey.Split('_');
+                        if (parts.Length == 3 && parts.All(p => long.TryParse(p, out _)))
+                            resolvedType = "short_answer_grid";
+                    }
+                }
+                catch { /* leave resolvedType as null → falls through to default */ }
+            }
+
+            async Task<JArray> BuildResponseEntriesAsync()
+            {
+                switch (resolvedType)
+                {
+                    case "short_answer_grid":
+                    {
+                        // The source responseText keys are "srcQuestionId_srcColumnId_srcRowId".
+                        // The target questionnaire may have different row/column IDs.
+                        // We must remap the keys using the target questionnaire's structure
+                        // (matching by position/index so row[0] → target row[0], column[0] → target column[0]).
+                        try
+                        {
+                            var merged = JObject.Parse(rawValue);
+
+                            // Load target questionnaire structure to get target row/column IDs
+                            var targetQuestionnaire = await _db.Queryable<Domain.Entities.OW.Questionnaire>()
+                                .Where(q => q.Id == questionnaireId && q.IsValid == true)
+                                .FirstAsync();
+
+                            JArray? remappedMerged = null;
+                            if (targetQuestionnaire?.Structure is JObject tStruct)
+                            {
+                                // Find the target question inside the structure
+                                JToken? targetQuestion = null;
+                                if (tStruct["sections"] is JArray tSections)
+                                {
+                                    foreach (var sec in tSections)
+                                    {
+                                        var qs = sec["questions"] as JArray ?? sec["items"] as JArray;
+                                        if (qs == null) continue;
+                                        targetQuestion = qs.FirstOrDefault(q => q["id"]?.ToString() == questionId);
+                                        if (targetQuestion != null) break;
+                                    }
+                                }
+
+                                if (targetQuestion != null)
+                                {
+                                    var tRows    = (targetQuestion["rows"]    as JArray ?? new JArray()).Select(r => r["id"]?.ToString()).ToList();
+                                    var tColumns = (targetQuestion["columns"] as JArray ?? new JArray()).Select(c => c["id"]?.ToString()).ToList();
+
+                                    // Collect source row/column IDs in order of first appearance
+                                    var srcRowOrder = new List<string>();
+                                    var srcColOrder = new List<string>();
+                                    foreach (var prop in merged.Properties())
+                                    {
+                                        var parts = prop.Name.Split('_');
+                                        if (parts.Length < 3) continue;
+                                        var colId = parts[1]; var rowId = parts[^1];
+                                        if (!srcColOrder.Contains(colId)) srcColOrder.Add(colId);
+                                        if (!srcRowOrder.Contains(rowId)) srcRowOrder.Add(rowId);
+                                    }
+
+                                    // Build remapped JObject with target IDs, grouped by target row
+                                    var rowGroups = new Dictionary<string, JObject>();
+                                    foreach (var prop in merged.Properties())
+                                    {
+                                        var parts = prop.Name.Split('_');
+                                        if (parts.Length < 3) continue;
+                                        var srcColId = parts[1]; var srcRowId = parts[^1];
+                                        var colIdx = srcColOrder.IndexOf(srcColId);
+                                        var rowIdx = srcRowOrder.IndexOf(srcRowId);
+                                        if (colIdx < 0 || rowIdx < 0) continue;
+                                        var tColId = colIdx < tColumns.Count ? tColumns[colIdx] : srcColId;
+                                        var tRowId = rowIdx < tRows.Count    ? tRows[rowIdx]    : srcRowId;
+                                        var newKey = $"{questionId}_{tColId}_{tRowId}";
+                                        if (!rowGroups.ContainsKey(tRowId)) rowGroups[tRowId] = new JObject();
+                                        rowGroups[tRowId][newKey] = prop.Value;
+                                    }
+
+                                    // One response per target row
+                                    remappedMerged = new JArray();
+                                    foreach (var kvp in rowGroups)
+                                    {
+                                        remappedMerged.Add(new JObject
+                                        {
+                                            ["questionId"]   = questionId,
+                                            ["answer"]       = string.Empty,
+                                            ["type"]         = "short_answer_grid",
+                                            ["responseText"] = kvp.Value.ToString(Newtonsoft.Json.Formatting.None)
+                                        });
+                                    }
+                                }
+                            }
+
+                            if (remappedMerged == null || remappedMerged.Count == 0)
+                            {
+                                // Fallback: split by rowId as before, keeping original keys
+                                var rowGroups = new Dictionary<string, JObject>();
+                                foreach (var prop in merged.Properties())
+                                {
+                                    var parts = prop.Name.Split('_');
+                                    if (parts.Length < 3) continue;
+                                    var rowId = parts[^1];
+                                    if (!rowGroups.ContainsKey(rowId)) rowGroups[rowId] = new JObject();
+                                    rowGroups[rowId][prop.Name] = prop.Value;
+                                }
+                                remappedMerged = new JArray();
+                                foreach (var kvp in rowGroups)
+                                    remappedMerged.Add(new JObject { ["questionId"] = questionId, ["answer"] = string.Empty, ["type"] = "short_answer_grid", ["responseText"] = kvp.Value.ToString(Newtonsoft.Json.Formatting.None) });
+                            }
+
+                            return remappedMerged;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "[TriggerEngine] Failed to remap short_answer_grid keys for questionId={QId}", questionId);
+                            return new JArray { new JObject { ["questionId"] = questionId, ["answer"] = string.Empty, ["type"] = "short_answer_grid", ["responseText"] = rawValue } };
+                        }
+                    }
+
+                    case "multiple_choice_grid":
+                    case "checkbox_grid":
+                        // rawValue is a JSON array: [{ questionId, answer }, ...]
+                        try
+                        {
+                            var rows = JArray.Parse(rawValue);
+                            return rows;
+                        }
+                        catch
+                        {
+                            _logger.LogWarning("[TriggerEngine] Failed to parse grid rows for {Type}: {Value}", sourceQuestionType, rawValue);
+                            return new JArray();
+                        }
+
+                    case "file":
+                    case "file_upload":
+                        // rawValue is a JSON array of file metadata objects.
+                        JToken fileToken;
+                        try { fileToken = JToken.Parse(rawValue); }
+                        catch { fileToken = rawValue; }
+                        return new JArray
+                        {
+                            new JObject { ["questionId"] = questionId, ["answer"] = fileToken, ["type"] = resolvedType }
+                        };
+
+                    default:
+                        // All other types: store rawValue directly in answer field.
+                        JToken answerToken;
+                        try { answerToken = JToken.Parse(rawValue); }
+                        catch { answerToken = rawValue; }
+                        return new JArray
+                        {
+                            new JObject { ["questionId"] = questionId, ["answer"] = answerToken, ["type"] = resolvedType ?? string.Empty }
+                        };
+                }
+            }
+
+            if (targetAnswer == null)
+            {
+                var newAnswerObj = new JObject { ["responses"] = await BuildResponseEntriesAsync() };
+                var newRecord = new QuestionnaireAnswer
+                {
+                    OnboardingId    = targetOnboardingId,
+                    StageId         = targetStageId,
+                    QuestionnaireId = questionnaireId,
+                    Answer          = newAnswerObj,
+                    Status          = "Draft",
+                    IsLatest        = true,
+                    IsValid         = true,
+                    TenantId        = tenantId,
+                    AppCode         = appCode,
+                    CreateDate      = now,
+                    ModifyDate      = now,
+                    CreateBy        = userName,
+                    ModifyBy        = userName,
+                    CreateUserId    = userId,
+                    ModifyUserId    = userId,
+                };
+                await _questionnaireAnswerRepo.InsertAsync(newRecord);
+                _logger.LogInformation(
+                    "[TriggerEngine] Created questionnaire answer for onboarding={OId} qId={QId} questionId={QuestionId} type={Type}",
+                    targetOnboardingId, questionnaireId, questionId, resolvedType);
+            }
+            else
+            {
+                // Merge the value into the existing answer's responses array strictly by source type
+                var obj = targetAnswer.Answer as JObject ?? new JObject();
+                var responses = obj["responses"] as JArray ?? new JArray();
+
+                switch (resolvedType)
+                {
+                    case "short_answer_grid":
+                    {
+                        // Remap source keys to target question's row/column IDs, then split per row
+                        // (reuse the same logic as BuildResponseEntries by rebuilding from rawValue)
+                        try
+                        {
+                            // Remove existing short_answer_grid entries for this questionId
+                            var toRemove = responses.Where(r =>
+                                r["questionId"]?.ToString() == questionId &&
+                                r["type"]?.ToString() == "short_answer_grid").ToList();
+                            foreach (var rem in toRemove) responses.Remove(rem);
+
+                            // Re-use BuildResponseEntries logic: load target structure for remapping
+                            var newEntries = await BuildResponseEntriesAsync();
+                            foreach (var entry in newEntries)
+                                responses.Add(entry);
+                        }
+                        catch
+                        {
+                            _logger.LogWarning("[TriggerEngine] Failed to split short_answer_grid rows on merge for qId={QId}", questionId);
+                        }
+                        break;
+                    }
+
+                    case "multiple_choice_grid":
+                    case "checkbox_grid":
+                    {
+                        try
+                        {
+                            var rows = JArray.Parse(rawValue);
+                            foreach (var rowEntry in rows)
+                            {
+                                var rowQId = rowEntry["questionId"]?.ToString();
+                                if (string.IsNullOrEmpty(rowQId)) continue;
+                                var existingRow = responses.FirstOrDefault(r => r["questionId"]?.ToString() == rowQId);
+                                if (existingRow != null)
+                                    existingRow["answer"] = rowEntry["answer"];
+                                else
+                                    responses.Add(new JObject { ["questionId"] = rowQId, ["answer"] = rowEntry["answer"], ["type"] = sourceQuestionType });
+                            }
+                        }
+                        catch
+                        {
+                            _logger.LogWarning("[TriggerEngine] Failed to parse grid rows for merge {Type}: {Value}", sourceQuestionType, rawValue);
+                        }
+                        break;
+                    }
+
+                    case "file":
+                    case "file_upload":
+                    {
+                        JToken fileToken;
+                        try { fileToken = JToken.Parse(rawValue); }
+                        catch { fileToken = rawValue; }
+                        var existingResp = responses.FirstOrDefault(r => r["questionId"]?.ToString() == questionId);
+                        if (existingResp != null)
+                            existingResp["answer"] = fileToken;
+                        else
+                            responses.Add(new JObject { ["questionId"] = questionId, ["answer"] = fileToken, ["type"] = sourceQuestionType });
+                        break;
+                    }
+
+                    default:
+                    {
+                        JToken answerToken2;
+                        try { answerToken2 = JToken.Parse(rawValue); }
+                        catch { answerToken2 = rawValue; }
+                        var existingResp = responses.FirstOrDefault(r => r["questionId"]?.ToString() == questionId);
+                        if (existingResp != null)
+                            existingResp["answer"] = answerToken2;
+                        else
+                            responses.Add(new JObject { ["questionId"] = questionId, ["answer"] = answerToken2, ["type"] = resolvedType ?? string.Empty });
+                        break;
+                    }
+                }
+
+                obj["responses"] = responses;
+                targetAnswer.Answer       = obj;
+                // Correct stageId if it was 0 (from a previous incomplete write)
+                if (targetAnswer.StageId == 0 && targetStageId != 0)
+                    targetAnswer.StageId = targetStageId;
+                targetAnswer.ModifyDate   = now;
+                targetAnswer.ModifyBy     = userName;
+                targetAnswer.ModifyUserId = userId;
+                await _questionnaireAnswerRepo.UpdateAsync(targetAnswer);
+                _logger.LogInformation(
+                    "[TriggerEngine] Updated questionnaire answer for onboarding={OId} qId={QId} questionId={QuestionId} type={Type}",
+                    targetOnboardingId, questionnaireId, questionId, resolvedType);
             }
         }
 
@@ -814,41 +1192,137 @@ namespace FlowFlex.Application.Services.OW
         {
             if (string.IsNullOrEmpty(sourceId)) return null;
 
-            // sourceId = input.questionnaire.answers["{qId}"]["{questionId}"]
+            // sourceId = input.questionnaire.answers["{questionnaireId}"]["{questionId}"]
             var match = Regex.Match(sourceId,
                 @"input\.questionnaire\.answers\[""(?<qId>[^""]+)""\]\[""(?<questionId>[^""]+)""\]",
                 RegexOptions.IgnoreCase);
 
             if (!match.Success) return null;
 
-            var questionId  = match.Groups["questionId"].Value;
+            var questionnaireIdStr = match.Groups["qId"].Value;
+            var questionId         = match.Groups["questionId"].Value;
 
             foreach (var answer in answers)
             {
                 if (answer.Answer == null) continue;
+                // Filter to the right questionnaire when possible
+                if (!string.IsNullOrEmpty(questionnaireIdStr) &&
+                    answer.QuestionnaireId.HasValue &&
+                    answer.QuestionnaireId.Value.ToString() != questionnaireIdStr)
+                    continue;
+
                 try
                 {
-                    // Answer is a JToken — try sections[].questions[]/answers[]
-                    var sections = answer.Answer is JArray arr ? arr
-                                 : answer.Answer["sections"] as JArray;
-
-                    if (sections == null) continue;
-
-                    foreach (var section in sections)
+                    // Use the same response-oriented lookup as BuildAnswerValueMap:
+                    // Layout E: { responses: [{ questionId, answer, ... }] }
+                    // Layout F: { sectionInstances: [{ responses: [...] }] }
+                    JToken? found = null;
+                    if (answer.Answer is JObject obj)
                     {
-                        var questions = section["questions"] as JArray ?? section["answers"] as JArray;
-                        if (questions == null) continue;
-                        foreach (var q in questions)
+                        if (obj["responses"] is JArray responses)
                         {
-                            if (q["id"]?.ToString() == questionId ||
-                                q["questionId"]?.ToString() == questionId)
+                            found = FindInResponses(responses, questionId);
+                        }
+                        else if (obj["sectionInstances"] is JArray instances)
+                        {
+                            foreach (var inst in instances)
                             {
-                                return (q["value"] ?? q["answer"])?.ToString();
+                                if (inst["responses"] is JArray instResps)
+                                {
+                                    found = FindInResponses(instResps, questionId);
+                                    if (found != null) break;
+                                }
                             }
                         }
                     }
+
+                    if (found == null) continue;
+
+                    // For complex types (arrays, objects) return JSON string so the target
+                    // static field stores the raw value. Simple strings are returned as-is.
+                    var resolved = found.Type switch
+                    {
+                        JTokenType.String  => found.ToString(),
+                        JTokenType.Integer => found.ToString(),
+                        JTokenType.Float   => found.ToString(),
+                        JTokenType.Boolean => found.ToString(),
+                        JTokenType.Null    => null,
+                        _                  => found.ToString(Newtonsoft.Json.Formatting.None) // array/object → compact JSON
+                    };
+                    // Skip empty resolved values (e.g. short_answer_grid with empty answer field
+                    // already handled by FindInResponses, but guard here too)
+                    if (!string.IsNullOrEmpty(resolved))
+                        return resolved;
                 }
                 catch { /* ignore malformed */ }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Find the answer value for a given questionId within a responses JArray.
+        /// Returns the "answer" field (or "value" / "responseText" as fallback).
+        /// </summary>
+        /// <summary>
+        /// Find the answer value for a given questionId within a responses JArray.
+        ///
+        /// For short_answer_grid: questionId is the base question id (multiple rows share same id).
+        ///   Returns all matching responses' responseText values merged into one JSON object.
+        ///
+        /// For checkbox_grid / multiple_choice_grid: rows are stored with questionId = "qId_rowId".
+        ///   Collects all rows and returns them as a JSON array of { questionId, answer } objects.
+        ///
+        /// For all other types: returns the first match's answer (or value / responseText fallback).
+        /// </summary>
+        private static JToken? FindInResponses(JArray responses, string questionId)
+        {
+            // Check if any response has this exact questionId (non-grid or short_answer_grid)
+            var exactMatches = responses.Where(r =>
+                (r["questionId"]?.ToString() ?? r["id"]?.ToString()) == questionId).ToList();
+
+            // Check if any response has questionId starting with "questionId_" (grid rows)
+            var rowMatches = responses.Where(r => {
+                var rqId = r["questionId"]?.ToString() ?? r["id"]?.ToString() ?? string.Empty;
+                return rqId.StartsWith(questionId + "_", StringComparison.OrdinalIgnoreCase);
+            }).ToList();
+
+            // short_answer_grid: multiple exact matches, data in responseText
+            if (exactMatches.Count > 1)
+            {
+                // Merge all responseText objects into one
+                var merged = new JObject();
+                foreach (var r in exactMatches)
+                {
+                    var rt = r["responseText"]?.ToString();
+                    if (!string.IsNullOrEmpty(rt))
+                    {
+                        try
+                        {
+                            var parsed = JObject.Parse(rt);
+                            foreach (var prop in parsed.Properties())
+                                merged[prop.Name] = prop.Value;
+                        }
+                        catch { /* ignore malformed */ }
+                    }
+                }
+                return merged.Count > 0 ? merged : null;
+            }
+
+            // checkbox_grid / multiple_choice_grid: rows stored with composite questionId
+            if (rowMatches.Count > 0)
+            {
+                var rowArray = new JArray();
+                foreach (var r in rowMatches)
+                    rowArray.Add(new JObject { ["questionId"] = r["questionId"], ["answer"] = r["answer"] });
+                return rowArray.Count > 0 ? rowArray : null;
+            }
+
+            // Regular single match
+            if (exactMatches.Count == 1)
+            {
+                var r = exactMatches[0];
+                return r["answer"] ?? r["value"] ?? r["responseText"];
             }
 
             return null;

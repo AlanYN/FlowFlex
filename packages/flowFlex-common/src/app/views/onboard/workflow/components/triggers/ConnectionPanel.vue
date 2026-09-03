@@ -256,6 +256,8 @@ watch(
 				localMappings.value = (cfg.mappings ?? []).map((m: any) => ({
 					...m,
 					enabled: m.enabled !== false,
+					// sourceQuestionType may be absent in legacy configs — keep as-is,
+					// the backend auto-detects short_answer_grid from rawValue shape
 				}));
 				autoMap.value = cfg.autoMap !== false;
 			} catch {
@@ -315,14 +317,22 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 	if (side === 'source') {
 		stageOptions.value = stages;
 		const dynamicOpts = stages.flatMap((s) =>
-			s.fields.map((f) => ({ id: `input.fields.${f.id}`, name: `${s.name} · ${f.name}` }))
+			s.fields.map((f: any) => ({
+				id: `input.fields.${f.id}`,
+				name: `${s.name} · ${f.name}`,
+				fieldKind: 'static_field' as const,
+				fieldType: f.fieldType ?? '',
+			}))
 		);
 		dynamicFieldOptions.value = dynamicOpts;
+
 		const questionnaireOpts = stages.flatMap((s) =>
-			s.questionnaires.flatMap((q) =>
-				q.questions.map((qq) => ({
+			s.questionnaires.flatMap((q: any) =>
+				q.questions.map((qq: any) => ({
 					id: `input.questionnaire.answers["${q.id}"]["${qq.id}"]`,
 					name: `${q.name}: ${qq.name}`,
+					fieldKind: 'questionnaire' as const,
+					fieldType: qq.type ?? 'short_answer',
 				}))
 			)
 		);
@@ -343,9 +353,28 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 				: []),
 		];
 	} else {
-		targetFieldOptions.value = stages.flatMap((s) =>
-			s.fields.map((f) => ({ id: `input.fields.${f.id}`, name: `${s.name} · ${f.name}` }))
+		// Target: static fields + questionnaire questions — each carries type info for compatibility filtering
+		const targetFieldOpts = stages.flatMap((s) =>
+			s.fields.map((f: any) => ({
+				id: `input.fields.${f.id}`,
+				name: `${s.name} · ${f.name}`,
+				group: `${s.name} — Static Fields`,
+				fieldKind: 'static_field' as const,
+				fieldType: f.fieldType ?? '',
+			}))
 		);
+		const targetQnOpts = stages.flatMap((s) =>
+			s.questionnaires.flatMap((q: any) =>
+				q.questions.map((qq: any) => ({
+					id: `input.questionnaire.answers["${q.id}"]["${qq.id}"]`,
+					name: `${q.name}: ${qq.name}`,
+					group: `${s.name} — Questionnaire`,
+					fieldKind: 'questionnaire' as const,
+					fieldType: qq.type ?? 'short_answer',
+				}))
+			)
+		);
+		targetFieldOptions.value = [...targetFieldOpts, ...targetQnOpts];
 	}
 };
 
