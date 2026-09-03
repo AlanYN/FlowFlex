@@ -109,7 +109,7 @@
 					@change="(v: string) => handleSourceChange(item, v)"
 				>
 					<el-option-group
-						v-for="group in sourceOptionGroups"
+						v-for="group in getCompatibleSourceGroups(item.targetId)"
 						:key="group.label"
 						:label="group.label"
 					>
@@ -406,5 +406,33 @@ const handleSourceChange = (item: AutoMappedField, v: string) => {
 	item.sourceId = v;
 	item.sourceName = opt?.name ?? v;
 	emit('dirty');
+};
+
+/**
+ * Returns sourceOptionGroups filtered to only options compatible with the given target field.
+ * For auto-map rows: dynamic-field target → only same-type dynamic-field sources.
+ * For questionnaire target → only same-type questionnaire sources.
+ */
+const getCompatibleSourceGroups = (targetId: string) => {
+	// Determine target kind and type
+	const allTargets = props.targetFieldOptions as any[];
+	const targetOpt = allTargets.find((t) => t.id === targetId);
+	if (!targetOpt) return props.sourceOptionGroups;
+
+	const targetKind: string = targetOpt.fieldKind ?? 'static_field';
+	const targetType: string = targetOpt.fieldType ?? '';
+
+	// Filter each source group's options
+	return props.sourceOptionGroups
+		.map((group) => ({
+			...group,
+			options: group.options.filter((o: any) => {
+				const sourceKind: string = o.fieldKind ?? 'static_field';
+				const sourceType: string = o.fieldType ?? '';
+				// Strict: same kind + same type
+				return sourceKind === targetKind && sourceType === targetType;
+			}),
+		}))
+		.filter((g) => g.options.length > 0);
 };
 </script>
