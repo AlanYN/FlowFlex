@@ -136,6 +136,7 @@ builder.Services.AddAutoMapper(config =>
 
     config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.UserSignatureMapProfile>();
+    config.AddProfile<FlowFlex.Application.Maps.WhatsNewMapProfile>();
 }, assemblies);
 
 // Configure options
