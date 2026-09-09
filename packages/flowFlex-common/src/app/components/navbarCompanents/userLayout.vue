@@ -40,6 +40,15 @@
 					<span class="text-sm">My Profile</span>
 				</div>
 
+				<div
+					v-if="userStore.getUserInfo?.userType === 1"
+					class="flex items-center my-3 cursor-pointer hover:text-primary"
+					@click="goToWhatsNewManagement"
+				>
+					<el-icon class="mr-2"><Bell /></el-icon>
+					<span class="text-sm">Manage What's New</span>
+				</div>
+
 				<div class="flex justify-end">
 					<el-button text :icon="LogoutIcon" @click="logout">
 						{{ t('sys.app.logout') }}
@@ -56,7 +65,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/modules/user';
 import { useI18n } from '@/hooks/useI18n';
 import { getAvatarColor } from '@/utils';
-import { User } from '@element-plus/icons-vue';
+import { User, Bell } from '@element-plus/icons-vue';
 
 import LogoutIcon from '@assets/svg/global/logout.svg';
 
@@ -81,5 +90,9 @@ const logout = () => {
 
 const goToProfile = () => {
 	router.push('/profile');
+};
+
+const goToWhatsNewManagement = () => {
+	router.push('/whats-new-management');
 };
 </script>

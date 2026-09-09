@@ -336,6 +336,18 @@ namespace FlowFlex.Application.Services.OW
                                 })
                                 .ToList();
                             break;
+
+                        case "files":
+                            if (comp.IsEnabled)
+                            {
+                                stageNode.FileManagement = new FileManagementNodeDto
+                                {
+                                    StageId    = stage.Id,
+                                    Title      = string.IsNullOrWhiteSpace(comp.Title) ? "File Attachments" : comp.Title,
+                                    IsRequired = comp.IsRequired
+                                };
+                            }
+                            break;
                     }
                 }
 

@@ -42,6 +42,7 @@
 			<Lauguage v-if="changeI18nButton" />
 			<Setting v-if="settingButton" />
 			<Company v-if="changeCompanyButton" />
+			<WhatsNewBell />
 			<UserLayout />
 		</div>
 	</div>
@@ -68,6 +69,7 @@ import TimeZone from '@/components/navbarCompanents/timeZone.vue';
 import UserLayout from '@/components/navbarCompanents/userLayout.vue';
 import Setting from '@/components/navbarCompanents/setting.vue';
 import Company from '@/components/navbarCompanents/company.vue';
+import WhatsNewBell from '@/components/navbarCompanents/WhatsNewBell.vue';
 
 // 导入折叠相关的图标
 import CollapseIcon from '@assets/svg/layout/collapseButton.svg';
