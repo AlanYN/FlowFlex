@@ -86,6 +86,8 @@
 					:source-option-groups="sourceOptionGroups"
 					:dynamic-field-options="dynamicFieldOptions"
 					:questionnaire-options="questionnaireOptions"
+					:file-management-options="fileManagementOptions"
+					:target-file-management-options="targetFileManagementOptions"
 					:target-field-options="targetFieldOptions"
 					:source-workflow-name="sourceWorkflow?.name"
 					:target-workflow-name="targetWorkflow?.name"
@@ -224,6 +226,7 @@ interface StageOption {
 	fields: StageFieldOption[];
 	questionnaires: StageQuestionnaire[];
 	checklists: StageChecklist[];
+	fileManagement: { title?: string; isRequired?: boolean } | null;
 }
 interface SourceOptionGroup {
 	label: string;
@@ -239,6 +242,8 @@ const stageOptions = ref<StageOption[]>([]);
 const sourceOptionGroups = ref<SourceOptionGroup[]>([]);
 const dynamicFieldOptions = ref<{ id: string; name: string }[]>([]);
 const questionnaireOptions = ref<{ id: string; name: string }[]>([]);
+const fileManagementOptions = ref<{ id: string; name: string }[]>([]);
+const targetFileManagementOptions = ref<{ id: string; name: string }[]>([]);
 const targetFieldOptions = ref<{ id: string; name: string }[]>([]);
 
 // ========================= Watch =================================
@@ -312,6 +317,8 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 				taskType: t.taskType ?? '',
 			})),
 		})),
+		// carry through fileManagement so the file-management option builders can use it
+		fileManagement: s.fileManagement ?? null,
 	}));
 
 	if (side === 'source') {
@@ -337,6 +344,17 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 			)
 		);
 		questionnaireOptions.value = questionnaireOpts;
+
+		const fileManagementOpts = stages
+			.filter((s: any) => s.fileManagement != null)
+			.map((s: any) => ({
+				id: `input.files.${s.id}`,
+				name: `${s.name} · ${s.fileManagement.title ?? 'File Attachments'}`,
+				fieldKind: 'file_management' as const,
+				fieldType: 'file_management',
+			}));
+		fileManagementOptions.value = fileManagementOpts;
+
 		sourceOptionGroups.value = [
 			{
 				label: 'Case Info',
@@ -351,10 +369,14 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 			...(questionnaireOpts.length
 				? [{ label: 'Questionnaire Answers', options: questionnaireOpts }]
 				: []),
+			...(fileManagementOpts.length
+				? [{ label: 'File Management', options: fileManagementOpts }]
+				: []),
 		];
 	} else {
-		// Target: static fields + questionnaire questions — each carries type info for compatibility filtering
-		const targetFieldOpts = stages.flatMap((s) =>
+		// Target: static fields + questionnaire questions + file management components
+		// Each carries fieldKind + fieldType for compatibility filtering
+		const targetFieldOpts = stages.flatMap((s: any) =>
 			s.fields.map((f: any) => ({
 				id: `input.fields.${f.id}`,
 				name: `${s.name} · ${f.name}`,
@@ -363,7 +385,7 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 				fieldType: f.fieldType ?? '',
 			}))
 		);
-		const targetQnOpts = stages.flatMap((s) =>
+		const targetQnOpts = stages.flatMap((s: any) =>
 			s.questionnaires.flatMap((q: any) =>
 				q.questions.map((qq: any) => ({
 					id: `input.questionnaire.answers["${q.id}"]["${qq.id}"]`,
@@ -374,7 +396,20 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 				}))
 			)
 		);
-		targetFieldOptions.value = [...targetFieldOpts, ...targetQnOpts];
+		const targetFileOpts = stages
+			.filter((s: any) => s.fileManagement != null)
+			.map((s: any) => ({
+				id: `input.files.${s.id}`,
+				name: `${s.name} · ${s.fileManagement.title ?? 'File Attachments'}`,
+				group: `${s.name} — File Management`,
+				fieldKind: 'file_management' as const,
+				fieldType: 'file_management',
+			}));
+		targetFileManagementOptions.value = targetFileOpts.map((o) => ({
+			id: o.id,
+			name: o.name,
+		}));
+		targetFieldOptions.value = [...targetFieldOpts, ...targetQnOpts, ...targetFileOpts];
 	}
 };
 
@@ -383,6 +418,8 @@ const loadNodeInfo = async (conn: TriggerConnection) => {
 	stageOptions.value = [];
 	dynamicFieldOptions.value = [];
 	questionnaireOptions.value = [];
+	fileManagementOptions.value = [];
+	targetFileManagementOptions.value = [];
 	targetFieldOptions.value = [];
 	autoMappedFields.value = [];
 	caseInfoMappings.value = [];
