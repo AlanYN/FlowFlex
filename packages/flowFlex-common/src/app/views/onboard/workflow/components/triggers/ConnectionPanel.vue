@@ -370,7 +370,7 @@ const applyNodeInfo = (nodeInfo: any, side: 'source' | 'target') => {
 				? [{ label: 'Questionnaire Answers', options: questionnaireOpts }]
 				: []),
 			...(fileManagementOpts.length
-				? [{ label: 'File Management', options: fileManagementOpts }]
+				? [{ label: 'File Attachments', options: fileManagementOpts }]
 				: []),
 		];
 	} else {

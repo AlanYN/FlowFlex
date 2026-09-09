@@ -181,7 +181,7 @@
 				>
 					<el-option label="Dynamic field" value="dynamic_field" />
 					<el-option label="Questionnaire answer" value="questionnaire" />
-					<el-option label="File Management" value="file_management" />
+					<el-option label="File attachment" value="file_management" />
 					<el-option label="Static value" value="static" />
 				</el-select>
 
