@@ -173,18 +173,23 @@
 							mapping.staticValue = '';
 							mapping.targetFieldId = undefined;
 							mapping.targetFieldName = undefined;
+							mapping.targetStageId = undefined;
+							mapping.targetStageName = undefined;
 							emit('dirty');
 						}
 					"
 				>
 					<el-option label="Dynamic field" value="dynamic_field" />
 					<el-option label="Questionnaire answer" value="questionnaire" />
+					<el-option label="File attachment" value="file_management" />
 					<el-option label="Static value" value="static" />
 				</el-select>
 
-				<!-- 来源字段 -->
+				<!-- 来源字段（file_management 不需要选字段，直接整体复制） -->
 				<el-select
-					v-if="mapping.sourceType !== 'static'"
+					v-if="
+						mapping.sourceType !== 'static' && mapping.sourceType !== 'file_management'
+					"
 					v-model="mapping.sourceId"
 					placeholder="Select source field"
 					class="w-full"
@@ -196,7 +201,9 @@
 							const opts =
 								mapping.sourceType === 'dynamic_field'
 									? dynamicFieldOptions
-									: questionnaireOptions;
+									: mapping.sourceType === 'questionnaire'
+									? questionnaireOptions
+									: fileManagementOptions;
 							const found = opts.find((o) => o.id === v) as any;
 							mapping.sourceName = found?.name;
 							// Carry the question type so the backend knows the exact format to write
@@ -214,24 +221,104 @@
 					<el-option
 						v-for="o in mapping.sourceType === 'dynamic_field'
 							? dynamicFieldOptions
-							: questionnaireOptions"
+							: mapping.sourceType === 'questionnaire'
+							? questionnaireOptions
+							: fileManagementOptions"
 						:key="o.id"
 						:label="o.name"
 						:value="o.id"
 					/>
 				</el-select>
 
+				<!-- file_management：选来源 stage → 目标 stage -->
+				<template v-if="mapping.sourceType === 'file_management'">
+					<!-- Source stage -->
+					<el-select
+						v-model="mapping.sourceId"
+						placeholder="Select source stage"
+						class="w-full"
+						filterable
+						:loading="loading"
+						:disabled="loading"
+						@change="
+							(v: string) => {
+								const found = fileManagementOptions.find((o) => o.id === v) as any;
+								mapping.sourceName = found?.name;
+								mapping.targetStageId = undefined;
+								mapping.targetStageName = undefined;
+								emit('dirty');
+							}
+						"
+					>
+						<el-option
+							v-for="o in fileManagementOptions"
+							:key="o.id"
+							:label="o.name"
+							:value="o.id"
+						/>
+						<template v-if="fileManagementOptions.length === 0" #empty>
+							<div
+								class="text-center text-xs text-[var(--el-text-color-secondary)] py-3"
+							>
+								No stages with File Management enabled in source workflow
+							</div>
+						</template>
+					</el-select>
+
+					<!-- Arrow -->
+					<div
+						class="flex items-center gap-1 text-xs text-[var(--el-text-color-secondary)] py-0.5"
+					>
+						<el-icon><ArrowRight /></el-icon>
+						Copy files into target stage
+					</div>
+
+					<!-- Target stage -->
+					<el-select
+						v-model="mapping.targetStageId"
+						placeholder="Select target stage"
+						class="w-full"
+						filterable
+						:loading="loading"
+						:disabled="loading || !mapping.sourceId"
+						@change="
+							(v: string) => {
+								const found = targetFileManagementOptions.find(
+									(o) => o.id === v
+								) as any;
+								mapping.targetStageName = found?.name;
+								emit('dirty');
+							}
+						"
+					>
+						<el-option
+							v-for="o in targetFileManagementOptions"
+							:key="o.id"
+							:label="o.name"
+							:value="o.id"
+						/>
+						<template v-if="targetFileManagementOptions.length === 0" #empty>
+							<div
+								class="text-center text-xs text-[var(--el-text-color-secondary)] py-3"
+							>
+								No stages with File Management enabled in target workflow
+							</div>
+						</template>
+					</el-select>
+				</template>
+
 				<!-- Static value -->
 				<el-input
-					v-else
+					v-else-if="mapping.sourceType === 'static'"
 					v-model="mapping.staticValue"
 					placeholder="Enter static value"
 					class="w-full"
 					@input="emit('dirty')"
 				/>
 
-				<!-- 目标分隔 -->
+				<!-- 目标分隔（file_management 无需目标字段） -->
 				<div
+					v-if="mapping.sourceType !== 'file_management'"
 					class="flex items-center gap-1 text-xs text-[var(--el-text-color-secondary)] py-0.5"
 				>
 					<el-icon><ArrowRight /></el-icon>
@@ -240,6 +327,7 @@
 
 				<!-- 目标字段 -->
 				<el-select
+					v-if="mapping.sourceType !== 'file_management'"
 					v-model="mapping.targetFieldId"
 					placeholder="Select target field"
 					class="w-full"
@@ -306,12 +394,15 @@ interface SourceOptionGroup {
 
 interface MappingRow {
 	id: string;
-	sourceType: 'dynamic_field' | 'questionnaire' | 'static';
+	sourceType: 'dynamic_field' | 'questionnaire' | 'file_management' | 'static';
 	sourceId?: string;
 	sourceName?: string;
 	sourceQuestionType?: string; // question type for questionnaire source (e.g. 'short_answer_grid')
 	targetFieldId?: string;
 	targetFieldName?: string;
+	// file_management only: which target stage's file component to copy into
+	targetStageId?: string;
+	targetStageName?: string;
 	staticValue?: string;
 	enabled: boolean;
 }
@@ -325,6 +416,8 @@ const props = defineProps<{
 	sourceOptionGroups: SourceOptionGroup[];
 	dynamicFieldOptions: { id: string; name: string }[];
 	questionnaireOptions: { id: string; name: string }[];
+	fileManagementOptions: { id: string; name: string }[];
+	targetFileManagementOptions: { id: string; name: string }[];
 	targetFieldOptions: { id: string; name: string }[];
 	sourceWorkflowName?: string;
 	targetWorkflowName?: string;
@@ -342,7 +435,13 @@ const emit = defineEmits<{
 const fieldMappingCount = computed(
 	() =>
 		props.caseInfoMappings.filter((f) => f.enabled).length +
-		props.localMappings.filter((m) => m.enabled).length +
+		props.localMappings.filter(
+			(m) =>
+				m.enabled &&
+				(m.sourceType === 'file_management'
+					? !!m.sourceId && !!m.targetStageId
+					: !!m.sourceId && !!m.targetFieldId)
+		).length +
 		(props.autoMap ? props.autoMappedFields.filter((f) => f.enabled).length : 0)
 );
 
@@ -372,6 +471,7 @@ const getCompatibleTargets = (mapping: MappingRow) => {
 	const allSourceOpts = [
 		...(props.dynamicFieldOptions as any[]),
 		...(props.questionnaireOptions as any[]),
+		...(props.fileManagementOptions as any[]),
 	];
 	const sourceOpt = allSourceOpts.find((o) => o.id === mapping.sourceId);
 	if (!sourceOpt) return props.targetFieldOptions as any[];

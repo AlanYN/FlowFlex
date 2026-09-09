@@ -17,7 +17,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph
     }
 
     /// <summary>
-    /// Stage with its components (fields / questionnaires / checklists) for condition configuration
+    /// Stage with its components (fields / questionnaires / checklists / files) for condition configuration
     /// </summary>
     public class StageNodeInfoDto
     {
@@ -33,6 +33,25 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph
 
         /// <summary>Checklists in this stage with their tasks</summary>
         public List<ChecklistNodeDto> Checklists { get; set; } = new();
+
+        /// <summary>File Management component in this stage (at most one per stage)</summary>
+        public FileManagementNodeDto? FileManagement { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the File Management component present in a stage.
+    /// A stage has at most one file management component.
+    /// </summary>
+    public class FileManagementNodeDto
+    {
+        /// <summary>Stage ID — used as the component identifier (no separate file entity exists)</summary>
+        public long StageId { get; set; }
+
+        /// <summary>Display title of the component (e.g. "File Attachments")</summary>
+        public string Title { get; set; } = "File Attachments";
+
+        /// <summary>Whether the component is required</summary>
+        public bool IsRequired { get; set; }
     }
 
     public class FieldOptionDto

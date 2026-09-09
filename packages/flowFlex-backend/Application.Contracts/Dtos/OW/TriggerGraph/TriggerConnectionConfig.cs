@@ -91,23 +91,33 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph
         [JsonProperty("id")]
         public string Id { get; set; }
 
-        /// <summary>"dynamic_field" / "questionnaire" / "static"</summary>
+        /// <summary>"dynamic_field" / "questionnaire" / "file_management" / "static"</summary>
         [JsonProperty("sourceType")]
         public string SourceType { get; set; }
 
-        /// <summary>fieldPath of the source field, e.g. "input.fields.{fieldId}"</summary>
+        /// <summary>fieldPath of the source field, e.g. "input.fields.{fieldId}" or "input.files.{stageId}"</summary>
         [JsonProperty("sourceId")]
         public string SourceId { get; set; }
 
         [JsonProperty("sourceName")]
         public string SourceName { get; set; }
 
-        /// <summary>fieldPath of the target field</summary>
+        /// <summary>fieldPath of the target field (not used for file_management)</summary>
         [JsonProperty("targetFieldId")]
         public string TargetFieldId { get; set; }
 
         [JsonProperty("targetFieldName")]
         public string TargetFieldName { get; set; }
+
+        /// <summary>
+        /// For file_management sourceType: the target stage ID to copy files into.
+        /// Format: "input.files.{stageId}" — matches the id used in fileManagementOptions.
+        /// </summary>
+        [JsonProperty("targetStageId")]
+        public string? TargetStageId { get; set; }
+
+        [JsonProperty("targetStageName")]
+        public string? TargetStageName { get; set; }
 
         /// <summary>Used when sourceType == "static"</summary>
         [JsonProperty("staticValue")]

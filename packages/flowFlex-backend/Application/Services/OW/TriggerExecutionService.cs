@@ -666,12 +666,23 @@ namespace FlowFlex.Application.Services.OW
                 {
                     var rawValue = mapping.SourceType switch
                     {
-                        "static"        => mapping.StaticValue,
-                        "dynamic_field" => ResolveDynamicFieldValue(mapping.SourceId, allSourceFields),
-                        "questionnaire" => ResolveQuestionnaireValue(mapping.SourceId, allSourceAnswers),
-                        "case_field"    => ResolveCaseInfoSource(mapping.SourceId, source, allSourceFields),
-                        _               => null
+                        "static"           => mapping.StaticValue,
+                        "dynamic_field"    => ResolveDynamicFieldValue(mapping.SourceId, allSourceFields),
+                        "questionnaire"    => ResolveQuestionnaireValue(mapping.SourceId, allSourceAnswers),
+                        "case_field"       => ResolveCaseInfoSource(mapping.SourceId, source, allSourceFields),
+                        "file_management"  => null,   // handled separately below
+                        _                  => null
                     };
+
+                    // ── file_management: copy OnboardingFiles from source stage → target stage ──
+                    if (string.Equals(mapping.SourceType, "file_management", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation(
+                            "[TriggerEngine] Processing file_management mapping id={MappingId}",
+                            mapping.Id);
+                        await ApplyFileManagementMappingAsync(mapping, source.Id, targetOnboardingId);
+                        continue;
+                    }
 
                     if (string.IsNullOrEmpty(rawValue))
                         continue;
@@ -1167,8 +1178,125 @@ namespace FlowFlex.Application.Services.OW
             return map;
         }
 
-        private string? ResolveDynamicFieldValue(string? sourceId, List<StaticFieldValue> fields)
+        /// <summary>
+        /// Copies OnboardingFile records from the source case's stage into the target case's stage.
+        /// sourceId format: "input.files.{sourceStageId}"
+        /// targetStageId format: "input.files.{targetStageId}"
+        /// Physical files are shared (same storage_path / access_url) — only metadata records are cloned.
+        /// If the source stage has no files the mapping is silently skipped.
+        /// </summary>
+        private async Task ApplyFileManagementMappingAsync(
+            TriggerDataMappingConfig mapping,
+            long sourceOnboardingId,
+            long targetOnboardingId)
         {
+            _logger.LogInformation(
+                "[TriggerEngine] ApplyFileManagementMapping: mappingId={MappingId} sourceId={SourceId} targetStageId={TargetStageId}",
+                mapping.Id, mapping.SourceId, mapping.TargetStageId);
+            // Parse source stage ID: "input.files.{stageId}"
+            if (string.IsNullOrEmpty(mapping.SourceId) ||
+                !mapping.SourceId.StartsWith("input.files.", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("[TriggerEngine] file_management mapping has invalid sourceId: {SourceId}", mapping.SourceId);
+                return;
+            }
+            var sourceStageIdStr = mapping.SourceId["input.files.".Length..];
+            if (!long.TryParse(sourceStageIdStr, out var sourceStageId))
+            {
+                _logger.LogWarning("[TriggerEngine] file_management mapping: cannot parse sourceStageId from '{SourceId}'", mapping.SourceId);
+                return;
+            }
+
+            // Parse target stage ID: "input.files.{stageId}"
+            if (string.IsNullOrEmpty(mapping.TargetStageId) ||
+                !mapping.TargetStageId.StartsWith("input.files.", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("[TriggerEngine] file_management mapping has invalid targetStageId: {TargetStageId}", mapping.TargetStageId);
+                return;
+            }
+            var targetStageIdStr = mapping.TargetStageId["input.files.".Length..];
+            if (!long.TryParse(targetStageIdStr, out var targetStageId))
+            {
+                _logger.LogWarning("[TriggerEngine] file_management mapping: cannot parse targetStageId from '{TargetStageId}'", mapping.TargetStageId);
+                return;
+            }
+
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode  = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+            var userName = _userContext?.UserName ?? "System";
+            var userId   = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0L;
+
+            // Load source files for this stage — align with OnboardingFileRepository.GetFilesByOnboardingAsync:
+            // only filter by IsValid, OnboardingId, StageId (Status and TenantId/AppCode are NOT global-filtered on this entity)
+            var sourceFiles = await _db.Queryable<OnboardingFile>()
+                .Where(f => f.OnboardingId == sourceOnboardingId
+                         && f.StageId      == sourceStageId
+                         && f.IsValid      == true)
+                .ToListAsync();
+
+            if (!sourceFiles.Any())
+            {
+                _logger.LogInformation(
+                    "[TriggerEngine] file_management: no files found in source onboarding={SourceId} stage={StageId} — skipping",
+                    sourceOnboardingId, sourceStageId);
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var clones = new List<OnboardingFile>(sourceFiles.Count);
+            foreach (var f in sourceFiles)
+            {
+                clones.Add(new OnboardingFile
+                {
+                    // Each clone gets a unique snowflake Id.
+                    // Using a foreach (not LINQ Select) ensures NextId() is called one at a time
+                    // and never produces duplicate IDs even when multiple files exist in the same stage.
+                    Id               = SnowFlakeSingle.Instance.NextId(),
+                    OnboardingId     = targetOnboardingId,
+                    StageId          = targetStageId,
+                    AttachmentId     = f.AttachmentId,
+                    OriginalFileName = f.OriginalFileName,
+                    StoredFileName   = f.StoredFileName,
+                    FileExtension    = f.FileExtension,
+                    FileSize         = f.FileSize,
+                    ContentType      = f.ContentType,
+                    Category         = f.Category,
+                    Description      = f.Description,
+                    IsRequired       = f.IsRequired,
+                    Tags             = f.Tags,
+                    AccessUrl        = f.AccessUrl,
+                    StoragePath      = f.StoragePath,
+                    UploadedById     = f.UploadedById,
+                    UploadedByName   = f.UploadedByName,
+                    UploadedDate     = f.UploadedDate,
+                    Status           = "Active",
+                    Version          = f.Version,
+                    FileHash         = f.FileHash,
+                    SortOrder        = f.SortOrder,
+                    ExtendedProperties = f.ExtendedProperties,
+                    IsExternalImport = f.IsExternalImport,
+                    Source           = f.Source,
+                    // Audit
+                    IsValid      = true,
+                    TenantId     = tenantId,
+                    AppCode      = appCode,
+                    CreateDate   = now,
+                    ModifyDate   = now,
+                    CreateBy     = userName,
+                    ModifyBy     = userName,
+                    CreateUserId = userId,
+                    ModifyUserId = userId,
+                });
+            }
+
+            await _db.Insertable(clones).ExecuteCommandAsync();
+
+            _logger.LogInformation(
+                "[TriggerEngine] file_management: copied {Count} file(s) from onboarding={SourceOnboarding} stage={SourceStage} → onboarding={TargetOnboarding} stage={TargetStage}",
+                clones.Count, sourceOnboardingId, sourceStageId, targetOnboardingId, targetStageId);
+        }
+
+        private string? ResolveDynamicFieldValue(string? sourceId, List<StaticFieldValue> fields)        {
             if (string.IsNullOrEmpty(sourceId) ||
                 !sourceId.StartsWith("input.fields.", StringComparison.OrdinalIgnoreCase))
                 return null;
