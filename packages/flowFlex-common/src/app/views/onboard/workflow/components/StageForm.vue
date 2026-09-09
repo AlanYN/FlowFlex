@@ -147,6 +147,7 @@
 						visibleInPortal: formData.visibleInPortal,
 						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
+						adobeSignEnabled: formData.adobeSignEnabled,
 						componentWeights: formData.componentWeights,
 					}"
 					:stage="stage"
@@ -351,6 +352,7 @@ const formData = ref({
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
+	adobeSignEnabled: false,
 	// 权限字段
 	viewPermissionMode: ViewPermissionModeEnum.Public,
 	viewTeams: [] as string[],
@@ -490,6 +492,7 @@ function updateComponentsData(val: ComponentsData) {
 		formData.value.portalPermission = val.portalPermission;
 	}
 	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
+	formData.value.adobeSignEnabled = val.adobeSignEnabled ?? false;
 	formData.value.componentWeights = val.componentWeights ?? [];
 }
 

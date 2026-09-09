@@ -162,6 +162,20 @@ builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<FlowFlex.Application.Services.MessageCenter.OutlookOptions>(
     builder.Configuration.GetSection(FlowFlex.Application.Services.MessageCenter.OutlookOptions.SectionName));
 
+// Register HttpClient for Adobe Sign API (OW-731)
+builder.Services.AddHttpClient("AdobeSign", client =>
+{
+    var adobeConfig = builder.Configuration.GetSection("AdobeSign");
+    var baseUrl = adobeConfig["BaseUrl"] ?? "https://api.na4.adobesign.com/api/rest/v6";
+    var accessToken = adobeConfig["AccessToken"] ?? string.Empty;
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+    client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-AdobeSign/1.0");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 // Register HttpClient for OutlookService with connection pooling and retry policy
 builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
     FlowFlex.Application.Services.MessageCenter.OutlookService>("OutlookService", client =>

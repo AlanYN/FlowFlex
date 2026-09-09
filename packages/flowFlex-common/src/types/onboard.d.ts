@@ -333,6 +333,8 @@ export interface Stage {
 	visibleInPortal?: boolean;
 	portalPermission?: number; // PortalPermissionEnum value
 	attachmentManagementNeeded?: boolean;
+	/** OW-731: Whether Adobe Sign legal signing is enabled for this stage */
+	adobeSignEnabled?: boolean;
 	// AI summary fields (optional)
 	aiSummary?: string;
 	aiSummaryGeneratedAt?: string;

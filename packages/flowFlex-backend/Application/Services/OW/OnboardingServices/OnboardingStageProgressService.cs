@@ -111,6 +111,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         VisibleInPortal = stage.VisibleInPortal,
                         PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                        AdobeSignEnabled = stage.AdobeSignEnabled,
                         Required = stage.Required,
                         ComponentsJson = stage.ComponentsJson,
                         Components = ParseStageComponents(stage.ComponentsJson)
@@ -439,6 +440,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
+                        stageProgress.AdobeSignEnabled = stage.AdobeSignEnabled;
                         stageProgress.Required = stage.Required;
                         stageProgress.Color = stage.Color;
                         stageProgress.ComponentsJson = stage.ComponentsJson;

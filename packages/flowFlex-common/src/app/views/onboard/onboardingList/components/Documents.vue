@@ -245,8 +245,9 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Status" width="220">
+						<el-table-column label="Status" width="280">
 							<template #default="{ row }">
+								<!-- Quick Sign (WFE 内置签名) -->
 								<div v-if="row.isSigned" class="flex flex-col gap-1">
 									<el-tag
 										type="success"
@@ -271,13 +272,133 @@
 										{{ timeZoneConvert(row.signTime) }}
 									</div>
 								</div>
+
+								<!-- Adobe Sign 状态 (OW-731) -->
+								<div
+									v-if="
+										props.adobeSignEnabled &&
+										isPdf(row) &&
+										getAgreement(String(row.id))
+									"
+									class="flex flex-col gap-1"
+									:class="{ 'mt-1': row.isSigned }"
+								>
+									<el-tag
+										size="small"
+										effect="dark"
+										:style="{
+											backgroundColor:
+												ADOBE_SIGN_STATUS_COLORS[
+													getAgreement(String(row.id))!.status
+												],
+											borderColor: 'transparent',
+											color: '#fff',
+										}"
+										class="w-fit"
+									>
+										{{ getAgreement(String(row.id))!.status }}
+									</el-tag>
+									<!-- Awaiting: show signer progress -->
+									<div
+										v-if="getAgreement(String(row.id))!.status === 'Awaiting'"
+										class="flex gap-1 flex-wrap mt-0.5"
+									>
+										<span
+											v-for="(signer, i) in getAgreement(String(row.id))!
+												.signers"
+											:key="i"
+											class="text-xs"
+											:style="{
+												color: signer.signedAt ? '#10B981' : '#F59E0B',
+											}"
+										>
+											{{ signer.name
+											}}{{
+												i < getAgreement(String(row.id))!.signers.length - 1
+													? ','
+													: ''
+											}}
+										</span>
+									</div>
+									<!-- Actions for Awaiting -->
+									<div
+										v-if="getAgreement(String(row.id))!.status === 'Awaiting'"
+										class="flex gap-1 mt-1"
+									>
+										<el-button
+											size="small"
+											text
+											type="primary"
+											@click="openAdobeDetails(row)"
+										>
+											View Details
+										</el-button>
+										<el-button
+											size="small"
+											text
+											@click="openAdobeReminder(row)"
+										>
+											Remind
+										</el-button>
+										<el-button
+											size="small"
+											text
+											type="danger"
+											@click="openAdobeRecall(row)"
+										>
+											Recall
+										</el-button>
+									</div>
+									<!-- Actions for Completed -->
+									<div
+										v-else-if="
+											getAgreement(String(row.id))!.status === 'Completed'
+										"
+										class="mt-1"
+									>
+										<el-button
+											size="small"
+											text
+											type="primary"
+											@click="openAdobeDetails(row)"
+										>
+											View Details
+										</el-button>
+									</div>
+									<!-- Actions for Declined/Expired -->
+									<div
+										v-else-if="
+											['Declined', 'Expired'].includes(
+												getAgreement(String(row.id))!.status
+											)
+										"
+										class="flex gap-1 mt-1"
+									>
+										<el-button
+											size="small"
+											text
+											type="primary"
+											@click="openAdobeDetails(row)"
+										>
+											View Details
+										</el-button>
+										<el-button
+											size="small"
+											text
+											@click="handleAdobeNewSignature(row)"
+										>
+											Re-send
+										</el-button>
+									</div>
+								</div>
+
 								<span v-else class="text-xs text-gray-400">—</span>
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Actions" width="80" fixed="right">
+						<el-table-column label="Actions" width="100" fixed="right">
 							<template #default="{ row }">
-								<div class="flex items-center space-x-2">
+								<div class="flex justify-between space-x-1 flex-wrap gap-y-1">
 									<el-button
 										type="primary"
 										link
@@ -286,6 +407,29 @@
 										@click="handleViewDocument(row)"
 										:icon="View"
 									/>
+									<!-- OW-731: Request Legal Sign button — 始终显示，有活跃协议时 disabled -->
+									<el-tooltip
+										v-if="props.adobeSignEnabled && isPdf(row) && !row.isSigned"
+										:content="
+											getAgreement(String(row.id))?.status === 'Awaiting'
+												? 'Signing in progress'
+												: 'Request Legal Sign'
+										"
+										placement="top"
+									>
+										<el-button
+											type="primary"
+											link
+											:disabled="
+												disabled ||
+												adobeSubmitting ||
+												getAgreement(String(row.id))?.status === 'Awaiting'
+											"
+											@click="openAdobeRequest(row)"
+										>
+											✍
+										</el-button>
+									</el-tooltip>
 									<el-button
 										v-if="!row.isSigned"
 										type="danger"
@@ -336,7 +480,11 @@
 			@refresh-documents="handleRefreshDocuments"
 		/>
 
-		<!-- Import Attachments Dialog -->
+		<!-- OW-731: Adobe Sign Modals -->
+		<AdobeSignRequestModal ref="adobeRequestModalRef" @confirmed="handleAdobeConfirmed" />
+		<AdobeSignDetailsModal ref="adobeDetailsModalRef" />
+		<AdobeSignReminderModal ref="adobeReminderModalRef" @sent="refreshDocumentsSilently" />
+		<AdobeSignRecallModal ref="adobeRecallModalRef" @recalled="handleAdobeRecalled" />
 		<ImportAttachmentsDialog
 			v-model:visible="importDialogVisible"
 			:attachments="importFileList"
@@ -382,6 +530,13 @@ import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
 import DocumentSigningDialog from './signing/DocumentSigningDialog.vue';
+import AdobeSignRequestModal from './adobeSign/AdobeSignRequestModal.vue';
+import AdobeSignDetailsModal from './adobeSign/AdobeSignDetailsModal.vue';
+import AdobeSignReminderModal from './adobeSign/AdobeSignReminderModal.vue';
+import AdobeSignRecallModal from './adobeSign/AdobeSignRecallModal.vue';
+import { getAgreementByFileId } from '@/apis/ow/adobeSign';
+import type { AdobeSignAgreement } from '#adobeSign';
+import { ADOBE_SIGN_STATUS_COLORS } from '@/enums/adobeSignConstants';
 import { useI18n } from '@/hooks/useI18n';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import { formatFileSize, getMimeType } from '@/utils/format';
@@ -397,6 +552,8 @@ interface Props {
 	systemId?: string;
 	entityId?: string;
 	workflowId: string;
+	/** OW-731: Whether Adobe Sign is enabled for this Stage */
+	adobeSignEnabled?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -446,6 +603,93 @@ const signingFileId = ref<string | number>('');
 const signingFileUrl = ref('');
 const signingFileName = ref('');
 
+// OW-731: Adobe Sign 状态 & 弹窗
+const agreementMap = ref<Map<string, AdobeSignAgreement>>(new Map());
+const adobeRequestModalRef = ref<InstanceType<typeof AdobeSignRequestModal> | null>(null);
+const adobeDetailsModalRef = ref<InstanceType<typeof AdobeSignDetailsModal> | null>(null);
+const adobeReminderModalRef = ref<InstanceType<typeof AdobeSignReminderModal> | null>(null);
+const adobeRecallModalRef = ref<InstanceType<typeof AdobeSignRecallModal> | null>(null);
+const adobeActiveFileId = ref<string>('');
+
+const isPdf = (row: DocumentItem) =>
+	row.contentType === 'application/pdf' ||
+	(row.originalFileName?.toLowerCase().endsWith('.pdf') ?? false);
+
+const getAgreement = (fileId: string) => agreementMap.value.get(fileId) ?? null;
+
+const loadAgreements = async (docs: DocumentItem[]) => {
+	const pdfDocs = docs.filter(isPdf);
+	await Promise.allSettled(
+		pdfDocs.map(async (doc) => {
+			try {
+				const res = await getAgreementByFileId(doc.id);
+				// res 可能是 { success, code, data } 或直接是 AdobeSignAgreement
+				// 只有当返回值包含有效的 id 字段时，才认为是真实的协议对象
+				const ag = (res as any)?.data ?? res;
+				if (ag && ag.id) {
+					agreementMap.value.set(String(doc.id), ag);
+				} else {
+					agreementMap.value.delete(String(doc.id));
+				}
+			} catch {
+				/* silent */
+			}
+		})
+	);
+};
+
+// Adobe Sign 操作
+const openAdobeRequest = (row: DocumentItem) => {
+	adobeActiveFileId.value = String(row.id);
+	adobeRequestModalRef.value?.open({
+		fileId: String(row.id),
+		fileName: row.originalFileName,
+		onboardingId: props.onboardingId,
+		stageId: props.stageId || '',
+	});
+};
+
+const handleAdobeConfirmed = async () => {
+	await refreshDocumentsSilently();
+	await loadAgreements(documents.value);
+};
+
+const openAdobeDetails = (row: DocumentItem) => {
+	const ag = getAgreement(String(row.id));
+	if (!ag) return;
+	adobeDetailsModalRef.value?.open({
+		agreementId: ag.id,
+		fileName: row.originalFileName,
+	});
+};
+
+const openAdobeReminder = (row: DocumentItem) => {
+	const ag = getAgreement(String(row.id));
+	if (!ag) return;
+	adobeReminderModalRef.value?.open({
+		agreementId: ag.id,
+		signers: ag.signers ?? [],
+	});
+};
+
+const openAdobeRecall = (row: DocumentItem) => {
+	const ag = getAgreement(String(row.id));
+	if (!ag) return;
+	adobeRecallModalRef.value?.open({
+		agreementId: ag.id,
+		fileName: row.originalFileName,
+	});
+};
+
+const handleAdobeRecalled = async () => {
+	await refreshDocumentsSilently();
+	await loadAgreements(documents.value);
+};
+
+const handleAdobeNewSignature = (row: DocumentItem) => {
+	openAdobeRequest(row);
+};
+
 // 事件定义
 const emit = defineEmits<{
 	documentUploaded: [document: DocumentItem];
@@ -470,6 +714,10 @@ const fetchDocuments = async () => {
 						uploadedDate: timeZoneConvert(item?.uploadedDate || ''),
 					};
 				}) || [];
+			// OW-731: 批量加载 Adobe Sign 协议状态
+			if (props.adobeSignEnabled) {
+				await loadAgreements(documents.value);
+			}
 		} else {
 			documents.value = [];
 			ElMessage.error(response.msg || 'Failed to load documents');

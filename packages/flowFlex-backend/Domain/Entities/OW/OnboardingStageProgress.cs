@@ -218,6 +218,12 @@ namespace FlowFlex.Domain.Entities.OW
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
+        /// Adobe Sign Enabled (from Stage entity) - Not stored in JSON (OW-731)
+        /// </summary>
+        [JsonIgnore]
+        public bool AdobeSignEnabled { get; set; } = false;
+
+        /// <summary>
         /// Required - Indicates whether this stage is required to complete the workflow (from Stage entity) - Not stored in JSON
         /// </summary>
         [JsonIgnore]

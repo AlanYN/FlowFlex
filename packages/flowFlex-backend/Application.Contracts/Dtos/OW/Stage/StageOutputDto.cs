@@ -146,6 +146,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool AttachmentManagementNeeded { get; set; }
 
         /// <summary>
+        /// Adobe Sign Enabled - Enables legally binding signatures via Adobe Sign for PDF files in this stage
+        /// </summary>
+        public bool AdobeSignEnabled { get; set; }
+
+        /// <summary>
         /// Required - Indicates whether this stage is required to complete the workflow
         /// </summary>
         public bool Required { get; set; }
