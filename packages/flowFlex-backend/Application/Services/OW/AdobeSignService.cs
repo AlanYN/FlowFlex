@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -17,7 +18,6 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
@@ -39,6 +39,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IAdobeSignAgreementRepository _agreementRepository;
         private readonly IOnboardingFileRepository _onboardingFileRepository;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IAttachmentService _attachmentService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ISqlSugarClient _db;
@@ -52,6 +53,7 @@ namespace FlowFlex.Application.Services.OW
             IAdobeSignAgreementRepository agreementRepository,
             IOnboardingFileRepository onboardingFileRepository,
             IFileStorageService fileStorageService,
+            IAttachmentService attachmentService,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             ISqlSugarClient db,
@@ -61,6 +63,7 @@ namespace FlowFlex.Application.Services.OW
             _agreementRepository = agreementRepository;
             _onboardingFileRepository = onboardingFileRepository;
             _fileStorageService = fileStorageService;
+            _attachmentService = attachmentService;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _db = db;
@@ -90,34 +93,30 @@ namespace FlowFlex.Application.Services.OW
                     $"An active signing request already exists for file {input.SourceFileId}");
             }
 
-            // Step 1: Download source PDF bytes
-            // Use IFileStorageService.GetFileAsync with StoragePath (relative key),
-            // which works for both local and cloud (S3/OSS) storage.
+            // Step 1: Read PDF bytes using the same pattern as OnboardingFileService.DownloadFileAsync
+            // - AttachmentId == 0: special files (e.g. signed docs), use StoragePath/AccessUrl directly
+            // - AttachmentId != 0: normal uploaded files, use IAttachmentService to get the correct relative path
             byte[] pdfBytes;
-            if (!string.IsNullOrEmpty(sourceFile.StoragePath))
+            if (sourceFile.AttachmentId == 0)
             {
-                var (fileStream, _, _) = await _fileStorageService.GetFileAsync(sourceFile.StoragePath);
-                using var ms = new MemoryStream();
-                try
-                {
-                    await fileStream.CopyToAsync(ms);
-                }
-                finally
-                {
-                    await fileStream.DisposeAsync();
-                }
-                pdfBytes = ms.ToArray();
-            }
-            else if (!string.IsNullOrEmpty(sourceFile.AccessUrl))
-            {
-                // Fallback: download directly via HTTP if only AccessUrl is available
-                using var httpClient = _httpClientFactory.CreateClient();
-                pdfBytes = await httpClient.GetByteArrayAsync(sourceFile.AccessUrl);
+                var filePath = sourceFile.StoragePath ?? sourceFile.AccessUrl;
+                if (string.IsNullOrEmpty(filePath))
+                    throw new CRMException(ErrorCodeEnum.DataNotFound,
+                        $"File {input.SourceFileId} has no storage path or access URL");
+
+                var (stream, _, _) = await _fileStorageService.GetFileAsync(filePath);
+                using var ms0 = new MemoryStream();
+                try { await stream.CopyToAsync(ms0); }
+                finally { await stream.DisposeAsync(); }
+                pdfBytes = ms0.ToArray();
             }
             else
             {
-                throw new CRMException(ErrorCodeEnum.DataNotFound,
-                    $"No valid file path or URL for file {input.SourceFileId}");
+                var (attachStream, _) = await _attachmentService.GetAttachmentAsync(sourceFile.AttachmentId);
+                using var ms1 = new MemoryStream();
+                try { await attachStream.CopyToAsync(ms1); }
+                finally { await attachStream.DisposeAsync(); }
+                pdfBytes = ms1.ToArray();
             }
 
             // Step 2: Upload to Adobe Sign as transient document
@@ -604,7 +603,9 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Sync individual signer statuses from Adobe Sign API
+        /// Sync individual signer statuses from Adobe Sign API.
+        /// Only updates Status/SignedAt on existing signer records — never overwrites
+        /// the original Email/Name/Role/Order data that was set when the agreement was created.
         /// </summary>
         private async Task SyncSignerStatusesAsync(AdobeSignAgreement agreement)
         {
@@ -616,8 +617,64 @@ namespace FlowFlex.Application.Services.OW
                 if (!response.IsSuccessStatusCode) return;
 
                 var body = await response.Content.ReadAsStringAsync();
-                // Update signers JSON with latest status from Adobe Sign
-                agreement.Signers = body;
+
+                // Parse existing signers — these contain the original Email/Name/Role/Order
+                List<AdobeSignerDto> signers = new();
+                if (!string.IsNullOrEmpty(agreement.Signers))
+                {
+                    try
+                    {
+                        signers = JsonSerializer.Deserialize<List<AdobeSignerDto>>(agreement.Signers,
+                                      new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                                  ?? new List<AdobeSignerDto>();
+                    }
+                    catch { /* leave empty */ }
+                }
+
+                // Parse Adobe Sign /members response:
+                // { "participantSets": [{ "memberInfos": [{ "email": "...", "status": "...", "completionDate": "..." }] }] }
+                var membersNode = JsonNode.Parse(body);
+                var participantSets = membersNode?["participantSets"]?.AsArray();
+                if (participantSets != null)
+                {
+                    foreach (var set in participantSets)
+                    {
+                        var memberInfos = set?["memberInfos"]?.AsArray();
+                        if (memberInfos == null) continue;
+                        foreach (var member in memberInfos)
+                        {
+                            var email = member?["email"]?.GetValue<string>();
+                            var status = member?["status"]?.GetValue<string>();
+                            var completionDate = member?["completionDate"]?.GetValue<string>();
+
+                            if (string.IsNullOrEmpty(email)) continue;
+
+                            var signer = signers.FirstOrDefault(s =>
+                                string.Equals(s.Email, email, StringComparison.OrdinalIgnoreCase));
+
+                            if (signer != null)
+                            {
+                                // Map Adobe Sign status to our internal status
+                                signer.Status = status?.ToUpperInvariant() switch
+                                {
+                                    "SIGNED" or "APPROVED" or "ACCEPTED" or "FORM_FILLED" => "Signed",
+                                    "DECLINED" or "REJECTED" => "Declined",
+                                    "CANCELLED" => "Cancelled",
+                                    _ => "Awaiting"
+                                };
+
+                                if (!string.IsNullOrEmpty(completionDate) &&
+                                    DateTimeOffset.TryParse(completionDate, out var dt))
+                                {
+                                    signer.SignedAt = dt;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Persist updated signers (original Email/Name/Role/Order preserved)
+                agreement.Signers = JsonSerializer.Serialize(signers);
                 agreement.ModifyDate = DateTimeOffset.UtcNow;
                 await _db.Updateable(agreement)
                     .UpdateColumns(a => new { a.Signers, a.ModifyDate })
@@ -696,6 +753,7 @@ namespace FlowFlex.Application.Services.OW
                 SigningOrder = agreement.SigningOrder,
                 ExpirationDays = agreement.ExpirationDays,
                 Message = agreement.Message,
+                RequestedByName = agreement.CreateBy,
                 CreateDate = agreement.CreateDate,
                 CompletedDate = agreement.CompletedDate,
             };

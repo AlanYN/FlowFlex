@@ -9,6 +9,18 @@ export const ADOBE_SIGN_STATUS_COLORS: Record<AdobeAgreementStatus, string> = {
 	Cancelled: '#374151',
 };
 
+/** 状态对应的 el-tag type */
+export const ADOBE_SIGN_TAG_TYPES: Record<
+	AdobeAgreementStatus,
+	'success' | 'warning' | 'danger' | 'info' | 'primary'
+> = {
+	Awaiting: 'warning',
+	Completed: 'primary',
+	Declined: 'danger',
+	Expired: 'info',
+	Cancelled: 'info',
+};
+
 /** 过期天数选项 */
 export const ADOBE_SIGN_EXPIRATION_OPTIONS = [7, 14, 30, 60, 90] as const;
 

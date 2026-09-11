@@ -1,21 +1,18 @@
 import { defHttp } from '@/apis/axios';
 import { useGlobSetting } from '@/settings';
-import type {
-    AdobeSignAgreement,
-    RequestAdobeSignInput,
-} from '#/adobeSign';
+import type { AdobeSignAgreementApi, AdobeSignAgreement, RequestAdobeSignInput } from '#/adobeSign';
 
 const globSetting = useGlobSetting();
 
 const Api = (id?: string | number) => {
-    const base = `${globSetting.apiProName}/ow/adobe-sign/${globSetting.apiVersion}`;
-    return {
-        request: `${base}/request`,
-        getById: `${base}/${id}`,
-        getByFile: `${base}/by-file/${id}`,
-        remind: `${base}/${id}/remind`,
-        recall: `${base}/${id}`,
-    };
+	const base = `${globSetting.apiProName}/ow/adobe-sign/${globSetting.apiVersion}`;
+	return {
+		request: `${base}/request`,
+		getById: `${base}/${id}`,
+		getByFile: `${base}/by-file/${id}`,
+		remind: `${base}/${id}/remind`,
+		recall: `${base}/${id}`,
+	};
 };
 
 // ========================= 发起签署请求 =========================
@@ -27,10 +24,10 @@ const Api = (id?: string | number) => {
  * @returns 创建成功的协议详情
  */
 export function requestAdobeSign(data: RequestAdobeSignInput) {
-    return defHttp.post<AdobeSignAgreement>({
-        url: Api().request,
-        params: data,
-    });
+	return defHttp.post<AdobeSignAgreementApi<AdobeSignAgreement>>({
+		url: Api().request,
+		params: data,
+	});
 }
 
 // ========================= 查询协议 =========================
@@ -40,9 +37,9 @@ export function requestAdobeSign(data: RequestAdobeSignInput) {
  * @param id WFE 内部协议记录 ID
  */
 export function getAgreement(id: string | number) {
-    return defHttp.get<AdobeSignAgreement>({
-        url: Api(id).getById,
-    });
+	return defHttp.get<AdobeSignAgreementApi<AdobeSignAgreement>>({
+		url: Api(id).getById,
+	});
 }
 
 /**
@@ -51,9 +48,9 @@ export function getAgreement(id: string | number) {
  * @param sourceFileId 原始 PDF 文件 ID（ff_onboarding_file.id）
  */
 export function getAgreementByFileId(sourceFileId: string | number) {
-    return defHttp.get<AdobeSignAgreement | null>({
-        url: Api(sourceFileId).getByFile,
-    });
+	return defHttp.get<AdobeSignAgreementApi<AdobeSignAgreement | null>>({
+		url: Api(sourceFileId).getByFile,
+	});
 }
 
 // ========================= 发送提醒 =========================
@@ -65,10 +62,10 @@ export function getAgreementByFileId(sourceFileId: string | number) {
  * @param signerEmails 需要提醒的签署人邮箱列表
  */
 export function sendReminder(id: string | number, signerEmails: string[]) {
-    return defHttp.post<boolean>({
-        url: Api(id).remind,
-        params: { signerEmails },
-    });
+	return defHttp.post<AdobeSignAgreementApi<boolean>>({
+		url: Api(id).remind,
+		params: { signerEmails },
+	});
 }
 
 // ========================= 撤回协议 =========================
@@ -80,7 +77,7 @@ export function sendReminder(id: string | number, signerEmails: string[]) {
  * @param id WFE 内部协议记录 ID
  */
 export function recallAgreement(id: string | number) {
-    return defHttp.delete<boolean>({
-        url: Api(id).recall,
-    });
+	return defHttp.delete<AdobeSignAgreementApi<boolean>>({
+		url: Api(id).recall,
+	});
 }

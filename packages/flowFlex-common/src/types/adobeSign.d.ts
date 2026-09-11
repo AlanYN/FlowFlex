@@ -76,3 +76,11 @@ export interface AdobeSignAgreement {
 	/** 完成时间（全部签署后有值） */
 	completedDate?: string | null;
 }
+
+export interface AdobeSignAgreementApi<T> {
+	code: number | string; // API可能返回数字或字符串
+	message?: string;
+	msg?: string; // 有些API使用msg字段
+	success?: boolean;
+	data: T;
+}

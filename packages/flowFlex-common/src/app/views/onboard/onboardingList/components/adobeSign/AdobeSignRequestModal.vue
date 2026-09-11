@@ -249,13 +249,19 @@ const open = (params: {
 	stageId.value = params.stageId;
 
 	if (params.initialData) {
-		// 从 Confirm 返回时恢复之前填写的内容
+		// Re-send：回填之前的表单数据
 		const d = params.initialData;
-		signers.value = d.signers.map((s) => ({ ...s }));
+		signers.value = d.signers.map((s) => ({
+			email: s.email,
+			name: s.name,
+			role: s.role,
+			order: s.order,
+		}));
 		signingOrder.value = d.signingOrder;
 		expirationDays.value = d.expirationDays;
 		message.value = d.message || '';
 		emailErrors.value = d.signers.map(() => '');
+		step.value = 'edit';
 	} else {
 		resetForm();
 	}

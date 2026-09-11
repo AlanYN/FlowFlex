@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
@@ -237,207 +237,218 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Date" width="150">
+						<el-table-column label="Date" width="160">
 							<template #default="{ row }">
-								<div class="text-sm table-cell-content" :title="row.uploadedDate">
-									{{ row.uploadedDate }}
+								<div
+									class="text-sm text-[var(--el-text-color-regular)] table-cell-content"
+									:title="
+										row.uploadedDate ? timeZoneConvert(row.uploadedDate) : ''
+									"
+								>
+									{{ row.uploadedDate ? timeZoneConvert(row.uploadedDate) : '—' }}
 								</div>
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Status" width="280">
+						<el-table-column label="Status" width="180">
 							<template #default="{ row }">
 								<!-- Quick Sign (WFE 内置签名) -->
-								<div v-if="row.isSigned" class="flex flex-col gap-1">
-									<el-tag
-										type="success"
-										size="small"
-										effect="plain"
-										class="w-fit"
-									>
+								<el-tooltip
+									v-if="row.isSigned"
+									:disabled="!row.signerName && !row.signTime"
+									placement="top"
+									:show-after="200"
+								>
+									<template #content>
+										<div class="flex flex-col gap-0.5 text-xs leading-relaxed">
+											<span v-if="row.signerName">{{ row.signerName }}</span>
+											<span v-if="row.signTime" class="opacity-75">
+												{{ timeZoneConvert(row.signTime) }}
+											</span>
+										</div>
+									</template>
+									<el-tag type="success" size="small" effect="light">
 										Signed
+										<el-icon
+											v-if="row.signerName || row.signTime"
+											class="ml-0.5 opacity-60"
+											style="font-size: 11px"
+										>
+											<InfoFilled />
+										</el-icon>
 									</el-tag>
-									<div
-										v-if="row.signerName"
-										class="text-xs text-gray-500 dark:text-gray-400 truncate"
-										:title="row.signerName"
-									>
-										{{ row.signerName }}
-									</div>
-									<div
-										v-if="row.signTime"
-										class="text-xs text-gray-400 dark:text-gray-500 truncate"
-										:title="row.signTime"
-									>
-										{{ timeZoneConvert(row.signTime) }}
-									</div>
-								</div>
+								</el-tooltip>
 
 								<!-- Adobe Sign 状态 (OW-731) -->
-								<div
-									v-if="
+								<el-tooltip
+									v-else-if="
 										props.adobeSignEnabled &&
 										isPdf(row) &&
 										getAgreement(String(row.id))
 									"
-									class="flex flex-col gap-1"
-									:class="{ 'mt-1': row.isSigned }"
+									placement="top"
+									:show-after="200"
 								>
+									<template #content>
+										<div class="flex flex-col gap-0.5 text-xs leading-relaxed">
+											<span
+												v-if="getAgreement(String(row.id))!.requestedByName"
+											>
+												{{ getAgreement(String(row.id))!.requestedByName }}
+											</span>
+											<span class="opacity-75">
+												{{
+													timeZoneConvert(
+														getAgreement(String(row.id))!.createDate
+													)
+												}}
+											</span>
+										</div>
+									</template>
 									<el-tag
+										:type="
+											ADOBE_SIGN_TAG_TYPES[
+												getAgreement(String(row.id))!.status
+											]
+										"
 										size="small"
-										effect="dark"
-										:style="{
-											backgroundColor:
-												ADOBE_SIGN_STATUS_COLORS[
-													getAgreement(String(row.id))!.status
-												],
-											borderColor: 'transparent',
-											color: '#fff',
-										}"
-										class="w-fit"
+										effect="light"
+										class="cursor-default"
 									>
 										{{ getAgreement(String(row.id))!.status }}
+										<el-icon class="ml-0.5 opacity-60" style="font-size: 11px">
+											<InfoFilled />
+										</el-icon>
 									</el-tag>
-									<!-- Awaiting: show signer progress -->
-									<div
-										v-if="getAgreement(String(row.id))!.status === 'Awaiting'"
-										class="flex gap-1 flex-wrap mt-0.5"
-									>
-										<span
-											v-for="(signer, i) in getAgreement(String(row.id))!
-												.signers"
-											:key="i"
-											class="text-xs"
-											:style="{
-												color: signer.signedAt ? '#10B981' : '#F59E0B',
-											}"
-										>
-											{{ signer.name
-											}}{{
-												i < getAgreement(String(row.id))!.signers.length - 1
-													? ','
-													: ''
-											}}
-										</span>
-									</div>
-									<!-- Actions for Awaiting -->
-									<div
-										v-if="getAgreement(String(row.id))!.status === 'Awaiting'"
-										class="flex gap-1 mt-1"
-									>
-										<el-button
-											size="small"
-											text
-											type="primary"
-											@click="openAdobeDetails(row)"
-										>
-											View Details
-										</el-button>
-										<el-button
-											size="small"
-											text
-											@click="openAdobeReminder(row)"
-										>
-											Remind
-										</el-button>
-										<el-button
-											size="small"
-											text
-											type="danger"
-											@click="openAdobeRecall(row)"
-										>
-											Recall
-										</el-button>
-									</div>
-									<!-- Actions for Completed -->
-									<div
-										v-else-if="
-											getAgreement(String(row.id))!.status === 'Completed'
-										"
-										class="mt-1"
-									>
-										<el-button
-											size="small"
-											text
-											type="primary"
-											@click="openAdobeDetails(row)"
-										>
-											View Details
-										</el-button>
-									</div>
-									<!-- Actions for Declined/Expired -->
-									<div
-										v-else-if="
-											['Declined', 'Expired'].includes(
-												getAgreement(String(row.id))!.status
-											)
-										"
-										class="flex gap-1 mt-1"
-									>
-										<el-button
-											size="small"
-											text
-											type="primary"
-											@click="openAdobeDetails(row)"
-										>
-											View Details
-										</el-button>
-										<el-button
-											size="small"
-											text
-											@click="handleAdobeNewSignature(row)"
-										>
-											Re-send
-										</el-button>
-									</div>
-								</div>
+								</el-tooltip>
 
-								<span v-else class="text-xs text-gray-400">—</span>
+								<span
+									v-else
+									class="text-xs text-[var(--el-text-color-placeholder)]"
+								>
+									—
+								</span>
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Actions" width="100" fixed="right">
+						<el-table-column label="Actions" width="140" fixed="right">
 							<template #default="{ row }">
-								<div class="flex justify-between space-x-1 flex-wrap gap-y-1">
-									<el-button
-										type="primary"
-										link
-										:disabled="viewDocumentIds.includes(row.id)"
-										:loading="viewDocumentIds.includes(row.id)"
-										@click="handleViewDocument(row)"
-										:icon="View"
-									/>
-									<!-- OW-731: Request Legal Sign button — 始终显示，有活跃协议时 disabled -->
-									<el-tooltip
-										v-if="props.adobeSignEnabled && isPdf(row) && !row.isSigned"
-										:content="
-											getAgreement(String(row.id))?.status === 'Awaiting'
-												? 'Signing in progress'
-												: 'Request Legal Sign'
+								<div class="flex items-center gap-x-1 flex-wrap">
+									<!-- Preview -->
+									<div>
+										<el-tooltip content="Preview" placement="top">
+											<el-button
+												type="primary"
+												link
+												:disabled="viewDocumentIds.includes(row.id)"
+												:loading="viewDocumentIds.includes(row.id)"
+												@click="handleViewDocument(row)"
+												:icon="View"
+											/>
+										</el-tooltip>
+									</div>
+
+									<!-- Adobe Sign 操作按钮 -->
+									<template
+										v-if="
+											props.adobeSignEnabled &&
+											isPdf(row) &&
+											getAgreement(String(row.id))
 										"
-										placement="top"
 									>
-										<el-button
-											type="primary"
-											link
-											:disabled="
-												disabled ||
-												adobeSubmitting ||
-												getAgreement(String(row.id))?.status === 'Awaiting'
+										<!-- Details（始终显示） -->
+										<div>
+											<el-tooltip content="Details" placement="top">
+												<el-button
+													type="primary"
+													link
+													:icon="InfoFilled"
+													@click="openAdobeDetails(row)"
+												/>
+											</el-tooltip>
+										</div>
+										<!-- Remind + Recall（Awaiting 状态） -->
+										<div
+											v-if="
+												getAgreement(String(row.id))!.status === 'Awaiting'
 											"
-											@click="openAdobeRequest(row)"
 										>
-											✍
-										</el-button>
-									</el-tooltip>
-									<el-button
-										v-if="!row.isSigned"
-										type="danger"
-										link
-										:disabled="viewDocumentIds.includes(row.id) || disabled"
-										@click="handleDeleteDocument(row.id)"
-										:icon="Delete"
-									/>
+											<el-tooltip content="Send Reminder" placement="top">
+												<el-button
+													type="warning"
+													link
+													:icon="Bell"
+													@click="openAdobeReminder(row)"
+												/>
+											</el-tooltip>
+										</div>
+										<div
+											v-if="
+												getAgreement(String(row.id))!.status === 'Awaiting'
+											"
+										>
+											<el-tooltip content="Recall" placement="top">
+												<el-button
+													type="danger"
+													link
+													:icon="RefreshLeft"
+													@click="openAdobeRecall(row)"
+												/>
+											</el-tooltip>
+										</div>
+										<!-- Re-send（Declined / Expired） -->
+										<div
+											v-else-if="
+												['Declined', 'Expired'].includes(
+													getAgreement(String(row.id))!.status
+												)
+											"
+										>
+											<el-tooltip content="Re-send" placement="top">
+												<el-button
+													type="primary"
+													link
+													:icon="Refresh"
+													@click="handleAdobeNewSignature(row)"
+												/>
+											</el-tooltip>
+										</div>
+									</template>
+
+									<!-- OW-731: Request Legal Sign（无协议时才显示） -->
+									<div
+										v-if="
+											props.adobeSignEnabled &&
+											isPdf(row) &&
+											!row.isSigned &&
+											!getAgreement(String(row.id))
+										"
+									>
+										<el-tooltip content="Request Legal Sign" placement="top">
+											<el-button
+												type="primary"
+												link
+												:disabled="disabled"
+												@click="openAdobeRequest(row)"
+												:icon="EditPen"
+											/>
+										</el-tooltip>
+									</div>
+
+									<!-- Delete -->
+									<div v-if="!row.isSigned">
+										<el-tooltip content="Delete" placement="top">
+											<el-button
+												type="danger"
+												link
+												:disabled="
+													viewDocumentIds.includes(row.id) || disabled
+												"
+												@click="handleDeleteDocument(row.id)"
+												:icon="Delete"
+											/>
+										</el-tooltip>
+									</div>
 								</div>
 							</template>
 						</el-table-column>
@@ -511,6 +522,11 @@ import {
 	Download,
 	WarningFilled,
 	Close,
+	EditPen,
+	InfoFilled,
+	Bell,
+	RefreshLeft,
+	Refresh,
 } from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
@@ -535,8 +551,8 @@ import AdobeSignDetailsModal from './adobeSign/AdobeSignDetailsModal.vue';
 import AdobeSignReminderModal from './adobeSign/AdobeSignReminderModal.vue';
 import AdobeSignRecallModal from './adobeSign/AdobeSignRecallModal.vue';
 import { getAgreementByFileId } from '@/apis/ow/adobeSign';
-import type { AdobeSignAgreement } from '#adobeSign';
-import { ADOBE_SIGN_STATUS_COLORS } from '@/enums/adobeSignConstants';
+import type { AdobeSignAgreement } from '#/adobeSign';
+import { ADOBE_SIGN_TAG_TYPES } from '@/enums/adobeSignConstants';
 import { useI18n } from '@/hooks/useI18n';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import { formatFileSize, getMimeType } from '@/utils/format';
@@ -687,7 +703,25 @@ const handleAdobeRecalled = async () => {
 };
 
 const handleAdobeNewSignature = (row: DocumentItem) => {
-	openAdobeRequest(row);
+	const ag = getAgreement(String(row.id));
+	adobeActiveFileId.value = String(row.id);
+	adobeRequestModalRef.value?.open({
+		fileId: String(row.id),
+		fileName: row.originalFileName,
+		onboardingId: props.onboardingId,
+		stageId: props.stageId || '',
+		initialData: ag
+			? {
+					onboardingId: props.onboardingId,
+					stageId: props.stageId || '',
+					sourceFileId: String(row.id),
+					signers: ag.signers ?? [],
+					signingOrder: ag.signingOrder,
+					expirationDays: ag.expirationDays,
+					message: ag.message ?? '',
+			  }
+			: undefined,
+	});
 };
 
 // 事件定义

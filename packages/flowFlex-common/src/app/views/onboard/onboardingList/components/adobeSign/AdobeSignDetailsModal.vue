@@ -22,7 +22,11 @@
 				</div>
 				<div class="flex items-center gap-2">
 					<span class="text-gray-500">Status:</span>
-					<el-tag :color="statusColor" effect="dark">
+					<el-tag
+						:type="ADOBE_SIGN_TAG_TYPES[agreement.status]"
+						effect="light"
+						size="small"
+					>
 						{{ agreement.status }}
 					</el-tag>
 				</div>
@@ -89,21 +93,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { Document, Loading } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { getAgreement } from '@/apis/ow/adobeSign';
 import type { AdobeSignAgreement } from '#/adobeSign';
-import { ADOBE_SIGN_STATUS_COLORS } from '@/enums/adobeSignConstants';
+import { ADOBE_SIGN_TAG_TYPES } from '@/enums/adobeSignConstants';
 
 const visible = ref(false);
 const fileName = ref('');
 const loading = ref(false);
 const agreement = ref<AdobeSignAgreement | null>(null);
-
-const statusColor = computed(() =>
-	agreement.value ? ADOBE_SIGN_STATUS_COLORS[agreement.value.status] : '#6B7280'
-);
 
 const open = async (params: { agreementId: string | number; fileName?: string }) => {
 	fileName.value = params.fileName || '';
