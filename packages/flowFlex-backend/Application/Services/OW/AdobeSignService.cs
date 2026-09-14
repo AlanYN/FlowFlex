@@ -214,7 +214,8 @@ namespace FlowFlex.Application.Services.OW
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("[AdobeSign] SendReminder failed. AgreementId={Id}, Status={Status}, Body={Body}",
                     agreement.AgreementId, response.StatusCode, error);
-                return false;
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to send reminder via Adobe Sign (HTTP {(int)response.StatusCode})");
             }
 
             _logger.LogInformation("[AdobeSign] Reminder sent. AgreementId={Id}, Recipients={Count}",
@@ -253,7 +254,8 @@ namespace FlowFlex.Application.Services.OW
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("[AdobeSign] RecallAgreement failed. AgreementId={Id}, Status={Status}, Body={Body}",
                     agreement.AgreementId, response.StatusCode, error);
-                return false;
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to recall agreement via Adobe Sign (HTTP {(int)response.StatusCode})");
             }
 
             // Update local status
@@ -730,7 +732,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 try
                 {
-                    signers = JsonSerializer.Deserialize<List<AdobeSignerDto>>(agreement.Signers)
+                    signers = JsonSerializer.Deserialize<List<AdobeSignerDto>>(agreement.Signers,
+                                  new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                               ?? new List<AdobeSignerDto>();
                 }
                 catch

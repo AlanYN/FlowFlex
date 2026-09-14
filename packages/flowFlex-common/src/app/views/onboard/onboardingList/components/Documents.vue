@@ -279,13 +279,9 @@
 									</el-tag>
 								</el-tooltip>
 
-								<!-- Adobe Sign 状态 (OW-731) -->
+								<!-- Adobe Sign 状态 (OW-731)：有协议时始终显示，与开关无关 -->
 								<el-tooltip
-									v-else-if="
-										props.adobeSignEnabled &&
-										isPdf(row) &&
-										getAgreement(String(row.id))
-									"
+									v-else-if="isPdf(row) && getAgreement(String(row.id))"
 									placement="top"
 									:show-after="200"
 								>
@@ -331,9 +327,9 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Actions" width="140" fixed="right">
+						<el-table-column label="Actions" :width="actionsColumnWidth" fixed="right">
 							<template #default="{ row }">
-								<div class="flex items-center gap-x-1 flex-wrap">
+								<div class="flex items-center justify-between flex-wrap">
 									<!-- Preview -->
 									<div>
 										<el-tooltip content="Preview" placement="top">
@@ -348,14 +344,8 @@
 										</el-tooltip>
 									</div>
 
-									<!-- Adobe Sign 操作按钮 -->
-									<template
-										v-if="
-											props.adobeSignEnabled &&
-											isPdf(row) &&
-											getAgreement(String(row.id))
-										"
-									>
+									<!-- Adobe Sign 操作按钮（有协议时始终显示，与开关无关） -->
+									<template v-if="isPdf(row) && getAgreement(String(row.id))">
 										<!-- Details（始终显示） -->
 										<div>
 											<el-tooltip content="Details" placement="top">
@@ -508,7 +498,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 import {
@@ -633,6 +623,31 @@ const isPdf = (row: DocumentItem) =>
 
 const getAgreement = (fileId: string) => agreementMap.value.get(fileId) ?? null;
 
+/** 根据当前文档列表中最多的按钮数动态计算 Actions 列宽度 */
+const actionsColumnWidth = computed(() => {
+	if (!documents.value.length) return 100;
+
+	const maxButtons = documents.value.reduce((max, row) => {
+		let count = 1; // Preview 始终存在
+		const ag = getAgreement(String(row.id));
+		if (ag) {
+			count += 1; // Details
+			if (ag.status === 'Awaiting') {
+				count += 2; // Remind + Recall
+			} else if (['Declined', 'Expired'].includes(ag.status)) {
+				count += 1; // Re-send
+			}
+		} else if (props.adobeSignEnabled && isPdf(row) && !row.isSigned) {
+			count += 1; // Request Legal Sign
+		}
+		if (!row.isSigned) count += 1; // Delete
+		return Math.max(max, count);
+	}, 1);
+
+	// 每个 icon link 按钮约 28px，gap 4px，左右 padding 16px
+	return Math.max(80, maxButtons * 28 + (maxButtons - 1) * 4 + 16);
+});
+
 const loadAgreements = async (docs: DocumentItem[]) => {
 	const pdfDocs = docs.filter(isPdf);
 	await Promise.allSettled(
@@ -685,6 +700,8 @@ const openAdobeReminder = (row: DocumentItem) => {
 	adobeReminderModalRef.value?.open({
 		agreementId: ag.id,
 		signers: ag.signers ?? [],
+		signingOrder: ag.signingOrder,
+		message: ag.message ?? '',
 	});
 };
 

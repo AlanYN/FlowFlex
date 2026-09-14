@@ -31,55 +31,88 @@
 
 			<!-- Signers -->
 			<el-form-item label="Signers">
-				<div class="w-full space-y-3">
-					<div
-						v-for="(signer, index) in signers"
-						:key="index"
-						class="border border-[var(--el-border-color)] rounded-[var(--el-border-radius-base)] p-3"
+				<div class="w-full">
+					<!-- 签名人列表：限高可滚动 + 拖拽排序 -->
+					<draggable
+						v-model="signers"
+						item-key="order"
+						handle=".signer-drag-handle"
+						ghost-class="signer-ghost"
+						class="space-y-2 max-h-64 overflow-y-auto pr-1 mb-2"
+						:scroll="true"
+						:scroll-sensitivity="60"
+						:scroll-speed="12"
+						@end="onSignerDragEnd"
 					>
-						<div class="flex-1 space-y-2">
-							<!-- Email -->
-							<div>
-								<el-input
-									v-model="signer.email"
-									placeholder="Email *"
-									:class="{ 'is-error': emailErrors[index] }"
-									@blur="validateEmail(index)"
-									@input="clearEmailError(index)"
-								/>
-								<p
-									v-if="emailErrors[index]"
-									class="text-xs text-[var(--el-color-danger)] mt-1"
+						<template #item="{ element: signer, index }">
+							<div
+								class="flex items-start gap-2 border border-[var(--el-border-color)] rounded-[var(--el-border-radius-base)] p-3"
+							>
+								<!-- 拖动把手 -->
+								<div
+									class="signer-drag-handle flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-[var(--el-text-color-placeholder)] hover:text-[var(--el-text-color-secondary)] transition-colors"
+									title="Drag to reorder"
 								>
-									{{ emailErrors[index] }}
-								</p>
-							</div>
-							<!-- Name + Role + Remove -->
-							<div class="grid grid-cols-2 gap-2">
-								<el-input v-model="signer.name" placeholder="Name *" />
-								<div class="flex gap-2">
-									<el-select v-model="signer.role" class="flex-1">
-										<el-option
-											v-for="role in ADOBE_SIGNER_ROLES"
-											:key="role"
-											:label="role"
-											:value="role"
-										/>
-									</el-select>
-									<el-button
-										link
-										type="danger"
-										:disabled="signers.length <= 1"
-										@click="removeSigner(index)"
+									<svg
+										width="12"
+										height="16"
+										viewBox="0 0 12 16"
+										fill="currentColor"
 									>
-										Remove
-									</el-button>
+										<circle cx="4" cy="3" r="1.5" />
+										<circle cx="8" cy="3" r="1.5" />
+										<circle cx="4" cy="8" r="1.5" />
+										<circle cx="8" cy="8" r="1.5" />
+										<circle cx="4" cy="13" r="1.5" />
+										<circle cx="8" cy="13" r="1.5" />
+									</svg>
+								</div>
+
+								<div class="flex-1 space-y-2 min-w-0">
+									<!-- Email -->
+									<div>
+										<el-input
+											v-model="signer.email"
+											placeholder="Email *"
+											:class="{ 'is-error': emailErrors[index] }"
+											@blur="validateEmail(index)"
+											@input="clearEmailError(index)"
+										/>
+										<p
+											v-if="emailErrors[index]"
+											class="text-xs text-[var(--el-color-danger)] mt-1"
+										>
+											{{ emailErrors[index] }}
+										</p>
+									</div>
+									<!-- Name + Role + Remove -->
+									<div class="grid grid-cols-2 gap-2">
+										<el-input v-model="signer.name" placeholder="Name *" />
+										<div class="flex gap-2">
+											<el-select v-model="signer.role" class="flex-1">
+												<el-option
+													v-for="role in ADOBE_SIGNER_ROLES"
+													:key="role"
+													:label="role"
+													:value="role"
+												/>
+											</el-select>
+											<el-button
+												link
+												type="danger"
+												:disabled="signers.length <= 1"
+												@click="removeSigner(index)"
+											>
+												Remove
+											</el-button>
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
-					</div>
+						</template>
+					</draggable>
 
-					<!-- Add Signer 按钮放在列表右下方 -->
+					<!-- Add Signer 按钮：在滚动区外 -->
 					<div class="flex justify-end">
 						<el-button
 							link
@@ -91,7 +124,10 @@
 						</el-button>
 					</div>
 
-					<p v-if="signers.length >= 10" class="text-xs text-[var(--el-color-warning)]">
+					<p
+						v-if="signers.length >= 10"
+						class="text-xs text-[var(--el-color-warning)] mt-1"
+					>
 						Maximum 10 signers allowed.
 					</p>
 				</div>
@@ -213,6 +249,7 @@
 import { ref } from 'vue';
 import { Document, WarningFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import draggable from 'vuedraggable';
 import type { RequestAdobeSignInput, AdobeSigner, AdobeSigningOrder } from '#/adobeSign';
 import { ADOBE_SIGNER_ROLES, ADOBE_SIGN_EXPIRATION_OPTIONS } from '@/enums/adobeSignConstants';
 import { requestAdobeSign } from '@/apis/ow/adobeSign';
@@ -298,6 +335,14 @@ const removeSigner = (index: number) => {
 	});
 };
 
+// 拖拽结束后同步 order 字段
+const onSignerDragEnd = () => {
+	signers.value.forEach((s, i) => {
+		s.order = i + 1;
+	});
+	emailErrors.value = signers.value.map((_, i) => emailErrors.value[i] ?? '');
+};
+
 const validateEmail = (index: number) => {
 	const email = signers.value[index].email;
 	if (!email) {
@@ -355,3 +400,12 @@ const handleConfirm = async () => {
 	}
 };
 </script>
+
+<style scoped>
+.signer-ghost {
+	opacity: 0.4;
+	background: var(--el-color-primary-light-9);
+	border: 1px dashed var(--el-color-primary-light-5) !important;
+	border-radius: var(--el-border-radius-base);
+}
+</style>

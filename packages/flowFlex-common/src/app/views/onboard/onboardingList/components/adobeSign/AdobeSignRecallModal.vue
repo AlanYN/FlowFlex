@@ -74,12 +74,14 @@ const handleClose = () => {
 const handleRecall = async () => {
 	submitting.value = true;
 	try {
-		await recallAgreement(agreementId.value);
-		ElMessage.success('Signature request recalled');
-		emit('recalled');
-		visible.value = false;
-	} catch {
-		ElMessage.error('Failed to recall the request');
+		const res = await recallAgreement(agreementId.value);
+		if (res.code == 200) {
+			ElMessage.success('Signature request recalled');
+			emit('recalled');
+			visible.value = false;
+		} else {
+			res?.msg && ElMessage.error(res.msg);
+		}
 	} finally {
 		submitting.value = false;
 	}
