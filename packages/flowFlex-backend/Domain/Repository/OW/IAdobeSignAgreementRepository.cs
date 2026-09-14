@@ -25,5 +25,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         /// <param name="adobeAgreementId">Agreement ID returned by Adobe Sign API</param>
         Task<AdobeSignAgreement?> GetByAgreementIdAsync(string adobeAgreementId);
+
+        /// <summary>
+        /// Get all Awaiting agreements for an onboarding case (pending signatures)
+        /// </summary>
+        Task<List<AdobeSignAgreement>> GetPendingByOnboardingIdAsync(long onboardingId);
     }
 }

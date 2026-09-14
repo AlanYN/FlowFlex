@@ -10,6 +10,7 @@ const Api = (id?: string | number) => {
 		request: `${base}/request`,
 		getById: `${base}/${id}`,
 		getByFile: `${base}/by-file/${id}`,
+		pending: `${base}/pending/${id}`,
 		remind: `${base}/${id}/remind`,
 		recall: `${base}/${id}`,
 	};
@@ -79,5 +80,26 @@ export function sendReminder(id: string | number, signerEmails: string[]) {
 export function recallAgreement(id: string | number) {
 	return defHttp.delete<AdobeSignAgreementApi<boolean>>({
 		url: Api(id).recall,
+	});
+}
+
+// ========================= Force Complete 前置检查 =========================
+
+export interface PendingSignatureItem {
+	agreementId: string;
+	fileName: string;
+	stageName: string;
+	pendingSignerCount: number;
+	totalSignerCount: number;
+	createdAt: string;
+}
+
+/**
+ * 查询某个 Case 下待签署（Awaiting）的协议列表，含文件名、阶段名、签名人进度
+ * 用于 Force Complete 前弹窗提示用户哪些文件仍在等待签名
+ */
+export function getPendingSignatures(onboardingId: string | number) {
+	return defHttp.get<AdobeSignAgreementApi<PendingSignatureItem[]>>({
+		url: Api(onboardingId).pending,
 	});
 }

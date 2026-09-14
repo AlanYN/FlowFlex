@@ -70,7 +70,6 @@ export interface SearchParams {
 	workFlowId: string;
 	caseCode: string;
 	caseName: string;
-	lifeCycleStageName: string;
 	currentStageId: string;
 	updatedBy: string;
 	priority: string;

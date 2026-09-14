@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.AdobeSign;
 using FlowFlex.Domain.Shared;
-
 namespace FlowFlex.Application.Contracts.IServices.OW
 {
     /// <summary>
@@ -54,5 +53,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="eventType">Adobe Sign event type (e.g. AGREEMENT_WORKFLOW_COMPLETED)</param>
         /// <param name="adobeAgreementId">The agreement ID from Adobe Sign</param>
         Task HandleWebhookAsync(string eventType, string adobeAgreementId);
+
+        /// <summary>
+        /// Get the list of Awaiting (pending) agreements for a specific onboarding case,
+        /// including file names and signer counts. Used by Force Complete to warn the user.
+        /// </summary>
+        Task<List<PendingSignatureDto>> GetPendingSignaturesAsync(long onboardingId);
     }
 }

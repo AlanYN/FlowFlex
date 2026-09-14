@@ -129,6 +129,25 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         // ------------------------------------------------------------------ //
+        //  GET v1/pending/{onboardingId} — List pending signatures before Force Complete
+        // ------------------------------------------------------------------ //
+
+        /// <summary>
+        /// Get the list of in-progress (Awaiting) Adobe Sign agreements for an onboarding case,
+        /// including file names, stage names, and signer counts.
+        /// Called by the frontend before Force Complete to show the user which documents
+        /// are still waiting for signatures.
+        /// </summary>
+        /// <param name="onboardingId">Onboarding case ID.</param>
+        [HttpGet("pending/{onboardingId:long}")]
+        [ProducesResponseType<SuccessResponse<List<AdobeSignAgreementOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetPendingSignatures([FromRoute] long onboardingId)
+        {
+            var data = await _adobeSignService.GetPendingSignaturesAsync(onboardingId);
+            return Success(data);
+        }
+
+        // ------------------------------------------------------------------ //
         //  POST v1/webhook — Adobe Sign Webhook callback (no auth required)
         // ------------------------------------------------------------------ //
 

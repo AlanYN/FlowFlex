@@ -45,6 +45,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly ISqlSugarClient _db;
         private readonly ILogger<AdobeSignService> _logger;
         private readonly UserContext _userContext;
+        private readonly IWorkflowTriggerLogRepository _triggerLogRepository;
 
         // Config section key
         private const string ConfigSection = "AdobeSign";
@@ -58,7 +59,8 @@ namespace FlowFlex.Application.Services.OW
             IConfiguration configuration,
             ISqlSugarClient db,
             ILogger<AdobeSignService> logger,
-            UserContext userContext)
+            UserContext userContext,
+            IWorkflowTriggerLogRepository triggerLogRepository)
         {
             _agreementRepository = agreementRepository;
             _onboardingFileRepository = onboardingFileRepository;
@@ -69,6 +71,7 @@ namespace FlowFlex.Application.Services.OW
             _db = db;
             _logger = logger;
             _userContext = userContext;
+            _triggerLogRepository = triggerLogRepository;
         }
 
         // ------------------------------------------------------------------ //
@@ -267,6 +270,67 @@ namespace FlowFlex.Application.Services.OW
 
             _logger.LogInformation("[AdobeSign] Agreement recalled. WFE ID={Id}", id);
             return true;
+        }
+
+        // ------------------------------------------------------------------ //
+        //  GetPendingSignaturesAsync
+        // ------------------------------------------------------------------ //
+
+        /// <inheritdoc />
+        public async Task<List<PendingSignatureDto>> GetPendingSignaturesAsync(long onboardingId)
+        {
+            var pendingAgreements = await _agreementRepository.GetPendingByOnboardingIdAsync(onboardingId);
+            if (!pendingAgreements.Any()) return new List<PendingSignatureDto>();
+
+            // Batch-load all source files and stages to avoid N+1
+            var fileIds = pendingAgreements.Select(a => a.SourceFileId).Distinct().ToList();
+            var stageIds = pendingAgreements.Select(a => a.StageId).Distinct().ToList();
+
+            var files = await _db.Queryable<OnboardingFile>()
+                .Where(f => fileIds.Contains(f.Id) && f.IsValid == true)
+                .ToListAsync();
+
+            var stages = await _db.Queryable<Stage>()
+                .Where(s => stageIds.Contains(s.Id) && s.IsValid == true)
+                .ToListAsync();
+
+            var fileMap = files.ToDictionary(f => f.Id);
+            var stageMap = stages.ToDictionary(s => s.Id);
+
+            var result = new List<PendingSignatureDto>();
+            foreach (var ag in pendingAgreements)
+            {
+                fileMap.TryGetValue(ag.SourceFileId, out var sourceFile);
+                stageMap.TryGetValue(ag.StageId, out var stage);
+
+                // Count signers who have not yet signed
+                List<AdobeSignerDto> signers = new();
+                if (!string.IsNullOrEmpty(ag.Signers))
+                {
+                    try
+                    {
+                        signers = JsonSerializer.Deserialize<List<AdobeSignerDto>>(ag.Signers,
+                                      new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                                  ?? new();
+                    }
+                    catch { /* use empty list */ }
+                }
+
+                var pendingCount = signers.Count(s => s.SignedAt == null
+                    && s.Status != "Declined" && s.Status != "Cancelled");
+
+                result.Add(new PendingSignatureDto
+                {
+                    AgreementId       = ag.Id.ToString(),
+                    FileName          = sourceFile?.OriginalFileName ?? "Unknown file",
+                    StageName         = stage?.Name ?? "Unknown stage",
+                    PendingSignerCount = pendingCount > 0 ? pendingCount : signers.Count,
+                    TotalSignerCount  = signers.Count,
+                    CreatedAt         = ag.CreateDate,
+                });
+            }
+
+            return result;
         }
 
         // ------------------------------------------------------------------ //
@@ -472,7 +536,10 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Download signed PDF and Audit Trail from Adobe Sign, then save them to ff_onboarding_file
+        /// Download signed PDF and Audit Trail from Adobe Sign, then save them to ff_onboarding_file.
+        /// Works for both active and Force Completed cases — the signing flow continues regardless of case status.
+        /// After archiving, also syncs the signed file to any downstream Cases that were triggered
+        /// from the same source Case via the Workflow Trigger Graph.
         /// </summary>
         private async Task ArchiveSignedDocumentsAsync(AdobeSignAgreement agreement)
         {
@@ -535,12 +602,114 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation(
                     "[AdobeSign] Documents archived. AgreementId={Id}, SignedFile={SignedId}, AuditFile={AuditId}",
                     agreement.AgreementId, agreement.SignedFileId, agreement.AuditTrailFileId);
+
+                // Sync signed documents to downstream Cases triggered from the same source Case
+                if (agreement.SignedFileId.HasValue)
+                {
+                    await SyncSignedDocumentToDownstreamCasesAsync(agreement);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
                     "[AdobeSign] Error archiving signed documents. AgreementId={Id}", agreement.AgreementId);
                 // Don't rethrow — Webhook must return 200 regardless
+            }
+        }
+
+        /// <summary>
+        /// After signing completes, copy the signed document to all downstream Cases
+        /// that were created by the Workflow Trigger Graph from the same source Case.
+        /// This ensures downstream cases always have the latest signed version.
+        /// </summary>
+        private async Task SyncSignedDocumentToDownstreamCasesAsync(AdobeSignAgreement agreement)
+        {
+            try
+            {
+                // Find all downstream Cases triggered from the source Case
+                var triggerLogs = await _triggerLogRepository.GetBySourceOnboardingIdAsync(agreement.OnboardingId);
+                var downstreamIds = triggerLogs
+                    .Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue)
+                    .Select(l => l.TargetOnboardingId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (!downstreamIds.Any())
+                {
+                    _logger.LogDebug(
+                        "[AdobeSign] No downstream cases to sync for OnboardingId={Id}", agreement.OnboardingId);
+                    return;
+                }
+
+                // Load the signed file record that was just saved
+                var signedFile = await _onboardingFileRepository.GetByIdAsync(agreement.SignedFileId!.Value);
+                if (signedFile == null)
+                {
+                    _logger.LogWarning("[AdobeSign] Signed file {Id} not found for downstream sync", agreement.SignedFileId);
+                    return;
+                }
+
+                var now = DateTimeOffset.UtcNow;
+
+                foreach (var downstreamId in downstreamIds)
+                {
+                    // Check if a copy for this downstream Case already exists (idempotent)
+                    var existing = await _db.Queryable<OnboardingFile>()
+                        .Where(f => f.OnboardingId == downstreamId
+                                 && f.SourceFileId == signedFile.Id
+                                 && f.IsValid == true)
+                        .FirstAsync();
+
+                    if (existing != null)
+                    {
+                        _logger.LogDebug(
+                            "[AdobeSign] Signed file already synced to downstream Case {DownstreamId}, skipping",
+                            downstreamId);
+                        continue;
+                    }
+
+                    // Copy the signed file record to the downstream Case
+                    // StageId is intentionally null — the downstream case may have different stages
+                    var downstreamFile = new OnboardingFile
+                    {
+                        OnboardingId     = downstreamId,
+                        StageId          = null,
+                        AttachmentId     = 0,
+                        OriginalFileName = signedFile.OriginalFileName,
+                        StoredFileName   = signedFile.StoredFileName,
+                        FileExtension    = signedFile.FileExtension,
+                        FileSize         = signedFile.FileSize,
+                        ContentType      = signedFile.ContentType,
+                        Category         = signedFile.Category,
+                        AccessUrl        = signedFile.AccessUrl,
+                        StoragePath      = signedFile.StoragePath,
+                        UploadedById     = signedFile.UploadedById,
+                        UploadedDate     = now,
+                        Status           = "Active",
+                        Version          = 1,
+                        Source           = "AdobeSign",
+                        // SourceFileId links back to the signed file in the source Case for traceability
+                        SourceFileId     = signedFile.Id,
+                    };
+                    downstreamFile.TenantId   = agreement.TenantId;
+                    downstreamFile.AppCode    = agreement.AppCode;
+                    downstreamFile.CreateDate = now;
+                    downstreamFile.ModifyDate = now;
+                    downstreamFile.IsValid    = true;
+
+                    await _db.Insertable(downstreamFile).ExecuteCommandAsync();
+
+                    _logger.LogInformation(
+                        "[AdobeSign] Signed file synced to downstream Case {DownstreamId}. SignedFileId={FileId}",
+                        downstreamId, signedFile.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "[AdobeSign] Failed to sync signed documents to downstream cases. AgreementId={Id}",
+                    agreement.AgreementId);
+                // Non-critical — don't rethrow
             }
         }
 

@@ -39,5 +39,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 .Where(a => a.AgreementId == adobeAgreementId && a.IsValid == true)
                 .FirstAsync();
         }
+
+        /// <inheritdoc />
+        public async Task<List<AdobeSignAgreement>> GetPendingByOnboardingIdAsync(long onboardingId)
+        {
+            return await db.Queryable<AdobeSignAgreement>()
+                .Where(a => a.OnboardingId == onboardingId && a.Status == "Awaiting" && a.IsValid == true)
+                .OrderByDescending(a => a.CreateDate)
+                .ToListAsync();
+        }
     }
 }
