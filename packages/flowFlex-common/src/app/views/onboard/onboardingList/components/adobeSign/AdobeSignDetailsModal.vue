@@ -195,9 +195,11 @@ const open = async (params: { agreementId: string | number; fileName?: string })
 	loading.value = true;
 	try {
 		const res = await getAgreement(params.agreementId);
-		agreement.value = (res as any)?.data ?? res;
-	} catch {
-		ElMessage.error('Failed to load signature details');
+		if (res.code == 200) {
+			agreement.value = (res as any)?.data ?? res;
+		} else {
+			res?.msg && ElMessage.error(res.msg);
+		}
 	} finally {
 		loading.value = false;
 	}
