@@ -559,6 +559,10 @@
 					:work-flow-view-teams="workflow?.viewTeams"
 					:work-flow-view-permission-mode="workflow?.viewPermissionMode"
 					:work-flow-view-use-same-team-for-operate="workflow?.useSameTeamForOperate"
+					:work-flow-effective-runtime-view-teams="(workflow as any)?.effectiveRuntimeViewTeams || []"
+					:work-flow-effective-runtime-operate-teams="(workflow as any)?.effectiveRuntimeOperateTeams || []"
+					:work-flow-effective-runtime-view-permission-mode="(workflow as any)?.effectiveRuntimeViewPermissionMode"
+					:effective-roll-back-teams="(currentStage as any)?.effectiveRollBackTeams || []"
 					:is-editing="isEditingStage"
 					:loading="isEditingStage ? loading.updateStage : loading.createStage"
 					:checklists="checklists"
@@ -1408,6 +1412,20 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			operateTeams: updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
 			useSameTeamForOperate:
 				updatedWorkflow.useSameTeamForOperate ?? workflow.value.useSameTeamForOperate,
+			// Runtime 权限字段
+			runtimeUseSameAsTemplate:
+				(updatedWorkflow as any).runtimeUseSameAsTemplate !== undefined
+					? (updatedWorkflow as any).runtimeUseSameAsTemplate
+					: (workflow.value as any).runtimeUseSameAsTemplate ?? true,
+			runtimeViewPermissionMode:
+				(updatedWorkflow as any).runtimeViewPermissionMode ??
+				(workflow.value as any).runtimeViewPermissionMode ?? 0,
+			runtimeViewTeams:
+				(updatedWorkflow as any).runtimeViewTeams ??
+				(workflow.value as any).runtimeViewTeams ?? [],
+			runtimeOperateTeams:
+				(updatedWorkflow as any).runtimeOperateTeams ??
+				(workflow.value as any).runtimeOperateTeams ?? [],
 		};
 
 		// 调用更新工作流API

@@ -1,3 +1,4 @@
+using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
@@ -129,6 +130,36 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// </summary>
         /// <returns>True if user has permission</returns>
         Task<bool> CanOperateCasesAsync();
+
+        #endregion
+
+        #region Snapshot Methods
+
+        /// <summary>
+        /// Reapply the current Workflow Runtime Permission to the Case snapshot.
+        /// Overwrites max_view_permission_mode, max_view_teams, max_operate_teams on the Case.
+        /// Does NOT overwrite Stage snapshots (MaxStage* fields — those are immutable after creation).
+        /// </summary>
+        /// <param name="onboardingId">Case ID whose snapshot to refresh</param>
+        /// <returns>True if update was successful</returns>
+        Task<bool> ReapplyWorkflowPermissionAsync(long onboardingId);
+
+        #endregion
+
+        #region Case Stage Permission Methods
+
+        /// <summary>
+        /// Update the permission configuration for a specific stage within an onboarding Case.
+        /// Validation rules:
+        ///   - InheritFromWorkflowStage = false AND ViewPermissionMode = VisibleTo AND no Teams/Users → 400 validation error
+        ///   - ViewTeams ⊄ MaxStageViewTeams → CRMException(PermissionBoundaryExceeded)
+        ///   - InheritFromWorkflowStage = true → clear all independent configuration fields
+        /// </summary>
+        /// <param name="onboardingId">Case (Onboarding) ID</param>
+        /// <param name="stageId">Stage ID within the Case</param>
+        /// <param name="input">Permission configuration input</param>
+        /// <returns>True if update was successful</returns>
+        Task<bool> UpdateStagePermissionAsync(long onboardingId, long stageId, CaseStagePermissionInputDto input);
 
         #endregion
     }

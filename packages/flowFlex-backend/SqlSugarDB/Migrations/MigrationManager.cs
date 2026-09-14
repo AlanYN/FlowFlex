@@ -125,7 +125,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         (Action)(() => Migration_20260819000001_AddGanttFieldsToStage.Up(_db))),
                     ("20260819000002_AddTotalVarianceDaysToOnboarding",
                         (Action)(() => Migration_20260819000002_AddTotalVarianceDaysToOnboarding.Up(_db))),
-                    ("20260828001_AddWhatsNew", (Action)(() => Migration_20260828001_AddWhatsNew.Up(_db)))
+                    ("20260828001_AddWhatsNew", (Action)(() => Migration_20260828001_AddWhatsNew.Up(_db))),
+                    ("202609080001_AddWorkflowRuntimePermission", (Action)(() => Migration_202609080001_AddWorkflowRuntimePermission.Up(_db))),
+                    ("202609080002_AddStageRuntimePermission", (Action)(() => Migration_202609080002_AddStageRuntimePermission.Up(_db))),
+                    ("202609080003_AddOnboardingPermissionSnapshot", (Action)(() => Migration_202609080003_AddOnboardingPermissionSnapshot.Up(_db))),
+                    ("202609140001_AddUseWorkflowRuntimePermissionToOnboarding", (Action)(() => Migration_202609140001_AddUseWorkflowRuntimePermissionToOnboarding.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

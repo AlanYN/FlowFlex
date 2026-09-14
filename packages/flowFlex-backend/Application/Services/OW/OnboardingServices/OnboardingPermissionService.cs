@@ -1,11 +1,18 @@
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Application.Services.OW.Permission;
+using FlowFlex.Application.Services.Shared;
+using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -20,17 +27,23 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly CasePermissionService _casePermissionService;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingPermissionService> _logger;
+        private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IWorkflowRepository _workflowRepository;
 
         public OnboardingPermissionService(
             IPermissionService permissionService,
             CasePermissionService casePermissionService,
             UserContext userContext,
-            ILogger<OnboardingPermissionService> logger)
+            ILogger<OnboardingPermissionService> logger,
+            IOnboardingRepository onboardingRepository,
+            IWorkflowRepository workflowRepository)
         {
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
+            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
         }
 
         #region Permission Check Methods
@@ -306,6 +319,165 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
 
             return await _permissionService.CheckGroupPermissionAsync(userId.Value, PermissionConsts.Case.Update);
+        }
+
+        #endregion
+
+        #region Snapshot Methods
+
+        /// <inheritdoc />
+        public async Task<bool> ReapplyWorkflowPermissionAsync(long onboardingId)
+        {
+            var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (onboarding == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Case {onboardingId} not found.");
+
+            var workflow = await _workflowRepository.GetByIdAsync(onboarding.WorkflowId);
+            if (workflow == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound,
+                    $"Workflow {onboarding.WorkflowId} not found for Case {onboardingId}.");
+
+            var wfRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(workflow);
+
+            var maxViewTeamsJson = JsonSerializer.Serialize(wfRuntime.ViewTeams);
+            var maxOperateTeamsJson = JsonSerializer.Serialize(wfRuntime.OperateTeams);
+
+            _logger.LogInformation(
+                "ReapplyWorkflowPermissionAsync - Updating snapshot for Case {OnboardingId}: ViewMode={ViewMode}, ViewTeams={ViewTeams}",
+                onboardingId, wfRuntime.ViewMode, maxViewTeamsJson);
+
+            // Only update the max_* snapshot fields — do NOT touch StagesProgressJson or other fields
+            var db = _onboardingRepository.GetSqlSugarClient();
+            var sql = @"UPDATE ff_onboarding 
+                        SET max_view_permission_mode = @MaxViewPermissionMode,
+                            max_view_teams = @MaxViewTeams::jsonb,
+                            max_operate_teams = @MaxOperateTeams::jsonb,
+                            modify_date = @ModifyDate
+                        WHERE id = @Id";
+
+            var result = await db.Ado.ExecuteCommandAsync(sql, new
+            {
+                MaxViewPermissionMode = (int)wfRuntime.ViewMode,
+                MaxViewTeams = maxViewTeamsJson,
+                MaxOperateTeams = maxOperateTeamsJson,
+                ModifyDate = DateTimeOffset.UtcNow,
+                Id = onboardingId
+            });
+
+            return result > 0;
+        }
+
+        #endregion
+
+        #region Case Stage Permission Methods
+
+        /// <inheritdoc />
+        public async Task<bool> UpdateStagePermissionAsync(long onboardingId, long stageId, CaseStagePermissionInputDto input)
+        {
+            // Load the onboarding entity
+            var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (onboarding == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Case {onboardingId} not found.");
+
+            // Parse current stage progress JSON
+            var stagesProgress = StagesProgressHelper.ParseStagesProgress(
+                onboarding.StagesProgressJson,
+                _logger,
+                $"OnboardingId={onboardingId}");
+
+            // Find the target stage progress entry
+            var stageProgress = stagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
+            if (stageProgress == null)
+                throw new CRMException(ErrorCodeEnum.DataNotFound,
+                    $"Stage {stageId} not found in Case {onboardingId}.");
+
+            // --- Validation ---
+
+            if (!input.InheritFromWorkflowStage)
+            {
+                // Requirement 13.3: VisibleTo with no Teams/Users → validation error
+                if (input.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams
+                    && (input.ViewTeams == null || input.ViewTeams.Count == 0)
+                    && (input.ViewUsers == null || input.ViewUsers.Count == 0))
+                {
+                    throw new CRMException(ErrorCodeEnum.ParamInvalid,
+                        "ViewTeams or ViewUsers must not be empty when ViewPermissionMode is VisibleToTeams.");
+                }
+
+                // Requirement 13.4: ViewTeams ⊄ MaxStageViewTeams → boundary exceeded
+                if (input.ViewTeams != null && input.ViewTeams.Count > 0)
+                {
+                    if (!PermissionCalculator.IsSubsetOf(input.ViewTeams, stageProgress.MaxStageViewTeams))
+                    {
+                        throw new CRMException(ErrorCodeEnum.PermissionBoundaryExceeded,
+                            "Selected view teams exceed the Stage snapshot boundary. Stage view teams must be a subset of MaxStageViewTeams.");
+                    }
+                }
+            }
+
+            // --- Apply the permission configuration ---
+
+            if (input.InheritFromWorkflowStage)
+            {
+                // Requirement 13.2: Inherit mode — clear all independent configuration fields
+                stageProgress.StagePermissionInheritFromWorkflowStage = true;
+                stageProgress.StageViewPermissionMode = null;
+                stageProgress.StageViewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
+                stageProgress.StageViewTeams = null;
+                stageProgress.StageViewUsers = null;
+                stageProgress.StageUseSameTeamForOperate = true;
+                stageProgress.StageOperatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
+                stageProgress.StageOperateTeams = null;
+                stageProgress.StageOperateUsers = null;
+                stageProgress.StageRollBackInherit = true;
+                stageProgress.StageRollBackUseSameAsOperate = true;
+                stageProgress.StageRollBackPermissionSubjectType = PermissionSubjectTypeEnum.Team;
+                stageProgress.StageRollBackTeams = null;
+                stageProgress.StageRollBackUsers = null;
+            }
+            else
+            {
+                // Independent configuration
+                stageProgress.StagePermissionInheritFromWorkflowStage = false;
+
+                // View
+                stageProgress.StageViewPermissionMode = input.ViewPermissionMode;
+                stageProgress.StageViewPermissionSubjectType = input.ViewPermissionSubjectType;
+                stageProgress.StageViewTeams = input.ViewTeams;
+                stageProgress.StageViewUsers = input.ViewUsers;
+
+                // Operate
+                stageProgress.StageUseSameTeamForOperate = input.UseSameTeamForOperate;
+                stageProgress.StageOperatePermissionSubjectType = input.OperatePermissionSubjectType;
+                stageProgress.StageOperateTeams = input.OperateTeams;
+                stageProgress.StageOperateUsers = input.OperateUsers;
+
+                // Roll Back
+                stageProgress.StageRollBackInherit = input.RollBackInherit;
+                stageProgress.StageRollBackUseSameAsOperate = input.RollBackUseSameAsOperate;
+                stageProgress.StageRollBackPermissionSubjectType = input.RollBackPermissionSubjectType;
+                stageProgress.StageRollBackTeams = input.RollBackTeams;
+                stageProgress.StageRollBackUsers = input.RollBackUsers;
+            }
+
+            // Serialize updated progress back to JSON
+            var updatedJson = JsonSerializer.Serialize(stagesProgress, OnboardingSharedUtilities.JsonOptions);
+
+            _logger.LogInformation(
+                "UpdateStagePermissionAsync - Updating stage permission for Case {OnboardingId}, Stage {StageId}: Inherit={Inherit}",
+                onboardingId, stageId, input.InheritFromWorkflowStage);
+
+            // Persist only the stages_progress_json column
+            var db = _onboardingRepository.GetSqlSugarClient();
+            var sql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb, modify_date = @ModifyDate WHERE id = @Id";
+            var rowsAffected = await db.Ado.ExecuteCommandAsync(sql, new
+            {
+                StagesProgressJson = updatedJson,
+                ModifyDate = DateTimeOffset.UtcNow,
+                Id = onboardingId
+            });
+
+            return rowsAffected > 0;
         }
 
         #endregion

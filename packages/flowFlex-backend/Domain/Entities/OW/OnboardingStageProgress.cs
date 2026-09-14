@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using FlowFlex.Domain.Shared.Enums;
+using FlowFlex.Domain.Shared.Enums.OW;
 
 namespace FlowFlex.Domain.Entities.OW
 {
@@ -274,6 +275,70 @@ namespace FlowFlex.Domain.Entities.OW
         /// Stored as part of stages_progress_json JSONB — no schema migration required.
         /// </summary>
         public Dictionary<string, DateTime> TourSeenBy { get; set; } = new Dictionary<string, DateTime>();
+
+        // === Case Stage Runtime Permission 实际配置字段（用户可配置，无 [SugarColumn]，序列化为 JSONB） ===
+
+        /// <summary>是否继承 Workflow Stage Runtime Permission（null 或 true = 继承，向后兼容）</summary>
+        public bool? StagePermissionInheritFromWorkflowStage { get; set; } = true;
+
+        /// <summary>Case Stage View Permission Mode</summary>
+        public ViewPermissionModeEnum? StageViewPermissionMode { get; set; }
+
+        /// <summary>Case Stage View Permission Subject Type（Team / User）</summary>
+        public PermissionSubjectTypeEnum StageViewPermissionSubjectType { get; set; }
+            = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>Case Stage View Teams（VisibleTo/InvisibleTo 模式下生效）</summary>
+        public List<string> StageViewTeams { get; set; }
+
+        /// <summary>Case Stage View Users（Individual Users 模式）</summary>
+        public List<string> StageViewUsers { get; set; }
+
+        /// <summary>Case Stage Operate 是否复用 View</summary>
+        public bool StageUseSameTeamForOperate { get; set; } = true;
+
+        /// <summary>Case Stage Operate Permission Subject Type</summary>
+        public PermissionSubjectTypeEnum StageOperatePermissionSubjectType { get; set; }
+            = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>Case Stage Operate Teams（StageUseSameTeamForOperate=false 时生效）</summary>
+        public List<string> StageOperateTeams { get; set; }
+
+        /// <summary>Case Stage Operate Users</summary>
+        public List<string> StageOperateUsers { get; set; }
+
+        /// <summary>Case Stage Roll Back 是否继承 Workflow Stage Roll Back</summary>
+        public bool StageRollBackInherit { get; set; } = true;
+
+        /// <summary>Case Stage Roll Back 是否复用 Operate 权限</summary>
+        public bool StageRollBackUseSameAsOperate { get; set; } = true;
+
+        /// <summary>Case Stage Roll Back Permission Subject Type</summary>
+        public PermissionSubjectTypeEnum StageRollBackPermissionSubjectType { get; set; }
+            = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>Case Stage Roll Back Teams（独立配置时生效）</summary>
+        public List<string> StageRollBackTeams { get; set; }
+
+        /// <summary>Case Stage Roll Back Users</summary>
+        public List<string> StageRollBackUsers { get; set; }
+
+        // === Case Stage 权限快照（Case 创建时写入，只读，无 [SugarColumn]，序列化为 JSONB） ===
+
+        /// <summary>快照：Stage Effective Runtime View 权限模式</summary>
+        public ViewPermissionModeEnum? MaxStageViewPermissionMode { get; set; }
+
+        /// <summary>快照：Stage Effective Runtime View Teams</summary>
+        public List<string> MaxStageViewTeams { get; set; }
+
+        /// <summary>快照：Stage Effective Runtime Operate 权限模式</summary>
+        public ViewPermissionModeEnum? MaxStageOperatePermissionMode { get; set; }
+
+        /// <summary>快照：Stage Effective Runtime Operate Teams</summary>
+        public List<string> MaxStageOperateTeams { get; set; }
+
+        /// <summary>快照：Stage Effective Runtime Roll Back Teams</summary>
+        public List<string> MaxStageRollBackTeams { get; set; }
 
         // === Legacy fields for backward compatibility - will be removed in future versions ===
 

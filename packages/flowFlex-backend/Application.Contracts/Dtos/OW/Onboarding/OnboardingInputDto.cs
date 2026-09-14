@@ -220,6 +220,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool UseSameTeamForOperate { get; set; } = false;
 
         /// <summary>
+        /// Use Workflow Runtime Permission - When true, Case permission inherits from the Workflow Runtime
+        /// permission snapshot (max_* fields). When false, the Case's own View/Operate fields are used,
+        /// but they must remain within the snapshot boundary.
+        /// Default true = inherit from snapshot.
+        /// </summary>
+        public bool UseWorkflowRuntimePermission { get; set; } = true;
+
+        /// <summary>
         /// 验证邮箱格式（仅在邮箱不为空时验证）
         /// </summary>
         public bool IsValidContactEmail()

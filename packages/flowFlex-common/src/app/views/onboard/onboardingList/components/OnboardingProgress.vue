@@ -228,12 +228,38 @@
 										Roll Back
 									</el-button>
 								</div>
+
+								<!-- Shield icon: Case Stage Permission -->
+								<div class="flex justify-end mt-1">
+									<el-tooltip content="Stage Permission" placement="top">
+										<el-button
+											size="small"
+											circle
+											text
+											class="stage-permission-btn"
+											@click.stop="handleOpenStagePermission(stage)"
+										>
+											<Icon icon="mdi:shield-outline" class="text-gray-500 hover:text-primary" />
+										</el-button>
+									</el-tooltip>
+								</div>
 							</div>
 						</div>
 					</div>
 				</el-scrollbar>
 			</div>
 		</el-collapse-transition>
+
+		<!-- Case Stage Permission Dialog -->
+		<CaseStagePermissionDialog
+			v-if="stagePermissionDialogVisible"
+			v-model:visible="stagePermissionDialogVisible"
+			:case-id="props.onboardingId"
+			:stage-id="stagePermissionTargetStageId"
+			:stage-name="stagePermissionTargetStageName"
+			:stage-permission-data="stagePermissionTargetData"
+			@saved="handleStagePermissionSaved"
+		/>
 
 		<!-- Roll Back Stage 确认弹窗 -->
 		<el-dialog
@@ -637,6 +663,7 @@ import ActionTag from '@/components/actionTools/ActionTag.vue';
 import { rollBackStage } from '@/apis/ow/onboarding';
 import { getAllUser } from '@/apis/global';
 import dayjs from 'dayjs';
+import CaseStagePermissionDialog from '@/components/global/CaseStagePermissionDialog/index.vue';
 
 // Props
 interface Props {
@@ -662,6 +689,24 @@ const rollBackDialogVisible = ref(false);
 const rollBackReason = ref('');
 const rollBackLoading = ref(false);
 const rollBackTargetStage = ref<any>(null);
+
+// Stage Permission 弹窗状态
+const stagePermissionDialogVisible = ref(false);
+const stagePermissionTargetStageId = ref('');
+const stagePermissionTargetStageName = ref('');
+const stagePermissionTargetData = ref<any>(null);
+
+const handleOpenStagePermission = (stage: any) => {
+	stagePermissionTargetStageId.value = stage.stageId;
+	stagePermissionTargetStageName.value = stage.title || stage.stageName || '';
+	stagePermissionTargetData.value = stage; // pass full stage data including MaxStage* fields
+	stagePermissionDialogVisible.value = true;
+};
+
+const handleStagePermissionSaved = () => {
+	stagePermissionDialogVisible.value = false;
+	emit('stageBlockChanged'); // reuse this emit to trigger a refresh
+};
 
 // 用户列表（用于 assignee ID → 名字映射，组件挂载时即加载）
 const allUserOptions = ref<{ key: string; value: string }[]>([]);
