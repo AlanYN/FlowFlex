@@ -118,7 +118,7 @@
 						<!-- 签署状态 -->
 						<div class="flex-shrink-0 text-xs">
 							<span v-if="signer.signedAt" class="text-[var(--el-color-success)]">
-								✓ {{ formatDate(signer.signedAt) }}
+								✓ {{ timeZoneConvert(signer.signedAt) }}
 							</span>
 							<span
 								v-else-if="signer.status === 'Declined'"
@@ -148,7 +148,7 @@
 				<div class="space-y-1.5 text-xs text-[var(--el-text-color-regular)]">
 					<div class="flex items-center gap-2">
 						<span class="text-[var(--el-text-color-placeholder)] w-36 flex-shrink-0">
-							{{ formatDate(agreement.createDate) }}
+							{{ timeZoneConvert(agreement.createDate) }}
 						</span>
 						<span>
 							Requested by
@@ -157,7 +157,7 @@
 					</div>
 					<div v-if="agreement.completedDate" class="flex items-center gap-2">
 						<span class="text-[var(--el-text-color-placeholder)] w-36 flex-shrink-0">
-							{{ formatDate(agreement.completedDate) }}
+							{{ timeZoneConvert(agreement.completedDate) }}
 						</span>
 						<span>Signing completed</span>
 					</div>
@@ -182,6 +182,7 @@ import { ElMessage } from 'element-plus';
 import { getAgreement } from '@/apis/ow/adobeSign';
 import type { AdobeSignAgreement } from '#/adobeSign';
 import { ADOBE_SIGN_TAG_TYPES } from '@/enums/adobeSignConstants';
+import { timeZoneConvert } from '@/hooks/time';
 
 const visible = ref(false);
 const fileName = ref('');
@@ -213,9 +214,4 @@ const handleClose = () => {
 };
 
 defineExpose({ open });
-
-const formatDate = (date?: string | null) => {
-	if (!date) return '';
-	return new Date(date).toLocaleString();
-};
 </script>

@@ -9,6 +9,9 @@ export type AdobeSignerRole = 'Signer' | 'Approver' | 'CC';
 /** 协议状态 */
 export type AdobeAgreementStatus = 'Awaiting' | 'Completed' | 'Declined' | 'Expired' | 'Cancelled';
 
+/** 签署人级别的状态 */
+export type AdobeSignerStatus = 'Awaiting' | 'Declined' | 'Cancelled';
+
 /** 单个签署人信息 */
 export interface AdobeSigner {
 	/** 签署人邮箱（必填） */
@@ -20,7 +23,7 @@ export interface AdobeSigner {
 	/** 签署顺序（Sequential 模式下使用，从 1 开始） */
 	order: number;
 	/** 当前签署状态（输出时有值） */
-	status?: AdobeAgreementStatus;
+	status?: AdobeSignerStatus;
 	/** 完成签署的时间戳（输出时有值） */
 	signedAt?: string | null;
 }
