@@ -142,11 +142,55 @@ namespace FlowFlex.Domain.Entities.OW
         public bool UseSameTeamForOperate { get; set; } = false;
 
         /// <summary>
-        /// Roll Back Teams - JSONB array of team IDs allowed to roll back completed stages.
+        /// Roll Back Teams — JSONB array of team IDs allowed to roll back completed stages.
+        /// Semantically a Runtime-layer field (OW-736: repositioned from Template to Runtime scope).
         /// NULL or empty array means no one can roll back (security default).
         /// </summary>
         [SugarColumn(ColumnName = "roll_back_teams", ColumnDataType = "jsonb", IsJson = true)]
         public string RollBackTeams { get; set; }
+
+        // ── Runtime/Template Permission Fields (added by OW-736) ────────────────
+
+        /// <summary>
+        /// Template Permission: whether to inherit from Workflow Template Permission (true = default).
+        /// false = use Stage's own view_permission_mode / view_teams / operate_teams / use_same_team_for_operate.
+        /// </summary>
+        [SugarColumn(ColumnName = "template_use_same_as_workflow")]
+        public bool TemplateUseSameAsWorkflow { get; set; } = true;
+
+        /// <summary>
+        /// Runtime Permission: whether to inherit from Workflow Runtime Permission (true = default).
+        /// false = use Stage's own runtime_* fields (must remain ⊆ Workflow Effective Runtime).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_use_same_as_workflow")]
+        public bool RuntimeUseSameAsWorkflow { get; set; } = true;
+
+        /// <summary>
+        /// Stage Runtime View Permission Mode (active when RuntimeUseSameAsWorkflow = false).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_view_permission_mode")]
+        public ViewPermissionModeEnum RuntimeViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// Stage Runtime View Teams — JSONB array of team IDs (active when RuntimeUseSameAsWorkflow = false).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_view_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string RuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Stage Runtime Operate Teams — JSONB array of team IDs
+        /// (active when RuntimeUseSameAsWorkflow = false AND RuntimeUseSameTeamForOperate = false).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_operate_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string RuntimeOperateTeams { get; set; }
+
+        /// <summary>
+        /// Stage Runtime Operate same-as-View flag.
+        /// true (default) = Runtime Operate Teams = Runtime View Teams (when RuntimeUseSameAsWorkflow = false).
+        /// false = use RuntimeOperateTeams independently.
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_use_same_team_for_operate")]
+        public bool RuntimeUseSameTeamForOperate { get; set; } = true;
 
         /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage

@@ -13,6 +13,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
     public interface IOnboardingFileService : IScopedService
     {
         /// <summary>
+        /// Get Stage and Onboarding association info for a file.
+        /// Returns (stageId, onboardingId). stageId is null when the file is not associated with a specific Stage.
+        /// </summary>
+        /// <param name="fileId">File ID</param>
+        /// <returns>Tuple of (stageId, onboardingId)</returns>
+        Task<(long? stageId, long onboardingId)> GetFileStageInfoAsync(long fileId);
+
+        /// <summary>
         /// Upload file
         /// </summary>
         /// <param name="input">File upload input information</param>

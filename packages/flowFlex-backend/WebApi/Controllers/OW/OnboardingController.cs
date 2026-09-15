@@ -34,13 +34,16 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IOnboardingService _onboardingService;
         private readonly IOnboardingStageManagementService _stageManagementService;
+        private readonly IOnboardingPermissionService _onboardingPermissionService;
 
         public OnboardingController(
             IOnboardingService onboardingService,
-            IOnboardingStageManagementService stageManagementService)
+            IOnboardingStageManagementService stageManagementService,
+            IOnboardingPermissionService onboardingPermissionService)
         {
             _onboardingService = onboardingService;
             _stageManagementService = stageManagementService;
+            _onboardingPermissionService = onboardingPermissionService;
         }
 
         /// <summary>
@@ -506,6 +509,44 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> RollBackStageAsync(long onboardingId, long stageId, [FromBody] RollBackStageInput input)
         {
             bool result = await _stageManagementService.RollBackStageAsync(onboardingId, stageId, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Update permission configuration for a specific stage within an onboarding Case.
+        /// When InheritFromWorkflowStage = true, all independent configuration fields are cleared and
+        /// the stage inherits from the Workflow Stage Runtime snapshot.
+        /// When InheritFromWorkflowStage = false, the provided configuration is validated against
+        /// the MaxStageViewTeams snapshot boundary before being persisted.
+        /// Requires CASE:UPDATE permission.
+        /// </summary>
+        /// <param name="id">Onboarding (Case) ID</param>
+        /// <param name="stageId">Stage ID within the Case</param>
+        /// <param name="input">Stage permission configuration</param>
+        [HttpPut("{id}/stage-permissions/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> UpdateStagePermissionsAsync(
+            long id, long stageId, [FromBody] CaseStagePermissionInputDto input)
+        {
+            bool result = await _onboardingPermissionService.UpdateStagePermissionAsync(id, stageId, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Reapply the current Workflow Runtime Permission to the Case snapshot.
+        /// Overwrites max_view_permission_mode, max_view_teams, max_operate_teams on the Case with the
+        /// latest values computed from the parent Workflow's Runtime Permission configuration.
+        /// Stage snapshots (MaxStage* fields) are NOT affected — those remain immutable after creation.
+        /// Requires CASE:UPDATE permission.
+        /// </summary>
+        /// <param name="id">Onboarding (Case) ID</param>
+        [HttpPost("{id}/reapply-workflow-permission")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ReapplyWorkflowPermissionAsync(long id)
+        {
+            bool result = await _onboardingPermissionService.ReapplyWorkflowPermissionAsync(id);
             return Success(result);
         }
     }

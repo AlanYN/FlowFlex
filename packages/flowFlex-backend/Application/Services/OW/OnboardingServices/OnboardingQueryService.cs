@@ -375,7 +375,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var userTeamIds = context.UserTeamIds;
             var userIdString = context.UserIdString;
 
-            // Build SQL condition for team check
+            // Build SQL condition for team check (against Case's own view_teams)
             var teamConditions = userTeamIds.Select(t => $"view_teams::text LIKE '%\"{t}\"%'").ToList();
             var teamSqlCondition = teamConditions.Count > 0 
                 ? $"({string.Join(" OR ", teamConditions)})" 
@@ -383,22 +383,50 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var userSqlCondition = $"view_users::text LIKE '%\"{userIdString}\"%'";
 
+            // Build SQL condition for Workflow Runtime snapshot (max_view_* fields, OW-736).
+            // When max_view_permission_mode is set, the user must ALSO satisfy the snapshot boundary.
+            // Ownership always bypasses the snapshot check (owner has full access regardless).
+            var maxViewTeamConditions = userTeamIds.Select(t => $"max_view_teams::text LIKE '%\"{t}\"%'").ToList();
+            var maxViewTeamSqlCondition = maxViewTeamConditions.Count > 0
+                ? $"({string.Join(" OR ", maxViewTeamConditions)})"
+                : "false";
+
+            // Snapshot gate:
+            //   - No snapshot (max_view_permission_mode IS NULL) → pass (legacy Case, no restriction)
+            //   - Snapshot mode = Public (0)                     → pass
+            //   - Snapshot mode = VisibleToTeams (1)             → user must be in max_view_teams
+            //   - Snapshot mode = InvisibleToTeams (2)           → user must NOT be in max_view_teams
+            //   - Snapshot mode = Private (3)                    → deny (only owner can pass, handled below)
+            var snapshotGateSql = $@"(
+                max_view_permission_mode IS NULL OR
+                max_view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
+                (max_view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                 max_view_teams IS NOT NULL AND 
+                 {maxViewTeamSqlCondition}) OR
+                (max_view_permission_mode = {(int)ViewPermissionModeEnum.InvisibleToTeams} AND 
+                 (max_view_teams IS NULL OR NOT {maxViewTeamSqlCondition}))
+            )";
+
             var permissionSql = $@"(
                 ownership = {userId} OR 
-                view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
-                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
-                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.Team} AND 
-                 view_teams IS NOT NULL AND 
-                 {teamSqlCondition}) OR
-                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
-                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.User} AND 
-                 view_users IS NOT NULL AND 
-                 {userSqlCondition})
+                (
+                    {snapshotGateSql} AND (
+                        view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
+                        (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                         view_permission_subject_type = {(int)PermissionSubjectTypeEnum.Team} AND 
+                         view_teams IS NOT NULL AND 
+                         {teamSqlCondition}) OR
+                        (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                         view_permission_subject_type = {(int)PermissionSubjectTypeEnum.User} AND 
+                         view_users IS NOT NULL AND 
+                         {userSqlCondition})
+                    )
+                )
             )";
 
             queryable = queryable.Where(permissionSql);
 
-            _logger.LogDebug("Applied SQL-level permission filter for user {UserId} with {TeamCount} teams", 
+            _logger.LogDebug("Applied SQL-level permission filter for user {UserId} with {TeamCount} teams (including max_view snapshot gate)", 
                 userId, userTeamIds.Count);
 
             return queryable;
