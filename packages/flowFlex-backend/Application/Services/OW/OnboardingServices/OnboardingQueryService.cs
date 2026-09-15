@@ -396,7 +396,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             //   - Snapshot mode = Public (0)                     → pass
             //   - Snapshot mode = VisibleToTeams (1)             → user must be in max_view_teams
             //   - Snapshot mode = InvisibleToTeams (2)           → user must NOT be in max_view_teams
-            //   - Snapshot mode = Private (3)                    → deny (only owner can pass, handled below)
+            //   - Snapshot mode = Private (3)                    → deny at snapshot level; Case-level Private
+            //                                                       with explicit view_users is handled below
             var snapshotGateSql = $@"(
                 max_view_permission_mode IS NULL OR
                 max_view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
@@ -421,6 +422,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                          view_users IS NOT NULL AND 
                          {userSqlCondition})
                     )
+                ) OR
+                (
+                    view_permission_mode = {(int)ViewPermissionModeEnum.Private} AND
+                    view_users IS NOT NULL AND
+                    {userSqlCondition}
                 )
             )";
 

@@ -920,11 +920,15 @@ const syncPermissionsToParent = () => {
 	nextTick(() => {
 		// 处理 viewPermissionMode 的变化 - 切换模式时保留选择，只更新过滤
 		if (!isViewSelectorVisible.value) {
-			// Public/Private 模式清空
+			// Public/Private 模式清空 Teams；
+			// Private 模式下 viewUsers 是合法数据（Individual Users），不能清空
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
 			}
-			if (localPermissions.viewUsers.length > 0) {
+			if (
+				localPermissions.viewPermissionMode !== CasePermissionModeEnum.Private &&
+				localPermissions.viewUsers.length > 0
+			) {
 				localPermissions.viewUsers = [];
 			}
 		}
