@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -24,6 +25,7 @@ using System.Text.Json;
 using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Shared.Events;
 using MediatR;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
@@ -54,6 +56,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<OnboardingCrudService> _logger;
         private readonly IMediator _mediator;
+        private readonly StagePermissionService _stagePermissionService;
 
         // Shared JSON serializer options - use OnboardingSharedUtilities.JsonOptions for consistency
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -81,7 +84,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IUserService userService,
             IServiceProvider serviceProvider,
             ILogger<OnboardingCrudService> logger,
-            IMediator mediator)
+            IMediator mediator,
+            StagePermissionService stagePermissionService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -102,6 +106,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _stagePermissionService = stagePermissionService ?? throw new ArgumentNullException(nameof(stagePermissionService));
         }
 
         #endregion
@@ -542,7 +547,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Get actions and permissions for each stage in stagesProgress
                 if (result.StagesProgress != null && result.StagesProgress.Any())
                 {
-                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong);
+                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong, entity, workflow);
                 }
 
                 // Convert legacy field names to numeric IDs
@@ -1356,7 +1361,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <summary>
         /// Populate stage actions and permissions
         /// </summary>
-        private async Task PopulateStageActionsAndPermissionsAsync(OnboardingOutputDto result, bool hasUserId, long userIdLong)
+        private async Task PopulateStageActionsAndPermissionsAsync(OnboardingOutputDto result, bool hasUserId, long userIdLong, Onboarding entity = null, Workflow workflow = null)
         {
             // Batch query all actions for all stages at once
             var stageIds = result.StagesProgress.Select(sp => sp.StageId).ToList();
@@ -1388,6 +1393,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 || (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId));
             var userTeamIds = hasUserId ? _permissionService.GetUserTeamIds() : new List<string>();
 
+            // Build a lookup from entity's domain StagesProgress for permission checks
+            var domainStageProgressDict = (entity?.StagesProgress ?? new List<OnboardingStageProgress>())
+                .ToDictionary(sp => sp.StageId);
+
             foreach (var stageProgress in result.StagesProgress)
             {
                 // Get actions for this stage from batch result
@@ -1395,10 +1404,62 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     ? actions
                     : new List<ActionTriggerMappingWithActionInfo>();
 
-                // Get permission for this stage (inherit from Case permission in Case detail context)
+                // Compute Stage-level permission using the three-layer model (OW-736).
+                // When entity + workflow are available (detail context), run the full check.
+                // Fallback: copy Case-level permission for backward compatibility (list context / missing data).
                 if (hasUserId)
                 {
-                    stageProgress.Permission = result.Permission;
+                    // Admin bypass: system admin and tenant admin see all stages unconditionally
+                    if (isAdmin)
+                    {
+                        stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                        {
+                            CanView = true,
+                            CanOperate = true,
+                            ErrorMessage = null
+                        };
+                    }
+                    else
+                    {
+                    bool stagePermissionComputed = false;
+
+                    if (entity != null && workflow != null
+                        && stageDict.TryGetValue(stageProgress.StageId, out var stageForPermission)
+                        && domainStageProgressDict.TryGetValue(stageProgress.StageId, out var domainStageProgress))
+                    {
+                        try
+                        {
+                            var permResult = _stagePermissionService.CheckStagePermissionWithCaseStage(
+                                stageForPermission,
+                                workflow,
+                                entity,
+                                domainStageProgress,
+                                userIdLong,
+                                PermissionOperationType.Operate,
+                                userTeamIds);
+
+                            stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                            {
+                                CanView = permResult.CanView,
+                                CanOperate = permResult.CanOperate,
+                                ErrorMessage = permResult.Success ? null : permResult.ErrorMessage
+                            };
+                            stagePermissionComputed = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex,
+                                "PopulateStageActionsAndPermissionsAsync - Stage permission check failed for Stage {StageId}, falling back to Case permission",
+                                stageProgress.StageId);
+                        }
+                    }
+
+                    if (!stagePermissionComputed)
+                    {
+                        // Fallback: use Case-level permission (no per-stage restriction can be applied)
+                        stageProgress.Permission = result.Permission;
+                    }
+                    }
                 }
                 else
                 {
@@ -1410,10 +1471,23 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     };
                 }
 
-                // Compute CanRollBack: admin always true, others check RollBackTeams whitelist
+                // Compute CanRollBack using the three-layer roll back logic (OW-736).
+                // Priority: Case Stage roll back config (stageProgress) > Workflow Stage (stage.RollBackTeams legacy)
                 if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
                 {
-                    stageProgress.CanRollBack = isAdmin || ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                    if (isAdmin)
+                    {
+                        stageProgress.CanRollBack = true;
+                    }
+                    else if (domainStageProgressDict.TryGetValue(stageProgress.StageId, out var domainSp))
+                    {
+                        stageProgress.CanRollBack = ComputeCanRollBackWithCaseStage(domainSp, userTeamIds);
+                    }
+                    else
+                    {
+                        // Fallback: legacy path using Workflow Stage RollBackTeams
+                        stageProgress.CanRollBack = ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                    }
                 }
             }
         }
@@ -1447,6 +1521,47 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Determines CanRollBack using the Case Stage three-layer roll back logic (OW-736).
+        /// - stageRollBackInherit = true  → use maxStageRollBackTeams snapshot
+        /// - stageRollBackInherit = false AND stageRollBackUseSameAsOperate = true  → use effective operate teams
+        /// - stageRollBackInherit = false AND stageRollBackUseSameAsOperate = false → use stageRollBackTeams
+        /// An empty/null effective team list means nobody can roll back (explicit empty = no permission).
+        /// </summary>
+        private static bool ComputeCanRollBackWithCaseStage(OnboardingStageProgress sp, List<string> userTeamIds)
+        {
+            if (userTeamIds == null || userTeamIds.Count == 0)
+                return false;
+
+            List<string> effectiveTeams;
+
+            bool inherit = sp.StageRollBackInherit != false; // null or true → inherit
+
+            if (inherit)
+            {
+                // Use the snapshot: maxStageRollBackTeams
+                effectiveTeams = sp.MaxStageRollBackTeams ?? new List<string>();
+            }
+            else if (sp.StageRollBackUseSameAsOperate)
+            {
+                // Use effective operate teams (Stage Operate takes priority over View in this context)
+                // Effective operate = StageOperateTeams if independently configured, else StageViewTeams
+                effectiveTeams = (sp.StageOperateTeams?.Count > 0 ? sp.StageOperateTeams : sp.StageViewTeams)
+                    ?? new List<string>();
+            }
+            else
+            {
+                // Use independently configured roll back teams
+                effectiveTeams = sp.StageRollBackTeams ?? new List<string>();
+            }
+
+            // Empty effective list = explicitly no one has roll back permission
+            if (effectiveTeams.Count == 0)
+                return false;
+
+            return userTeamIds.Any(t => effectiveTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
         }
 
         /// <summary>

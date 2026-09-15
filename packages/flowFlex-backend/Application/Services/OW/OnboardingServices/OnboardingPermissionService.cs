@@ -374,6 +374,26 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> UpdateStagePermissionAsync(long onboardingId, long stageId, CaseStagePermissionInputDto input)
         {
+            // Permission check: user must have Stage Operate permission to modify stage permissions.
+            // Admin bypass is handled inside CheckStageAccessAsync.
+            var userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                throw new CRMException(System.Net.HttpStatusCode.Unauthorized, "User not authenticated.");
+            }
+
+            if (!HasAdminPrivileges())
+            {
+                var stagePermResult = await _permissionService.CheckStageAccessAsync(
+                    userId.Value, stageId, PermissionOperationType.Operate);
+
+                if (!stagePermResult.Success || !stagePermResult.CanOperate)
+                {
+                    throw new CRMException(System.Net.HttpStatusCode.Forbidden,
+                        "You do not have operate permission on this Stage and cannot modify its permissions.");
+                }
+            }
+
             // Load the onboarding entity
             var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
             if (onboarding == null)
@@ -411,6 +431,23 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     {
                         throw new CRMException(ErrorCodeEnum.PermissionBoundaryExceeded,
                             "Selected view teams exceed the Stage snapshot boundary. Stage view teams must be a subset of MaxStageViewTeams.");
+                    }
+                }
+
+                // RollBackTeams ⊆ effective OperateTeams (when independently configured)
+                if (!input.RollBackInherit && !input.RollBackUseSameAsOperate
+                    && input.RollBackTeams != null && input.RollBackTeams.Count > 0)
+                {
+                    // Compute effective operate teams for this save
+                    var effectiveOperateTeams = input.UseSameTeamForOperate
+                        ? input.ViewTeams ?? new List<string>()
+                        : input.OperateTeams ?? new List<string>();
+
+                    if (effectiveOperateTeams.Count > 0
+                        && !PermissionCalculator.IsSubsetOf(input.RollBackTeams, effectiveOperateTeams))
+                    {
+                        throw new CRMException(ErrorCodeEnum.PermissionBoundaryExceeded,
+                            "Roll Back teams must be a subset of the effective Operate teams.");
                     }
                 }
             }
