@@ -215,31 +215,34 @@
 										</div>
 									</div>
 								</div>
-								<!-- Roll Back 按钮：仅对已完成且有权限的 Stage 显示 -->
-								<div
-									v-if="stage.status === 'Completed' && stage.canRollBack"
-									class="mt-1 flex justify-end"
+								<!-- Roll Back + Shield: 同行显示在右上角，不撑开卡片高度 -->
+								<div class="flex items-center justify-end gap-1 mt-1"
+									v-if="(stage.status === 'Completed' && stage.canRollBack) || stage.permission?.canOperate"
 								>
 									<el-button
+										v-if="stage.status === 'Completed' && stage.canRollBack"
 										type="warning"
 										size="small"
+										plain
 										@click.stop="handleRollBack(stage)"
+										class="!px-2 !py-0.5 !text-xs !h-6"
 									>
 										Roll Back
 									</el-button>
-								</div>
 
-								<!-- Shield icon: Case Stage Permission -->
-								<div class="flex justify-end mt-1">
-									<el-tooltip content="Stage Permission" placement="top">
+									<el-tooltip
+										v-if="stage.permission?.canOperate"
+										content="Stage Permission"
+										placement="top"
+									>
 										<el-button
 											size="small"
 											circle
 											text
-											class="stage-permission-btn"
+											class="stage-permission-btn !w-6 !h-6 !min-h-0"
 											@click.stop="handleOpenStagePermission(stage)"
 										>
-											<Icon icon="mdi:shield-outline" class="text-gray-500 hover:text-primary" />
+											<Icon icon="mdi:shield-outline" class="text-gray-400 hover:text-primary text-sm" />
 										</el-button>
 									</el-tooltip>
 								</div>

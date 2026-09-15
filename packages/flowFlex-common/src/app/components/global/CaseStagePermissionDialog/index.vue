@@ -2,13 +2,13 @@
     <el-dialog
         v-model="dialogVisible"
         title="Case Stage Permission"
-        width="680px"
+        width="720px"
         :close-on-click-modal="!saving"
         append-to-body
         destroy-on-close
         @close="handleClose"
     >
-        <!-- Subtitle: stage name -->
+        <!-- Header: title + stage name -->
         <template #header>
             <div>
                 <div class="text-base font-bold">Case Stage Permission</div>
@@ -16,160 +16,226 @@
             </div>
         </template>
 
-        <div class="space-y-5">
-            <!-- Inherit checkbox -->
-            <el-checkbox v-model="formData.inheritFromWorkflow">
+        <div class="space-y-4">
+            <!-- Info banner -->
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 leading-relaxed">
+                This can only narrow down who has access at this stage — it can never grant more access than the case or the workflow stage already allow.
+            </div>
+
+            <!-- Top-level inherit checkbox -->
+            <el-checkbox v-model="formData.inheritFromWorkflow" class="!font-medium">
                 Use same permission as workflow stage runtime
             </el-checkbox>
 
             <!-- ======== INHERIT MODE: read-only display ======== -->
             <template v-if="formData.inheritFromWorkflow">
-                <!-- View Permission (read-only) -->
-                <div class="space-y-2">
-                    <label class="text-sm font-bold text-gray-700">View Permission</label>
-                    <div class="text-xs text-gray-400 uppercase tracking-wide">EFFECTIVE TEAMS</div>
-                    <div class="flex flex-wrap gap-1 min-h-[28px]">
-                        <template v-if="inheritViewDisplay.length">
-                            <el-tag
-                                v-for="name in inheritViewDisplay"
-                                :key="name"
-                                type="info"
-                                size="small"
-                            >{{ name }}</el-tag>
-                        </template>
-                        <span v-else class="text-sm text-gray-400">{{ inheritViewEmptyLabel }}</span>
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- View Permission (read-only) -->
+                    <div class="space-y-2">
+                        <div>
+                            <div class="text-sm font-bold text-gray-800">View Permission</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Controls who can view the case at this stage</div>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[72px]">
+                            <div class="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                <span class="i-mdi-account-group text-gray-400" />
+                                EFFECTIVE TEAMS
+                            </div>
+                            <div v-if="inheritViewDisplay.length" class="flex flex-wrap gap-1">
+                                <el-tag v-for="name in inheritViewDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                            </div>
+                            <div v-else class="text-sm text-gray-400">{{ inheritViewEmptyLabel }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Operate Permission (read-only) -->
+                    <div class="space-y-2">
+                        <div>
+                            <div class="text-sm font-bold text-gray-800">Operate Permission</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Controls who can operate on the case at this stage</div>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[72px]">
+                            <div class="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                <span class="i-mdi-account-group text-gray-400" />
+                                EFFECTIVE TEAMS
+                            </div>
+                            <div v-if="inheritOperateDisplay.length" class="flex flex-wrap gap-1">
+                                <el-tag v-for="name in inheritOperateDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                            </div>
+                            <div v-else class="text-sm text-gray-400">{{ inheritOperateEmptyLabel }}</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Operate Permission (read-only) -->
-                <div class="space-y-2 border-t border-gray-100 pt-4">
-                    <label class="text-sm font-bold text-gray-700">Operate Permission</label>
-                    <div class="text-xs text-gray-400 uppercase tracking-wide">EFFECTIVE TEAMS</div>
-                    <div class="flex flex-wrap gap-1 min-h-[28px]">
-                        <template v-if="inheritOperateDisplay.length">
-                            <el-tag
-                                v-for="name in inheritOperateDisplay"
-                                :key="name"
-                                type="info"
-                                size="small"
-                            >{{ name }}</el-tag>
-                        </template>
-                        <span v-else class="text-sm text-gray-400">{{ inheritOperateEmptyLabel }}</span>
+                <!-- Roll Back (read-only, full width) -->
+                <div class="border-t border-gray-100 pt-4 space-y-2">
+                    <div>
+                        <div class="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+                            <Icon icon="mdi:restore" class="text-base" />
+                            Roll Back Permission
+                        </div>
+                        <div class="text-xs text-gray-400 mt-0.5">Controls who can reopen this stage and edit it again</div>
                     </div>
-                </div>
-
-                <!-- Roll Back (read-only) -->
-                <div class="space-y-2 border-t border-gray-100 pt-4">
-                    <label class="text-sm font-bold text-gray-700">Roll Back</label>
-                    <div class="text-xs text-gray-400 uppercase tracking-wide">EFFECTIVE TEAMS</div>
-                    <div class="flex flex-wrap gap-1 min-h-[28px]">
-                        <template v-if="inheritRollBackDisplay.length">
-                            <el-tag
-                                v-for="name in inheritRollBackDisplay"
-                                :key="name"
-                                type="info"
-                                size="small"
-                            >{{ name }}</el-tag>
-                        </template>
-                        <span v-else class="text-sm text-gray-400">None configured</span>
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[60px]">
+                        <div class="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            <span class="i-mdi-account-group text-gray-400" />
+                            EFFECTIVE TEAMS
+                        </div>
+                        <div v-if="inheritRollBackDisplay.length" class="flex flex-wrap gap-1">
+                            <el-tag v-for="name in inheritRollBackDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                        </div>
+                        <div v-else class="text-sm text-gray-400">No access</div>
                     </div>
                 </div>
             </template>
 
             <!-- ======== INDEPENDENT MODE ======== -->
             <template v-else>
-                <!-- ── View Permission ── -->
-                <div class="space-y-3 border border-gray-200 rounded-xl p-4">
-                    <label class="text-sm font-bold text-gray-700">View Permission</label>
+                <!-- View + Operate side by side -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- ── View Permission ── -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="text-sm font-bold text-gray-800">View Permission</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Controls who can view the case at this stage</div>
+                        </div>
 
-                    <el-select
-                        v-model="formData.viewPermissionMode"
-                        class="w-full"
-                        placeholder="Select permission type"
-                        @change="handleViewModeChange"
-                    >
-                        <el-option
-                            v-for="opt in viewPermissionOptions"
-                            :key="opt.value"
-                            :label="opt.label"
-                            :value="opt.value"
-                        />
-                    </el-select>
+                        <el-select
+                            v-model="formData.viewPermissionMode"
+                            class="w-full"
+                            placeholder="Select permission type"
+                            @change="handleViewModeChange"
+                        >
+                            <el-option
+                                v-for="opt in viewPermissionOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            />
+                        </el-select>
 
-                    <!-- Teams/Users selector for VisibleTo / InvisibleTo -->
-                    <template v-if="showViewSelector">
-                        <el-radio-group v-model="formData.viewPermissionSubjectType" @change="handleViewSubjectTypeChange">
-                            <el-radio :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio>
-                            <el-radio :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio>
-                        </el-radio-group>
+                        <template v-if="showViewSelector">
+                            <div class="text-xs text-gray-500">
+                                <template v-if="formData.viewPermissionMode === ViewPermissionModeEnum.VisibleTo">
+                                    Only the teams or people you pick below can view it.
+                                </template>
+                                <template v-else>
+                                    Everyone except the teams or people you pick below can view it.
+                                </template>
+                            </div>
 
-                        <FlowflexUserSelector
-                            v-show="formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team"
-                            v-model="formData.viewTeams"
-                            selection-type="team"
-                            :clearable="true"
-                            :choosable-tree-data="viewChoosableTreeData"
-                            @change="handleViewSelectionChange"
-                        />
-                        <FlowflexUserSelector
-                            v-show="formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User"
-                            v-model="formData.viewUsers"
-                            selection-type="user"
-                            :clearable="true"
-                            :choosable-tree-data="viewChoosableTreeData"
-                            @change="handleViewSelectionChange"
-                        />
+                            <div class="text-xs font-medium text-gray-600">
+                                {{ formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team ? 'Team' : 'User' }}
+                            </div>
 
-                        <!-- Validation error -->
-                        <p v-if="viewValidationError" class="text-sm text-red-500">
-                            {{ viewValidationError }}
-                        </p>
-                    </template>
+                            <el-radio-group v-model="formData.viewPermissionSubjectType" @change="handleViewSubjectTypeChange" class="!gap-2">
+                                <el-radio-button :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio-button>
+                                <el-radio-button :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio-button>
+                            </el-radio-group>
+
+                            <FlowflexUserSelector
+                                v-show="formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team"
+                                v-model="formData.viewTeams"
+                                selection-type="team"
+                                :clearable="true"
+                                :choosable-tree-data="viewChoosableTreeData"
+                                @change="handleViewSelectionChange"
+                            />
+                            <FlowflexUserSelector
+                                v-show="formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User"
+                                v-model="formData.viewUsers"
+                                selection-type="user"
+                                :clearable="true"
+                                :choosable-tree-data="viewChoosableTreeData"
+                                @change="handleViewSelectionChange"
+                            />
+                            <p v-if="viewValidationError" class="text-sm text-red-500">{{ viewValidationError }}</p>
+                        </template>
+
+                        <!-- Effective teams preview -->
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[60px]">
+                            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">EFFECTIVE TEAMS</div>
+                            <div v-if="effectiveViewDisplay.length" class="flex flex-wrap gap-1 mt-1">
+                                <el-tag v-for="name in effectiveViewDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                            </div>
+                            <div v-else class="text-sm text-gray-400">No access</div>
+                        </div>
+                    </div>
+
+                    <!-- ── Operate Permission ── -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="text-sm font-bold text-gray-800">Operate Permission</div>
+                            <div class="text-xs text-gray-400 mt-0.5">Controls who can operate on the case at this stage</div>
+                        </div>
+
+                        <el-checkbox v-model="formData.useSameTeamForOperate" class="!font-medium text-primary">
+                            Use same teams and users that have view permission
+                        </el-checkbox>
+
+                        <template v-if="formData.useSameTeamForOperate">
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[60px]">
+                                <div class="text-sm text-gray-500">Same people as View permission.</div>
+                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-1">EFFECTIVE TEAMS</div>
+                                <div v-if="effectiveOperateDisplay.length" class="flex flex-wrap gap-1 mt-1">
+                                    <el-tag v-for="name in effectiveOperateDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                                </div>
+                                <div v-else class="text-sm text-gray-400">No access</div>
+                            </div>
+                        </template>
+
+                        <template v-else>
+                            <el-radio-group v-model="formData.operatePermissionSubjectType" class="!gap-2">
+                                <el-radio-button :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio-button>
+                                <el-radio-button :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio-button>
+                            </el-radio-group>
+
+                            <FlowflexUserSelector
+                                v-show="formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team"
+                                v-model="formData.operateTeams"
+                                selection-type="team"
+                                :clearable="true"
+                                :choosable-tree-data="operateChoosableTreeData"
+                            />
+                            <FlowflexUserSelector
+                                v-show="formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User"
+                                v-model="formData.operateUsers"
+                                selection-type="user"
+                                :clearable="true"
+                                :choosable-tree-data="operateChoosableTreeData"
+                            />
+
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[60px]">
+                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">EFFECTIVE TEAMS</div>
+                                <div v-if="effectiveOperateDisplay.length" class="flex flex-wrap gap-1 mt-1">
+                                    <el-tag v-for="name in effectiveOperateDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                                </div>
+                                <div v-else class="text-sm text-gray-400">No access</div>
+                            </div>
+                        </template>
+                    </div>
                 </div>
 
-                <!-- ── Operate Permission ── -->
-                <div class="space-y-3 border border-gray-200 rounded-xl p-4">
-                    <label class="text-sm font-bold text-gray-700">Operate Permission</label>
+                <!-- ── Roll Back Permission (full width, no card border) ── -->
+                <div class="border-t border-gray-100 pt-4 space-y-3">
+                    <div>
+                        <div class="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+                            <Icon icon="mdi:restore" class="text-base" />
+                            Roll Back Permission
+                        </div>
+                        <div class="text-xs text-gray-400 mt-0.5">Controls who can reopen this stage and edit it again</div>
+                    </div>
 
-                    <el-checkbox v-model="formData.useSameTeamForOperate">
-                        Use same teams and users that have view permission
-                    </el-checkbox>
-
-                    <template v-if="!formData.useSameTeamForOperate">
-                        <el-radio-group v-model="formData.operatePermissionSubjectType">
-                            <el-radio :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio>
-                            <el-radio :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio>
-                        </el-radio-group>
-
-                        <FlowflexUserSelector
-                            v-show="formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team"
-                            v-model="formData.operateTeams"
-                            selection-type="team"
-                            :clearable="true"
-                            :choosable-tree-data="operateChoosableTreeData"
-                        />
-                        <FlowflexUserSelector
-                            v-show="formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User"
-                            v-model="formData.operateUsers"
-                            selection-type="user"
-                            :clearable="true"
-                            :choosable-tree-data="operateChoosableTreeData"
-                        />
-                    </template>
-                </div>
-
-                <!-- ── Roll Back Permission ── -->
-                <div class="space-y-3 border border-gray-200 rounded-xl p-4">
-                    <label class="text-sm font-bold text-gray-700">Roll Back Permission</label>
-
-                    <el-checkbox v-model="formData.rollBackUseSameAsOperate">
+                    <el-checkbox v-model="formData.rollBackUseSameAsOperate" class="!font-medium text-primary">
                         Use same teams and users that have operate permission
                     </el-checkbox>
 
                     <template v-if="!formData.rollBackUseSameAsOperate">
-                        <el-radio-group v-model="formData.rollBackPermissionSubjectType">
-                            <el-radio :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio>
-                            <el-radio :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio>
+                        <div class="text-xs font-medium text-gray-600">Teams</div>
+
+                        <el-radio-group v-model="formData.rollBackPermissionSubjectType" class="!gap-2">
+                            <el-radio-button :value="PermissionSubjectTypeEnum.Team">User Teams</el-radio-button>
+                            <el-radio-button :value="PermissionSubjectTypeEnum.User">Individual Users</el-radio-button>
                         </el-radio-group>
 
                         <FlowflexUserSelector
@@ -187,13 +253,24 @@
                             :choosable-tree-data="rollBackChoosableTreeData"
                         />
                     </template>
+
+                    <!-- Effective teams preview -->
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1 min-h-[60px]">
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {{ formData.rollBackPermissionSubjectType === PermissionSubjectTypeEnum.User ? 'EFFECTIVE USERS' : 'EFFECTIVE TEAMS' }}
+                        </div>
+                        <div v-if="effectiveRollBackDisplay.length" class="flex flex-wrap gap-1 mt-1">
+                            <el-tag v-for="name in effectiveRollBackDisplay" :key="name" type="info" size="small">{{ name }}</el-tag>
+                        </div>
+                        <div v-else class="text-sm text-gray-400">No access</div>
+                    </div>
                 </div>
             </template>
         </div>
 
         <template #footer>
             <el-button @click="handleClose" :disabled="saving">Cancel</el-button>
-            <el-button type="primary" :loading="saving" @click="handleSave">Save</el-button>
+            <el-button type="primary" :loading="saving" @click="handleSave">Save Permission</el-button>
         </template>
     </el-dialog>
 </template>
@@ -383,6 +460,38 @@ const initFormData = () => {
     viewValidationError.value = '';
 };
 
+// ── Effective teams computed (independent mode) ───────────────────────
+
+// View effective: the teams/users currently selected in view config
+const effectiveViewDisplay = computed((): string[] => {
+    if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
+        return formData.viewUsers.length ? ['(individual users)'] : [];
+    }
+    return resolveTeamNames(formData.viewTeams);
+});
+
+// Operate effective: same as view (if useSameTeamForOperate) or independent operateTeams
+const effectiveOperateDisplay = computed((): string[] => {
+    if (formData.useSameTeamForOperate) {
+        return effectiveViewDisplay.value;
+    }
+    if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User) {
+        return formData.operateUsers.length ? ['(individual users)'] : [];
+    }
+    return resolveTeamNames(formData.operateTeams);
+});
+
+// Roll Back effective
+const effectiveRollBackDisplay = computed((): string[] => {
+    if (formData.rollBackUseSameAsOperate) {
+        return effectiveOperateDisplay.value;
+    }
+    if (formData.rollBackPermissionSubjectType === PermissionSubjectTypeEnum.User) {
+        return formData.rollBackUsers.length ? ['(individual users)'] : [];
+    }
+    return resolveTeamNames(formData.rollBackTeams);
+});
+
 // ── Choosable tree building ────────────────────────────────────────────
 
 // View choosable: based on MaxStageViewTeams (first-layer snapshot constraint)
@@ -477,7 +586,8 @@ const buildRollBackChoosableTree = async () => {
     }
 
     if (effectiveOperateIds.length === 0) {
-        rollBackChoosableTreeData.value = undefined;
+        // No operate teams configured — Roll Back choosable range is also empty
+        rollBackChoosableTreeData.value = [];
         return;
     }
 
@@ -486,7 +596,7 @@ const buildRollBackChoosableTree = async () => {
         const treeArr = Array.isArray(fullTree) ? fullTree : [];
         rollBackChoosableTreeData.value = buildFilteredTree(treeArr, effectiveOperateIds);
     } catch {
-        rollBackChoosableTreeData.value = undefined;
+        rollBackChoosableTreeData.value = [];
     }
 };
 
@@ -575,6 +685,7 @@ const handleSave = async () => {
                 payload.operateUsers = formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User ? formData.operateUsers : [];
             }
 
+            payload.rollBackInherit = formData.inheritFromWorkflow; // Roll Back inherits together with the top-level flag
             payload.rollBackUseSameAsOperate = formData.rollBackUseSameAsOperate;
 
             if (!formData.rollBackUseSameAsOperate) {

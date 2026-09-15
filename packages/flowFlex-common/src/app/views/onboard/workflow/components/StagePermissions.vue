@@ -1,24 +1,46 @@
 <template>
 	<div class="space-y-6">
 		<!-- ========== Section 1: Template Permissions ========== -->
-		<div class="space-y-3">
-			<div class="space-y-1">
-				<h3 class="text-base font-bold">Template Permissions</h3>
-				<p class="text-sm text-gray-600">Configure who can view and operate this stage's template.</p>
+		<div class="space-y-4">
+			<div class="space-y-0.5">
+				<h3 class="text-sm font-bold text-gray-900">Template Permissions</h3>
+				<p class="text-xs text-gray-500">Configure who can view and operate this stage inside the Workflow Builder</p>
 			</div>
 
-			<el-checkbox v-model="formData.templateUseSameAsWorkflow">
+			<el-checkbox v-model="formData.templateUseSameAsWorkflow" class="!font-medium">
 				Use same permissions as Workflow Template Permissions
 			</el-checkbox>
 
-			<!-- Inherited: read-only display -->
-			<div v-if="formData.templateUseSameAsWorkflow" class="space-y-1 text-sm text-gray-600 pl-1">
-				<p>Matches the workflow's Template view/operate permission.</p>
-				<p>EFFECTIVE TEAMS (View): {{ effectiveTemplateViewDisplay }}</p>
-				<p>EFFECTIVE TEAMS (Operate): {{ effectiveTemplateOperateDisplay }}</p>
+			<!-- Inherited: two-col read-only -->
+			<div v-if="formData.templateUseSameAsWorkflow" class="grid grid-cols-2 gap-4">
+				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[72px]">
+					<p class="text-xs text-gray-500">People who can view this stage in the Workflow Builder.</p>
+					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+						<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+						EFFECTIVE TEAMS
+					</div>
+					<div v-if="workFlowViewTeams?.length" class="flex flex-wrap gap-1 mt-0.5">
+						<el-tag v-for="name in resolveNames(workFlowViewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">{{ effectiveTemplateViewDisplay }}</div>
+				</div>
+				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[72px]">
+					<p class="text-xs text-gray-500">Can only include teams that also have view permission.</p>
+					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+						<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+						EFFECTIVE TEAMS
+					</div>
+					<div v-if="workFlowOperateTeams?.length && !workFlowViewUseSameTeamForOperate" class="flex flex-wrap gap-1 mt-0.5">
+						<el-tag v-for="name in resolveNames(workFlowOperateTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else-if="workFlowViewTeams?.length" class="flex flex-wrap gap-1 mt-0.5">
+						<el-tag v-for="name in resolveNames(workFlowViewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">{{ effectiveTemplateOperateDisplay }}</div>
+				</div>
 			</div>
 
-			<!-- Independent: PermissionSelector -->
+			<!-- Independent: PermissionSelector 全宽（自身已是两列布局） -->
 			<div v-else>
 				<PermissionSelector
 					v-model="templatePermissionsData"
@@ -32,91 +54,112 @@
 		</div>
 
 		<!-- ========== Section 2: Runtime Permissions ========== -->
-		<div class="space-y-3 border-t border-gray-200 pt-4">
-			<div class="space-y-1">
-				<h3 class="text-base font-bold">Runtime Permissions</h3>
+		<div class="space-y-4 border-t border-gray-200 pt-5">
+			<div class="space-y-0.5">
+				<h3 class="text-sm font-bold text-gray-900">Runtime Permissions</h3>
+				<p class="text-xs text-gray-500">Set the default access for this stage when used in a case.</p>
 			</div>
 
-			<el-checkbox v-model="formData.runtimeUseSameAsWorkflow">
+			<el-checkbox v-model="formData.runtimeUseSameAsWorkflow" class="!font-medium">
 				Use same permission as Workflow Runtime Permissions
 			</el-checkbox>
 
-			<!-- Inherited: read-only display -->
-			<div v-if="formData.runtimeUseSameAsWorkflow" class="space-y-1 text-sm text-gray-600 pl-1">
-				<p>Matches the workflow's Runtime view/operate permission.</p>
-				<p>EFFECTIVE TEAMS (View): {{ workFlowEffectiveRuntimeViewDisplay }}</p>
-				<p>EFFECTIVE TEAMS (Operate): {{ workFlowEffectiveRuntimeOperateDisplay }}</p>
+			<!-- Inherited: two-col read-only -->
+			<div v-if="formData.runtimeUseSameAsWorkflow" class="grid grid-cols-2 gap-4">
+				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[72px]">
+					<p class="text-xs text-gray-500">People who can view cases at this stage.</p>
+					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+						<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+						EFFECTIVE TEAMS
+					</div>
+					<div v-if="workFlowEffectiveRuntimeViewTeams?.length" class="flex flex-wrap gap-1">
+						<el-tag v-for="name in resolveNames(workFlowEffectiveRuntimeViewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">{{ workFlowEffectiveRuntimeViewDisplay }}</div>
+				</div>
+				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[72px]">
+					<p class="text-xs text-gray-500">Can only include teams that also have view permission at this stage.</p>
+					<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+						<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+						EFFECTIVE TEAMS
+					</div>
+					<div v-if="workFlowEffectiveRuntimeOperateTeams?.length" class="flex flex-wrap gap-1">
+						<el-tag v-for="name in resolveNames(workFlowEffectiveRuntimeOperateTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">{{ workFlowEffectiveRuntimeOperateDisplay }}</div>
+				</div>
 			</div>
 
-			<!-- Independent: grid 2-col layout -->
-			<div v-else class="grid grid-cols-2 gap-6 divide-x divide-gray-300">
+			<!-- Independent: two-col -->
+			<div v-else class="grid grid-cols-2 gap-6">
 				<!-- Left: Runtime View -->
-				<div class="space-y-4">
-					<div class="space-y-2">
-						<label class="text-base font-bold">View Permission</label>
-						<el-select
-							v-model="formData.runtimeViewPermissionMode"
-							class="w-full"
-							placeholder="Select permission type"
-						>
-							<el-option
-								v-for="option in permissionTypeOptions"
-								:key="option.value"
-								:label="option.label"
-								:value="option.value"
-							/>
-						</el-select>
-					</div>
-					<div v-if="shouldShowRuntimeViewTeams" class="space-y-2">
-						<label class="text-base font-bold">Team</label>
-						<FlowflexUserSelector
-							v-model="formData.runtimeViewTeams"
-							selectionType="team"
-							:clearable="true"
-							:choosable-tree-data="runtimeViewChoosableTreeData"
+				<div class="space-y-3">
+					<div class="text-sm font-semibold text-gray-800">Runtime View Teams</div>
+					<el-select
+						v-model="formData.runtimeViewPermissionMode"
+						class="w-full"
+						placeholder="Select permission type"
+					>
+						<el-option
+							v-for="option in permissionTypeOptions"
+							:key="option.value"
+							:label="option.label"
+							:value="option.value"
 						/>
+					</el-select>
+					<FlowflexUserSelector
+						v-if="shouldShowRuntimeViewTeams"
+						v-model="formData.runtimeViewTeams"
+						selectionType="team"
+						:clearable="true"
+						:choosable-tree-data="runtimeViewChoosableTreeData"
+					/>
+					<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[60px]">
+						<p class="text-xs text-gray-500">People who can view cases at this stage.</p>
+						<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+							<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+							EFFECTIVE TEAMS
+						</div>
+						<div v-if="formData.runtimeViewTeams.length" class="flex flex-wrap gap-1">
+							<el-tag v-for="name in resolveNames(formData.runtimeViewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+						</div>
+						<div v-else class="text-sm text-gray-400">{{ runtimeViewEffectiveDisplay }}</div>
 					</div>
-					<p class="text-sm text-gray-500">
-						EFFECTIVE TEAMS: {{ runtimeViewEffectiveDisplay }}
-					</p>
 				</div>
 
-				<!-- Right: Runtime Operate (NO "Use same" checkbox) -->
-				<div class="space-y-4 pl-4">
-					<div class="space-y-2">
-						<label class="text-base font-bold">Operate Permission</label>
-						<!-- Note: Runtime Operate at stage level has no "Use same" checkbox per Requirement 16.6 -->
+				<!-- Right: Runtime Operate -->
+				<div class="space-y-3">
+					<div class="text-sm font-semibold text-gray-800">Runtime Operate Teams</div>
+					<FlowflexUserSelector
+						v-model="formData.runtimeOperateTeams"
+						selectionType="team"
+						:clearable="true"
+						:choosable-tree-data="runtimeOperateChoosableTreeData"
+					/>
+					<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[60px]">
+						<p class="text-xs text-gray-500">Can only include teams that also have view permission at this stage.</p>
+						<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+							<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+							EFFECTIVE TEAMS
+						</div>
+						<div v-if="formData.runtimeOperateTeams.length" class="flex flex-wrap gap-1">
+							<el-tag v-for="name in resolveNames(formData.runtimeOperateTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+						</div>
+						<div v-else class="text-sm text-gray-400">{{ runtimeOperateEffectiveDisplay }}</div>
 					</div>
-					<div class="space-y-2">
-						<label class="text-base font-bold">Team</label>
-						<FlowflexUserSelector
-							v-model="formData.runtimeOperateTeams"
-							selectionType="team"
-							:clearable="true"
-							:choosable-tree-data="runtimeOperateChoosableTreeData"
-						/>
-					</div>
-					<p class="text-sm text-gray-500">
-						EFFECTIVE TEAMS: {{ runtimeOperateEffectiveDisplay }}
-					</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- ========== Section 3: Roll Back Teams ========== -->
-		<div class="space-y-3 border-t border-gray-200 pt-4">
-			<div class="space-y-1">
-				<label class="text-base font-bold inline-flex items-center gap-x-1">
+		<div class="space-y-3 border-t border-gray-200 pt-5">
+			<div class="space-y-0.5">
+				<div class="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+					<Icon icon="mdi:restore" class="text-base text-gray-600" />
 					Roll Back Teams
-					<el-tooltip
-						content="Only users from these teams can roll back this stage. Leave empty to disable roll back for all users."
-						placement="top"
-					>
-						<Icon icon="mdi:information-outline" class="text-gray-400 cursor-help" />
-					</el-tooltip>
-				</label>
-				<p class="text-sm text-gray-600">
-					Can only include teams that also have Runtime Operate permission.
+				</div>
+				<p class="text-xs text-gray-500">
+					Choose teams allowed to roll this stage back. Only teams with Runtime Operate permission can be selected.
 				</p>
 			</div>
 			<FlowflexUserSelector
@@ -125,9 +168,16 @@
 				:clearable="true"
 				:choosable-tree-data="rollBackChoosableTreeData"
 			/>
-			<p class="text-sm text-gray-500">
-				EFFECTIVE TEAMS: {{ effectiveRollBackDisplay }}
-			</p>
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[60px]">
+				<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+					<Icon icon="mdi:account-group-outline" class="text-gray-400" />
+					EFFECTIVE TEAMS
+				</div>
+				<div v-if="formData.rollBackTeams.length" class="flex flex-wrap gap-1">
+					<el-tag v-for="name in resolveNames(formData.rollBackTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+				</div>
+				<div v-else class="text-sm text-gray-400">No access</div>
+			</div>
 		</div>
 	</div>
 </template>
