@@ -32,6 +32,18 @@
 					@change="updateOperateTeamOptions()"
 				/>
 			</div>
+
+			<!-- View EFFECTIVE TEAMS preview -->
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[56px]">
+				<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+					EFFECTIVE TEAMS
+				</div>
+				<div v-if="localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public" class="text-sm text-gray-400">All teams</div>
+				<div v-else-if="localPermissions.viewTeams.length" class="flex flex-wrap gap-1 mt-0.5">
+					<el-tag v-for="name in resolveNames(localPermissions.viewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+				</div>
+				<div v-else class="text-sm text-gray-400">No access</div>
+			</div>
 		</div>
 
 		<!-- 右侧：Operate Permission -->
@@ -45,6 +57,7 @@
 							localPermissions.viewPermissionMode ===
 							ViewPermissionModeEnum.InvisibleTo,
 					}"
+					class="[&_.el-checkbox__label]:whitespace-nowrap"
 					v-model="localPermissions.useSameTeamForOperate"
 				>
 					Use same team that have view permission
@@ -67,6 +80,27 @@
 					:choosable-tree-data="operateChoosableTreeData"
 					:before-open="handleBeforeOpen"
 				/>
+			</div>
+
+			<!-- Operate EFFECTIVE TEAMS preview -->
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5 min-h-[56px]">
+				<div class="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+					EFFECTIVE TEAMS
+				</div>
+				<template v-if="localPermissions.useSameTeamForOperate && localPermissions.viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo">
+					<div class="text-xs text-gray-400 mb-0.5">Same people as View permission.</div>
+					<div v-if="localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public" class="text-sm text-gray-400">All teams</div>
+					<div v-else-if="localPermissions.viewTeams.length" class="flex flex-wrap gap-1 mt-0.5">
+						<el-tag v-for="name in resolveNames(localPermissions.viewTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">No access</div>
+				</template>
+				<template v-else>
+					<div v-if="localPermissions.operateTeams.length" class="flex flex-wrap gap-1 mt-0.5">
+						<el-tag v-for="name in resolveNames(localPermissions.operateTeams)" :key="name" type="info" size="small">{{ name }}</el-tag>
+					</div>
+					<div v-else class="text-sm text-gray-400">No access</div>
+				</template>
 			</div>
 		</div>
 	</div>
@@ -111,6 +145,20 @@ const props = withDefaults(defineProps<Props>(), {
 // Emits
 const emit = defineEmits(['update:modelValue']);
 
+// ── Team name resolver（使用后面声明的 menuStore）──────────────────────
+const teamNameMap = ref<Map<string, string>>(new Map());
+
+const buildNameMap = (nodes: any[], map = new Map<string, string>()): Map<string, string> => {
+	nodes.forEach((n) => {
+		map.set(n.id, n.name || n.id);
+		if (n.children?.length) buildNameMap(n.children, map);
+	});
+	return map;
+};
+
+const resolveNames = (ids: string[]): string[] =>
+	ids.map((id) => teamNameMap.value.get(id) || id);
+
 // 权限类型选项
 const permissionTypeOptions = [
 	{ label: 'Public', value: ViewPermissionModeEnum.Public },
@@ -138,6 +186,11 @@ const viewTeamSelectorRef = ref<InstanceType<typeof FlowflexUserSelector> | null
 
 // 获取 menuStore 实例
 const menuStore = menuRoles();
+
+// 初始化 teamNameMap（依赖 menuStore）
+menuStore.getFlowflexUserDataWithCache('').then((tree) => {
+	teamNameMap.value = buildNameMap(Array.isArray(tree) ? tree : []);
+});
 
 // 右侧可选的树形数据
 const operateChoosableTreeData = ref<FlowflexUser[] | undefined>(undefined);

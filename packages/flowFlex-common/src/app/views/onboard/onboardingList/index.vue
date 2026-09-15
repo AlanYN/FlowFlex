@@ -608,6 +608,7 @@
 						placeholder="Select Workflow"
 						clearable
 						class="w-full rounded-xl"
+						@change="handleCreateCaseWorkflowChange"
 					>
 						<el-option
 							v-for="workflow in allWorkflows"
@@ -634,13 +635,20 @@
 					<div class="section-header">
 						<label class="text-base font-bold">Access Control</label>
 						<p class="text-sm text-gray-500">
-							Configure who can view and operate on this case
+							Case permission can only narrow the workflow's permission, copied in at
+							creation — it can't grant more access than the workflow (or Case Operate
+							more than Case View), and later workflow changes won't affect existing
+							cases.
 						</p>
 					</div>
 
 					<CasePermissionSelector
 						v-model="casePermissions"
 						:workflow-id="formData.workFlowId"
+						:use-workflow-runtime-permission="formData.useWorkflowRuntimePermission"
+						:max-view-teams="formData.maxViewTeams"
+						:max-operate-teams="formData.maxOperateTeams"
+						:max-view-permission-mode="formData.maxViewPermissionMode"
 					/>
 				</div>
 			</el-form>
@@ -697,7 +705,7 @@ import {
 	resumeOnboardingWithConfirmation,
 	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
-import { getAllStages, getWorkflowList, getWorkflowsForCaseFilter } from '@/apis/ow';
+import { getAllStages, getWorkflowList, getWorkflowsForCaseFilter, getWorkflowDetail } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
 import type { FlowflexUser } from '#/golbal';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
@@ -801,6 +809,11 @@ const formData = reactive({
 	operateUsers: [] as string[],
 	operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
 	useSameTeamForOperate: true,
+	// OW-736: workflow runtime permission snapshot fields
+	useWorkflowRuntimePermission: true,
+	maxViewTeams: [] as string[],
+	maxOperateTeams: [] as string[],
+	maxViewPermissionMode: null as number | null,
 });
 
 const formRules = {
@@ -830,6 +843,10 @@ const casePermissions = computed({
 		operateUsers: formData.operateUsers,
 		operatePermissionSubjectType: formData.operatePermissionSubjectType,
 		useSameTeamForOperate: formData.useSameTeamForOperate,
+		useWorkflowRuntimePermission: formData.useWorkflowRuntimePermission,
+		maxViewTeams: formData.maxViewTeams,
+		maxOperateTeams: formData.maxOperateTeams,
+		maxViewPermissionMode: formData.maxViewPermissionMode,
 	}),
 	set: (value) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
@@ -840,6 +857,9 @@ const casePermissions = computed({
 		formData.operateUsers = value.operateUsers;
 		formData.operatePermissionSubjectType = value.operatePermissionSubjectType;
 		formData.useSameTeamForOperate = value.useSameTeamForOperate;
+		if ('useWorkflowRuntimePermission' in value) {
+			formData.useWorkflowRuntimePermission = (value as any).useWorkflowRuntimePermission;
+		}
 	},
 });
 
@@ -1178,12 +1198,42 @@ const handleOpenGantt = (id: string) => {
 	ganttModalRef.value?.open(id);
 };
 
+/**
+ * Create Case 弹窗中，用户切换 Workflow 时，
+ * 拉取该 Workflow 的 EffectiveRuntime 快照填充 maxViewTeams / maxOperateTeams，
+ * 供 Access Control 继承模式正确展示 Effective Teams。
+ */
+const handleCreateCaseWorkflowChange = async (workflowId: string) => {
+	if (!workflowId) {
+		formData.maxViewTeams = [];
+		formData.maxOperateTeams = [];
+		formData.maxViewPermissionMode = null;
+		return;
+	}
+	try {
+		const res = await getWorkflowDetail(workflowId);
+		const wf = res?.data ?? res;
+		if (wf) {
+			formData.maxViewTeams = wf.effectiveRuntimeViewTeams || [];
+			formData.maxOperateTeams = wf.effectiveRuntimeOperateTeams || [];
+			formData.maxViewPermissionMode = wf.effectiveRuntimeViewPermissionMode ?? null;
+		}
+	} catch {
+		// 拉取失败时静默处理，不影响表单使用
+	}
+};
+
 const handleNewOnboarding = async () => {
 	if (allWorkflows.value.length > 0) {
 		formData.workFlowId = allWorkflows.value.find((item) => item.isDefault)?.id || '';
 
 		// 自动填充当前用户
 		await autoFillCurrentUser();
+
+		// 预加载默认 Workflow 的 Runtime Permission 快照供 Access Control 展示
+		if (formData.workFlowId) {
+			handleCreateCaseWorkflowChange(formData.workFlowId);
+		}
 
 		dialogVisible.value = true;
 	} else {
@@ -1633,6 +1683,11 @@ const handleEditCase = (row: any) => {
 	formData.operatePermissionSubjectType =
 		row.operatePermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
 	formData.useSameTeamForOperate = row.useSameTeamForOperate ?? true;
+	// OW-736: workflow runtime permission snapshot
+	formData.useWorkflowRuntimePermission = row.useWorkflowRuntimePermission ?? true;
+	formData.maxViewTeams = row.maxViewTeams || [];
+	formData.maxOperateTeams = row.maxOperateTeams || [];
+	formData.maxViewPermissionMode = row.maxViewPermissionMode ?? null;
 	// 打开弹窗
 	dialogVisible.value = true;
 };
@@ -1703,6 +1758,10 @@ const resetForm = () => {
 	formData.operateUsers = [];
 	formData.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	formData.useSameTeamForOperate = true;
+	formData.useWorkflowRuntimePermission = true;
+	formData.maxViewTeams = [];
+	formData.maxOperateTeams = [];
+	formData.maxViewPermissionMode = null;
 	if (formRef.value) {
 		formRef.value.clearValidate();
 	}
@@ -1975,6 +2034,7 @@ const handleSave = async () => {
 			ownership:
 				formData.ownership && formData.ownership.trim() !== '' ? formData.ownership : null,
 			ownershipName: ownershipName || null,
+			useWorkflowRuntimePermission: formData.useWorkflowRuntimePermission,
 		};
 
 		let res;

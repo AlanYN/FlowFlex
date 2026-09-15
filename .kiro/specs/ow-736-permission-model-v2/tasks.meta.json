@@ -1,0 +1,388 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Phase 1 — 数据库 Migration 与 Entity 变更": [
+      {
+        "executionId": "56bdd64e-5108-43d0-bcd9-a7b0838211a7",
+        "chatSessionId": "sess_c4761289-07f3-4f28-97d6-d16e705ffb72",
+        "timestamp": 1788935246155
+      },
+      {
+        "executionId": "56bdd64e-5108-43d0-bcd9-a7b0838211a7",
+        "chatSessionId": "sess_c4761289-07f3-4f28-97d6-d16e705ffb72",
+        "timestamp": 1788936434787
+      }
+    ],
+    "2. Phase 2 — OnboardingStageProgress C# 类字段扩展": [
+      {
+        "executionId": "4fa22ed8-4db9-45f0-8f4f-5a32e8b471c8",
+        "chatSessionId": "sess_3035ef27-17af-428d-a922-f115c85a4aae",
+        "timestamp": 1788937214447
+      },
+      {
+        "executionId": "4fa22ed8-4db9-45f0-8f4f-5a32e8b471c8",
+        "chatSessionId": "sess_3035ef27-17af-428d-a922-f115c85a4aae",
+        "timestamp": 1788937594448
+      }
+    ],
+    "2.1 新增 Case Stage 实际权限配置字段（14 个属性）": [
+      {
+        "executionId": "4fa22ed8-4db9-45f0-8f4f-5a32e8b471c8",
+        "chatSessionId": "sess_3035ef27-17af-428d-a922-f115c85a4aae",
+        "timestamp": 1788937582700
+      }
+    ],
+    "2.2 新增 Case Stage 权限快照字段（5 个属性）": [
+      {
+        "executionId": "4fa22ed8-4db9-45f0-8f4f-5a32e8b471c8",
+        "chatSessionId": "sess_3035ef27-17af-428d-a922-f115c85a4aae",
+        "timestamp": 1788937594357
+      }
+    ],
+    "3.1 实现 ComputeWorkflowEffectiveRuntime + WorkflowEffectiveRuntime record": [
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788937898433
+      },
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788938309291
+      }
+    ],
+    "3.2 实现 ComputeStageEffectiveRuntime + StageEffectiveRuntime record": [
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788937906197
+      },
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788938316859
+      }
+    ],
+    "3.3 实现 IsSubsetOf 方法": [
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788937906673
+      },
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788938324931
+      }
+    ],
+    "3. Phase 3 — PermissionCalculator 静态辅助类（新建）": [
+      {
+        "executionId": "453f95e2-cf81-4d18-a70d-c15a9f9f16bc",
+        "chatSessionId": "sess_b71fdfaf-5e36-42b9-829b-acb04e2e85a2",
+        "timestamp": 1788938325035
+      }
+    ],
+    "4. Phase 4 — DTO 变更": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788938529037
+      },
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788939009081
+      }
+    ],
+    "4.1 WorkflowInputDto / WorkflowOutputDto 新增 Runtime 字段": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788938962650
+      }
+    ],
+    "4.2 StageInputDto / StageOutputDto 新增 Template 继承标志 + Runtime 字段": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788938973994
+      }
+    ],
+    "4.3 OnboardingInputDto / OnboardingOutputDto 新增继承标志 + 快照只读字段": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788938985612
+      }
+    ],
+    "4.4 新建 CaseStagePermissionInputDto": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788938996150
+      }
+    ],
+    "4.5 OnboardingStageProgressDto 扩展": [
+      {
+        "executionId": "b880eb58-a765-47d8-ba1f-252ee8ce6e6b",
+        "chatSessionId": "sess_9336666d-1070-4e77-b35a-0a8b73f0f0e6",
+        "timestamp": 1788939008988
+      }
+    ],
+    "5. Checkpoint — Phase 1–4 完成后验证": [
+      {
+        "executionId": "7ed3a6a2-5555-4aac-98a1-db77e7bad09b",
+        "chatSessionId": "sess_00be7894-6a76-4d65-b5a7-6a53344e7c60",
+        "timestamp": 1788939248333
+      },
+      {
+        "executionId": "7ed3a6a2-5555-4aac-98a1-db77e7bad09b",
+        "chatSessionId": "sess_00be7894-6a76-4d65-b5a7-6a53344e7c60",
+        "timestamp": 1788939326576
+      }
+    ],
+    "6.1 OnboardingCrudService.CreateAsync — 快照写入逻辑": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788939524806
+      },
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948669173
+      }
+    ],
+    "6.2 CasePermissionService — 继承模式读快照 + 非继承模式子集校验": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788939542302
+      },
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948685453
+      }
+    ],
+    "6.3 StagePermissionService — 三层取交集改造（Layer 1 快照 + Layer 2 EffectiveRuntime + Layer 3 Case Stage）": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788939554234
+      },
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948699321
+      }
+    ],
+    "6.4 Roll Back 权限校验改造（StageRollBackInherit 三条路径）": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788939567144
+      },
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948715453
+      }
+    ],
+    "6.5 ReapplyWorkflowPermissionService — Reapply 方法": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788939580349
+      },
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948730186
+      }
+    ],
+    "6. Phase 5 — Service 层改造": [
+      {
+        "executionId": "ac6c2b02-b194-4e77-ac43-3582a203b236",
+        "chatSessionId": "sess_bd27e080-165c-40d6-a14a-68a6527192f5",
+        "timestamp": 1788948730276
+      }
+    ],
+    "7.1 WorkflowMapProfile — 新增 Runtime 字段 1:1 映射": [
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788949238869
+      },
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788950090326
+      }
+    ],
+    "7.2 StageMapProfile — 新增 Template/Runtime 字段 1:1 映射": [
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788949246764
+      },
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788950127184
+      }
+    ],
+    "7.3 OnboardingMapProfile — 新增继承标志 + 快照字段 1:1 映射": [
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788949255329
+      },
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788950145044
+      }
+    ],
+    "7. Phase 6 — AutoMapper Profiles": [
+      {
+        "executionId": "a4bcbe9e-aa20-4418-85ee-6fe0ca6c00d4",
+        "chatSessionId": "sess_bb973274-0985-4bf2-8834-047cc91ef5b3",
+        "timestamp": 1788950145172
+      }
+    ],
+    "8. Phase 7 — API 端点": [
+      {
+        "executionId": "ffbdd143-ae01-4f2b-8c86-5b17250de603",
+        "chatSessionId": "sess_da92b0cf-0533-431e-9708-401284821d13",
+        "timestamp": 1789006703850
+      },
+      {
+        "executionId": "ffbdd143-ae01-4f2b-8c86-5b17250de603",
+        "chatSessionId": "sess_da92b0cf-0533-431e-9708-401284821d13",
+        "timestamp": 1789007891506
+      }
+    ],
+    "8.1 PUT /ow/onboardings/v1/{id}/stage-permissions/{stageId}（新增）": [
+      {
+        "executionId": "ffbdd143-ae01-4f2b-8c86-5b17250de603",
+        "chatSessionId": "sess_da92b0cf-0533-431e-9708-401284821d13",
+        "timestamp": 1789007884296
+      }
+    ],
+    "8.2 POST /ow/onboardings/v1/{id}/reapply-workflow-permission（新增）": [
+      {
+        "executionId": "ffbdd143-ae01-4f2b-8c86-5b17250de603",
+        "chatSessionId": "sess_da92b0cf-0533-431e-9708-401284821d13",
+        "timestamp": 1789007891411
+      }
+    ],
+    "9. Checkpoint — Phase 5–7 完成后验证": [
+      {
+        "executionId": "f2b1bf8d-a34a-459b-a091-5c8406f9bcf4",
+        "chatSessionId": "sess_84896337-00bf-4b95-9eeb-3e58c038f770",
+        "timestamp": 1789010035475
+      },
+      {
+        "executionId": "f2b1bf8d-a34a-459b-a091-5c8406f9bcf4",
+        "chatSessionId": "sess_84896337-00bf-4b95-9eeb-3e58c038f770",
+        "timestamp": 1789010206065
+      }
+    ],
+    "10.1 Template Permissions 区块（View + Operate）": [
+      {
+        "executionId": "fb5eb936-3b81-4bbe-9fa8-abef276560c0",
+        "chatSessionId": "sess_392d391d-d059-48ac-89d1-1b5727c4868d",
+        "timestamp": 1789010949462
+      },
+      {
+        "executionId": "fb5eb936-3b81-4bbe-9fa8-abef276560c0",
+        "chatSessionId": "sess_392d391d-d059-48ac-89d1-1b5727c4868d",
+        "timestamp": 1789011399604
+      }
+    ],
+    "10.2 Runtime Permissions 区块（Use same checkbox + 独立配置，无 Use same operate checkbox）": [
+      {
+        "executionId": "fb5eb936-3b81-4bbe-9fa8-abef276560c0",
+        "chatSessionId": "sess_392d391d-d059-48ac-89d1-1b5727c4868d",
+        "timestamp": 1789010949964
+      },
+      {
+        "executionId": "fb5eb936-3b81-4bbe-9fa8-abef276560c0",
+        "chatSessionId": "sess_392d391d-d059-48ac-89d1-1b5727c4868d",
+        "timestamp": 1789011412050
+      }
+    ],
+    "10. Phase 8 — 前端 Workflow Permissions 弹窗改造": [
+      {
+        "executionId": "fb5eb936-3b81-4bbe-9fa8-abef276560c0",
+        "chatSessionId": "sess_392d391d-d059-48ac-89d1-1b5727c4868d",
+        "timestamp": 1789011412190
+      }
+    ],
+    "11. Phase 9 — 前端 Stage Permissions Tab 重做": [
+      {
+        "executionId": "963d1710-e5e8-4e19-a85d-81c4b32dec4f",
+        "chatSessionId": "sess_9b47bef9-f06a-4efb-b2a4-f1f47a7abfb2",
+        "timestamp": 1789011642489
+      },
+      {
+        "executionId": "963d1710-e5e8-4e19-a85d-81c4b32dec4f",
+        "chatSessionId": "sess_9b47bef9-f06a-4efb-b2a4-f1f47a7abfb2",
+        "timestamp": 1789012294408
+      }
+    ],
+    "12. Phase 10 — 前端 Case Access Control 区块改造": [
+      {
+        "executionId": "4ca70c01-3c8a-437f-9b86-78e1f3792dc0",
+        "chatSessionId": "sess_98acf79e-32a3-4145-9ed3-21b9840d8e90",
+        "timestamp": 1789018503866
+      },
+      {
+        "executionId": "4ca70c01-3c8a-437f-9b86-78e1f3792dc0",
+        "chatSessionId": "sess_98acf79e-32a3-4145-9ed3-21b9840d8e90",
+        "timestamp": 1789020550532
+      }
+    ],
+    "13.1 继承状态 UI（5 种 View/Operate/RollBack 只读展示）": [
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789020868991
+      },
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789021549734
+      }
+    ],
+    "13.2 独立配置 UI（View / Operate / RollBack 三个区块）": [
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789021561339
+      }
+    ],
+    "13.3 保存校验逻辑 + API 调用": [
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789021574575
+      }
+    ],
+    "13.4 shield icon 入口集成（Case Progress 面板 Stage 卡片）": [
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789021588890
+      }
+    ],
+    "13. Phase 11 — 前端 CaseStagePermissionDialog 全新组件": [
+      {
+        "executionId": "84cc8405-263b-4461-a7fc-d01a885ab620",
+        "chatSessionId": "sess_20cfd1d2-7121-42be-9a1a-14126ba18b86",
+        "timestamp": 1789021589050
+      }
+    ]
+  }
+}

@@ -161,6 +161,10 @@
 					:work-flow-view-teams="workFlowViewTeams"
 					:work-flow-view-permission-mode="workFlowViewPermissionMode"
 					:work-flow-view-use-same-team-for-operate="workFlowViewUseSameTeamForOperate"
+					:work-flow-effective-runtime-view-teams="workFlowEffectiveRuntimeViewTeams"
+					:work-flow-effective-runtime-operate-teams="workFlowEffectiveRuntimeOperateTeams"
+					:work-flow-effective-runtime-view-permission-mode="workFlowEffectiveRuntimeViewPermissionMode"
+					:effective-roll-back-choosable-teams="effectiveRollBackTeams"
 				/>
 			</TabPane>
 		</PrototypeTabs>
@@ -309,6 +313,22 @@ const props = defineProps({
 		type: Boolean as PropType<boolean>,
 		default: undefined,
 	},
+	workFlowEffectiveRuntimeViewTeams: {
+		type: Array as PropType<string[]>,
+		default: () => [],
+	},
+	workFlowEffectiveRuntimeOperateTeams: {
+		type: Array as PropType<string[]>,
+		default: () => [],
+	},
+	workFlowEffectiveRuntimeViewPermissionMode: {
+		type: Number as PropType<number>,
+		default: undefined,
+	},
+	effectiveRollBackTeams: {
+		type: Array as PropType<string[]>,
+		default: () => [],
+	},
 	staticFields: {
 		type: Array as PropType<DynamicList[]>,
 		default: () => [],
@@ -360,6 +380,12 @@ const formData = ref({
 	required: false,
 	rollBackTeams: [] as string[],
 	componentWeights: [] as ComponentWeightItem[],
+	// 新增权限字段
+	templateUseSameAsWorkflow: true,
+	runtimeUseSameAsWorkflow: true,
+	runtimeViewPermissionMode: ViewPermissionModeEnum.Public,
+	runtimeViewTeams: [] as string[],
+	runtimeOperateTeams: [] as string[],
 });
 
 // 表单验证规则
@@ -387,6 +413,11 @@ const permissionsData = computed({
 		useSameTeamForOperate: formData.value.useSameTeamForOperate,
 		operateTeams: formData.value.operateTeams,
 		rollBackTeams: formData.value.rollBackTeams,
+		templateUseSameAsWorkflow: formData.value.templateUseSameAsWorkflow,
+		runtimeUseSameAsWorkflow: formData.value.runtimeUseSameAsWorkflow,
+		runtimeViewPermissionMode: formData.value.runtimeViewPermissionMode,
+		runtimeViewTeams: formData.value.runtimeViewTeams,
+		runtimeOperateTeams: formData.value.runtimeOperateTeams,
 	}),
 	set: (value: {
 		viewPermissionMode: number;
@@ -394,12 +425,22 @@ const permissionsData = computed({
 		useSameTeamForOperate: boolean;
 		operateTeams: string[];
 		rollBackTeams: string[];
+		templateUseSameAsWorkflow: boolean;
+		runtimeUseSameAsWorkflow: boolean;
+		runtimeViewPermissionMode: number;
+		runtimeViewTeams: string[];
+		runtimeOperateTeams: string[];
 	}) => {
 		formData.value.viewPermissionMode = value.viewPermissionMode;
 		formData.value.viewTeams = value.viewTeams;
 		formData.value.useSameTeamForOperate = value.useSameTeamForOperate;
 		formData.value.operateTeams = value.operateTeams;
 		formData.value.rollBackTeams = value.rollBackTeams;
+		formData.value.templateUseSameAsWorkflow = value.templateUseSameAsWorkflow;
+		formData.value.runtimeUseSameAsWorkflow = value.runtimeUseSameAsWorkflow;
+		formData.value.runtimeViewPermissionMode = value.runtimeViewPermissionMode;
+		formData.value.runtimeViewTeams = value.runtimeViewTeams;
+		formData.value.runtimeOperateTeams = value.runtimeOperateTeams;
 	},
 });
 
@@ -450,6 +491,18 @@ onMounted(async () => {
 				formData.value[key] = (props.stage as any)?.useSameTeamForOperate ?? true;
 			} else if (key === 'rollBackTeams') {
 				formData.value[key] = (props.stage as any)?.rollBackTeams || [];
+			} else if (key === 'templateUseSameAsWorkflow') {
+				formData.value[key] = (props.stage as any)?.templateUseSameAsWorkflow ?? true;
+			} else if (key === 'runtimeUseSameAsWorkflow') {
+				formData.value[key] = (props.stage as any)?.runtimeUseSameAsWorkflow ?? true;
+			} else if (key === 'runtimeViewPermissionMode') {
+				formData.value[key] =
+					(props.stage as any)?.runtimeViewPermissionMode ??
+					ViewPermissionModeEnum.Public;
+			} else if (key === 'runtimeViewTeams') {
+				formData.value[key] = (props.stage as any)?.runtimeViewTeams || [];
+			} else if (key === 'runtimeOperateTeams') {
+				formData.value[key] = (props.stage as any)?.runtimeOperateTeams || [];
 			} else if (key === 'defaultAssignee') {
 				// 处理 defaultAssignee 数组类型
 				const value = (props.stage as any)?.defaultAssignee;

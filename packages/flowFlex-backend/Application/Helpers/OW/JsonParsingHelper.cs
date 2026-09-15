@@ -15,8 +15,10 @@ namespace FlowFlex.Application.Helpers.OW
         /// </summary>
         public static readonly JsonSerializerOptions DefaultOptions = new()
         {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = true,
             AllowTrailingCommas = true,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
             NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
         };
 

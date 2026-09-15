@@ -72,7 +72,7 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 px-3 el-input__wrapper transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 px-3 el-input__wrapper border border-gray-300 rounded-lg bg-white transition-colors duration-200 flex items-center"
 			:class="[
 				disabled
 					? 'bg-gray-50 dark:bg-[--el-disabled-bg-color] cursor-not-allowed'

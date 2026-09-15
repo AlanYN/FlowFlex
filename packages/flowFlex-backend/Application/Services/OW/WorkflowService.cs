@@ -27,6 +27,7 @@ using FlowFlex.Domain.Shared.Models;
 using Item.Redis;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
@@ -508,6 +509,22 @@ namespace FlowFlex.Application.Services.OW
             var entity = await _workflowRepository.GetWithStagesAsync(id);
             var result = _mapper.Map<WorkflowOutputDto>(entity);
 
+            // Fill Effective Runtime Permission fields (Service layer, not AutoMapper)
+            if (result != null && entity != null)
+            {
+                try
+                {
+                    var effectiveRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(entity);
+                    result.EffectiveRuntimeViewPermissionMode = effectiveRuntime.ViewMode;
+                    result.EffectiveRuntimeViewTeams = effectiveRuntime.ViewTeams;
+                    result.EffectiveRuntimeOperateTeams = effectiveRuntime.OperateTeams;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "GetByIdAsync - Failed to compute Workflow Effective Runtime for {WorkflowId}", id);
+                }
+            }
+
             // Fill permission info (optimized single call)
             if (result != null && !string.IsNullOrEmpty(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var userId))
             {
@@ -532,11 +549,31 @@ namespace FlowFlex.Application.Services.OW
 
             var result = _mapper.Map<List<WorkflowOutputDto>>(list);
 
+            // Build entity map for effective runtime computation (entities and DTOs share the same id)
+            var entityMap = list.ToDictionary(e => e.Id);
+
             // For performance optimization, workflow list API does not return Stage data
             // Stage data is retrieved through a separate API: /api/ow/workflows/{id}/stages
-            foreach (var workflow in result)
+            foreach (var dto in result)
             {
-                workflow.Stages = new List<StageOutputDto>();
+                dto.Stages = new List<StageOutputDto>();
+
+                // Fill Effective Runtime Permission fields so StagePermissions UI can display
+                // the correct inherited values when adding/editing a stage.
+                if (entityMap.TryGetValue(dto.Id, out var entity))
+                {
+                    try
+                    {
+                        var effectiveRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(entity);
+                        dto.EffectiveRuntimeViewPermissionMode = effectiveRuntime.ViewMode;
+                        dto.EffectiveRuntimeViewTeams = effectiveRuntime.ViewTeams;
+                        dto.EffectiveRuntimeOperateTeams = effectiveRuntime.OperateTeams;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "GetListAsync - Failed to compute Workflow Effective Runtime for {WorkflowId}", dto.Id);
+                    }
+                }
             }
 
             return result;
@@ -581,11 +618,31 @@ namespace FlowFlex.Application.Services.OW
                     return new List<WorkflowOutputDto>();
                 }
 
+                // Build entity map for effective runtime computation
+                var entityMap = list.ToDictionary(e => e.Id);
+
                 // For performance optimization, workflow list API does not return Stage data
                 // Stage data is retrieved through a separate API: /api/ow/workflows/{id}/stages
-                foreach (var workflow in result)
+                foreach (var dto in result)
                 {
-                    workflow.Stages = new List<StageOutputDto>();
+                    dto.Stages = new List<StageOutputDto>();
+
+                    // Fill Effective Runtime Permission fields so StagePermissions UI can display
+                    // the correct inherited values when adding/editing a stage.
+                    if (entityMap.TryGetValue(dto.Id, out var entity))
+                    {
+                        try
+                        {
+                            var effectiveRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(entity);
+                            dto.EffectiveRuntimeViewPermissionMode = effectiveRuntime.ViewMode;
+                            dto.EffectiveRuntimeViewTeams = effectiveRuntime.ViewTeams;
+                            dto.EffectiveRuntimeOperateTeams = effectiveRuntime.OperateTeams;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "GetAllAsync - Failed to compute Workflow Effective Runtime for {WorkflowId}", dto.Id);
+                        }
+                    }
                 }
 
                 stopwatch.Stop();
@@ -763,6 +820,22 @@ namespace FlowFlex.Application.Services.OW
                             CanOperate = false,
                             ErrorMessage = "User not authenticated"
                         };
+                    }
+
+                    // Fill Effective Runtime Permission fields (same as GetListAsync / GetAllAsync)
+                    if (workflowEntities.TryGetValue(workflow.Id, out var wfEntityForRuntime))
+                    {
+                        try
+                        {
+                            var effectiveRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(wfEntityForRuntime);
+                            workflow.EffectiveRuntimeViewPermissionMode = effectiveRuntime.ViewMode;
+                            workflow.EffectiveRuntimeViewTeams = effectiveRuntime.ViewTeams;
+                            workflow.EffectiveRuntimeOperateTeams = effectiveRuntime.OperateTeams;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "QueryAsync - Failed to compute Workflow Effective Runtime for {WorkflowId}", workflow.Id);
+                        }
                     }
                 }
             }

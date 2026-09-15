@@ -108,6 +108,36 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "use_same_team_for_operate")]
         public bool UseSameTeamForOperate { get; set; } = false;
 
+        // ── Runtime Permission Fields (added by OW-736) ─────────────────────────
+
+        /// <summary>
+        /// Runtime Permission: whether to inherit from Template Permission.
+        /// true (default) = Effective Runtime mirrors Template fields (ViewPermissionMode, ViewTeams, OperateTeams).
+        /// false = use runtime_* fields directly.
+        /// NOTE: No RuntimeUseSameTeamForOperate — Workflow Runtime Operate is always independent.
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_use_same_as_template")]
+        public bool RuntimeUseSameAsTemplate { get; set; } = true;
+
+        /// <summary>
+        /// Runtime View Permission Mode (active when RuntimeUseSameAsTemplate = false).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_view_permission_mode")]
+        public ViewPermissionModeEnum RuntimeViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// Runtime View Teams — JSONB array of team IDs (active when RuntimeUseSameAsTemplate = false).
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_view_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string RuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Runtime Operate Teams — JSONB array of team IDs, always independently configured.
+        /// (active when RuntimeUseSameAsTemplate = false)
+        /// </summary>
+        [SugarColumn(ColumnName = "runtime_operate_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string RuntimeOperateTeams { get; set; }
+
         /// <summary>
         /// Associated Stage Collection
         /// </summary>

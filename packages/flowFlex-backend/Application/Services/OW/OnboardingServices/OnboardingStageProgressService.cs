@@ -3,6 +3,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using Application.Contracts.Options;
 using FlowFlex.Application.Helpers.OW;
+using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -26,6 +27,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     {
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IWorkflowRepository _workflowRepository;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IOnboardingPermissionService _permissionService;
@@ -45,6 +47,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public OnboardingStageProgressService(
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
+            IWorkflowRepository workflowRepository,
             IOperatorContextService operatorContextService,
             IOperationChangeLogService operationChangeLogService,
             IOnboardingPermissionService permissionService,
@@ -56,6 +59,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         {
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
+            _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
@@ -586,6 +590,42 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     _logger.LogInformation("Initializing empty stagesProgress for Onboarding {OnboardingId} with {StageCount} stages from workflow {WorkflowId}",
                         entity.Id, stages.Count, entity.WorkflowId);
                     await InitializeStagesProgressAsync(entity, stages);
+
+                    // Also fill MaxStage* permission snapshots after initialization
+                    // (in case this is an old Case whose stages_progress_json was empty)
+                    try
+                    {
+                        var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                        if (workflow != null)
+                        {
+                            var wfRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(workflow);
+                            var stageMap = stages.ToDictionary(s => s.Id);
+                            foreach (var stageProgress in entity.StagesProgress)
+                            {
+                                if (!stageMap.TryGetValue(stageProgress.StageId, out var stage)) continue;
+                                try
+                                {
+                                    var stageRuntime = PermissionCalculator.ComputeStageEffectiveRuntime(stage, wfRuntime);
+                                    stageProgress.MaxStageViewPermissionMode = stageRuntime.ViewMode;
+                                    stageProgress.MaxStageViewTeams = stageRuntime.ViewTeams;
+                                    stageProgress.MaxStageOperatePermissionMode = stageRuntime.OperateMode;
+                                    stageProgress.MaxStageOperateTeams = stageRuntime.OperateTeams;
+                                    stageProgress.MaxStageRollBackTeams = stageRuntime.RollBackTeams;
+                                }
+                                catch (Exception stageEx)
+                                {
+                                    _logger.LogWarning(stageEx, "EnsureStages - Failed snapshot for stage {StageId}", stageProgress.StageId);
+                                }
+                            }
+                            entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                            // Persist the updated stages progress
+                            await SafeUpdateOnboardingAsync(entity);
+                        }
+                    }
+                    catch (Exception snapshotEx)
+                    {
+                        _logger.LogWarning(snapshotEx, "EnsureStages - Failed to fill MaxStage* snapshots for Onboarding {OnboardingId}", entity.Id);
+                    }
 
                     _logger.LogInformation("Successfully initialized stagesProgress for Onboarding {OnboardingId}",
                         entity.Id);

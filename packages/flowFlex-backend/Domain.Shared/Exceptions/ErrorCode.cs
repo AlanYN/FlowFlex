@@ -166,4 +166,16 @@ public enum ErrorCodeEnum
     [EnumValue(Description = "this data not found")]
     DataNotFound = 1501,
     ThirdPartyError = 1502,
+
+    /// <summary>
+    /// Permission boundary exceeded — configured teams are not a subset of the snapshot boundary
+    /// </summary>
+    [EnumValue(Description = "Selected teams exceed the permission snapshot boundary. Configured teams must be a subset of the Workflow Runtime snapshot.")]
+    PermissionBoundaryExceeded = 1503,
+
+    /// <summary>
+    /// Roll back permission denied — user is not in the effective roll back team/user list
+    /// </summary>
+    [EnumValue(Description = "User does not have roll back permission for this stage.")]
+    RollBackPermissionDenied = 1504,
 }

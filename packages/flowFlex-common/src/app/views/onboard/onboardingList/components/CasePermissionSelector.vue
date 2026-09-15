@@ -1,5 +1,49 @@
 <template>
-	<div v-loading="loading" class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300">
+	<div v-loading="loading" class="space-y-4">
+		<!-- OW-736: Use same permission as Workflow Runtime Permissions checkbox -->
+		<el-checkbox v-model="localUseWorkflowRuntimePermission">
+			Use same permission as Workflow Runtime Permissions
+		</el-checkbox>
+
+		<!-- Inherit mode: read-only effective teams display -->
+		<div
+			v-if="localUseWorkflowRuntimePermission"
+			class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300"
+		>
+			<div class="space-y-4 w-full">
+				<label class="text-base font-bold">View Permission</label>
+				<p class="text-sm text-gray-500">Effective Teams (read-only)</p>
+				<div class="flex flex-wrap gap-1">
+					<el-tag v-for="team in effectiveViewTeamNames" :key="team" type="info">{{
+						team
+					}}</el-tag>
+					<span v-if="!effectiveViewTeamNames.length" class="text-sm text-gray-400"
+						>All teams (Public)</span
+					>
+				</div>
+			</div>
+			<div class="space-y-4 w-full pl-4">
+				<label class="text-base font-bold">Operate Permission</label>
+				<p class="text-sm text-gray-500">Effective Teams (read-only)</p>
+				<div class="flex flex-wrap gap-1">
+					<el-tag
+						v-for="team in effectiveOperateTeamNames"
+						:key="team"
+						type="info"
+						>{{ team }}</el-tag
+					>
+					<span v-if="!effectiveOperateTeamNames.length" class="text-sm text-gray-400"
+						>All teams (Public)</span
+					>
+				</div>
+			</div>
+		</div>
+
+		<!-- Custom permission mode: normal selectors -->
+		<div
+			v-else
+			class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300"
+		>
 		<!-- 左侧：View Permission -->
 		<div class="space-y-4 w-full">
 			<div class="space-y-2 min-h-[90px]">
@@ -67,6 +111,23 @@
 						PermissionSubjectTypeEnum.User
 					"
 					ref="viewUserSelectorRef"
+					v-model="localPermissions.viewUsers"
+					selection-type="user"
+					:clearable="true"
+					:choosable-tree-data="viewChoosableTreeData"
+					@change="refreshOperateChoosableTree(true)"
+				/>
+			</div>
+
+			<!-- OW-736 (17.6): Private mode — show only Individual Users selector -->
+			<div
+				v-else-if="
+					localPermissions.viewPermissionMode === CasePermissionModeEnum.Private
+				"
+				class="space-y-2 flex flex-col"
+			>
+				<label class="text-base font-bold">Individual Users</label>
+				<FlowflexUserSelector
 					v-model="localPermissions.viewUsers"
 					selection-type="user"
 					:clearable="true"
@@ -162,6 +223,8 @@
 				/>
 			</div>
 		</div>
+		<!-- end v-else custom permission -->
+		</div>
 	</div>
 </template>
 
@@ -190,6 +253,11 @@ interface Props {
 		operatePermissionSubjectType: number;
 	};
 	workflowId?: string | number;
+	// OW-736: snapshot fields from backend
+	useWorkflowRuntimePermission?: boolean;
+	maxViewTeams?: string[];
+	maxOperateTeams?: string[];
+	maxViewPermissionMode?: number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -203,6 +271,10 @@ const props = withDefaults(defineProps<Props>(), {
 		operateUsers: [],
 		operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
 	}),
+	useWorkflowRuntimePermission: () => true,
+	maxViewTeams: () => [],
+	maxOperateTeams: () => [],
+	maxViewPermissionMode: () => null,
 });
 
 // Emits
@@ -279,7 +351,123 @@ const isProcessingInternalUpdate = ref(false);
 // Loading 状态
 const loading = ref(false);
 
-// 拉取 Workflow 权限配置，用于第一层过滤
+// OW-736: local ref for the "Use same as Workflow Runtime" checkbox
+const localUseWorkflowRuntimePermission = ref(props.useWorkflowRuntimePermission ?? true);
+
+// Sync localUseWorkflowRuntimePermission from props
+watch(
+	() => props.useWorkflowRuntimePermission,
+	(val) => {
+		localUseWorkflowRuntimePermission.value = val ?? true;
+	}
+);
+
+// Computed: resolve team names from maxViewTeams / maxOperateTeams for the read-only display
+const effectiveViewTeamNames = computed(() => {
+	if (!props.maxViewTeams || props.maxViewTeams.length === 0) return [];
+	// Use the store's cached tree (synchronous) to resolve names
+	const cache: FlowflexUser[] = (menuStore as any).flowflexUserData || [];
+	const nameMap = new Map<string, string>();
+	const walk = (nodes: FlowflexUser[]) => {
+		nodes.forEach((n) => {
+			nameMap.set(n.id, n.name || n.id);
+			if (n.children) walk(n.children);
+		});
+	};
+	walk(cache);
+	return props.maxViewTeams.map((id) => nameMap.get(id) || id);
+});
+
+const effectiveOperateTeamNames = computed(() => {
+	if (!props.maxOperateTeams || props.maxOperateTeams.length === 0) return [];
+	const cache: FlowflexUser[] = (menuStore as any).flowflexUserData || [];
+	const nameMap = new Map<string, string>();
+	const walk = (nodes: FlowflexUser[]) => {
+		nodes.forEach((n) => {
+			nameMap.set(n.id, n.name || n.id);
+			if (n.children) walk(n.children);
+		});
+	};
+	walk(cache);
+	return props.maxOperateTeams.map((id) => nameMap.get(id) || id);
+});
+
+// 第一层过滤（Snapshot 优先）：根据 maxViewTeams prop 过滤，得到左侧可选数据
+const refreshViewChoosableTreeDataFromSnapshot = async () => {
+	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
+
+	if (!props.maxViewTeams || props.maxViewTeams.length === 0) {
+		// No snapshot restriction — fall back to workflow live data
+		await refreshViewChoosableTreeData();
+		return;
+	}
+
+	const maxTeams = props.maxViewTeams;
+
+	// Build maps
+	const nodeMap = new Map<string, FlowflexUser>();
+	const childToParentMap = new Map<string, string>();
+	const buildMaps = (nodes: FlowflexUser[], parentId?: string) => {
+		nodes.forEach((node) => {
+			nodeMap.set(node.id, node);
+			if (parentId) childToParentMap.set(node.id, parentId);
+			if (node.children && node.children.length > 0) buildMaps(node.children, node.id);
+		});
+	};
+	buildMaps(fullTreeData);
+
+	// VisibleTo whitelist logic: deduplicate parent-covered nodes
+	const limitSet = new Set(maxTeams);
+	const resultIds = new Set<string>();
+
+	maxTeams.forEach((nodeId: string) => {
+		if (!nodeMap.has(nodeId)) return;
+
+		let currentId = nodeId;
+		let hasSelectedParent = false;
+
+		while (childToParentMap.has(currentId)) {
+			const parentId = childToParentMap.get(currentId)!;
+			if (limitSet.has(parentId)) {
+				hasSelectedParent = true;
+				break;
+			}
+			currentId = parentId;
+		}
+
+		if (!hasSelectedParent) {
+			resultIds.add(nodeId);
+		}
+	});
+
+	if (resultIds.size === 0) {
+		viewChoosableTreeData.value = [];
+		return;
+	}
+
+	const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
+		const newNode: FlowflexUser = { ...node };
+		if (newNode.children && newNode.children.length > 0) {
+			newNode.children = newNode.children
+				.filter((child) => {
+					if (child.type === 'team') return limitSet.has(child.id);
+					if (child.type === 'user') return true;
+					return false;
+				})
+				.map((child) => cloneNodeWithFilter(child));
+		}
+		return newNode;
+	};
+
+	const newTreeData = Array.from(resultIds)
+		.map((id) => nodeMap.get(id))
+		.filter(Boolean)
+		.map((node) => cloneNodeWithFilter(node!));
+
+	viewChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
+};
+
+// 拉取 Workflow 权限配置，用于第一层过滤（兼容旧逻辑）
 const loadWorkflowPermissionData = async () => {
 	if (!props.workflowId) {
 		workflowData.value = null;
@@ -706,12 +894,17 @@ const refreshOperateChoosableTree = async (shouldAdjustOperateSelection: boolean
 	}
 };
 
+// Emit when the checkbox toggles
+watch(localUseWorkflowRuntimePermission, () => {
+	syncPermissionsToParent();
+});
+
 onMounted(() => {
 	nextTick(async () => {
-		// 获取 workflow 权限数据
+		// 获取 workflow 权限数据（保留兼容）
 		await loadWorkflowPermissionData();
-		// 执行第一层过滤（更新左侧可选数据）
-		await refreshViewChoosableTreeData();
+		// 优先使用 snapshot-based 第一层过滤
+		await refreshViewChoosableTreeDataFromSnapshot();
 		refreshOperateChoosableTree(false);
 	});
 });
@@ -768,6 +961,7 @@ const syncPermissionsToParent = () => {
 			operateTeams: [...localPermissions.operateTeams],
 			operateUsers: [...localPermissions.operateUsers],
 			operatePermissionSubjectType: localPermissions.operatePermissionSubjectType,
+			useWorkflowRuntimePermission: localUseWorkflowRuntimePermission.value,
 		});
 
 		// 重置标志位
@@ -783,8 +977,8 @@ watch(
 	async () => {
 		// 重新获取 workflow 权限数据
 		await loadWorkflowPermissionData();
-		// 重新执行第一层过滤
-		await refreshViewChoosableTreeData();
+		// 重新执行第一层过滤（snapshot 优先）
+		await refreshViewChoosableTreeDataFromSnapshot();
 		// 重新执行第二层过滤
 		if (isViewSelectorVisible.value && localPermissions.viewTeams.length > 0) {
 			refreshOperateChoosableTree(false);
@@ -800,6 +994,16 @@ watch(
 	}
 );
 
+// maxViewTeams prop 变化时重新计算第一层过滤
+watch(
+	() => props.maxViewTeams,
+	async () => {
+		await refreshViewChoosableTreeDataFromSnapshot();
+		refreshOperateChoosableTree(false);
+	},
+	{ deep: true }
+);
+
 // 左侧主体类型更新时，重新计算 Operate 可选数据
 watch(
 	() => localPermissions.viewPermissionSubjectType,
@@ -808,10 +1012,15 @@ watch(
 	}
 );
 
-// 模式切换时，重新计算 Operate 可选数据
+// 模式切换时，重新计算 Operate 可选数据；Private 模式强制 User 主体
 watch(
 	() => localPermissions.viewPermissionMode,
-	() => {
+	(mode) => {
+		// OW-736 (17.6): Private mode forces Individual Users subject type
+		if (mode === CasePermissionModeEnum.Private) {
+			localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.User;
+			localPermissions.viewTeams = [];
+		}
 		refreshOperateChoosableTree();
 	}
 );
