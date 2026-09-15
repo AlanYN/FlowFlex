@@ -1819,7 +1819,10 @@ const validateAndCheckPermissions = async (): Promise<{
 		}
 	} else {
 		formData.viewTeams = [];
-		formData.viewUsers = [];
+		// Private 模式下 viewUsers 是合法数据（Individual Users），不能在提交前清空
+		if (formData.viewPermissionMode !== CasePermissionModeEnum.Private) {
+			formData.viewUsers = [];
+		}
 		formData.operateTeams = [];
 		formData.operateUsers = [];
 	}
