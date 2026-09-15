@@ -30,6 +30,11 @@ namespace FlowFlex.Domain.Shared.Events
         public string TenantId { get; set; }
 
         /// <summary>
+        /// Application code for app isolation
+        /// </summary>
+        public string AppCode { get; set; }
+
+        /// <summary>
         /// User ID who triggered the event
         /// </summary>
         public long UserId { get; set; }
