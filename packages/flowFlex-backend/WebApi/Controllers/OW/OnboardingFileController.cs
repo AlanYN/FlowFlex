@@ -37,6 +37,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IOnboardingStageProgressService _stageProgressService;
         private readonly StagePermissionService _stagePermissionService;
+        private readonly PermissionHelpers _permissionHelpers;
 
         public OnboardingFileController(
             IOnboardingFileService onboardingFileService,
@@ -46,7 +47,8 @@ namespace FlowFlex.WebApi.Controllers.OW
             IStageRepository stageRepository,
             IWorkflowRepository workflowRepository,
             IOnboardingStageProgressService stageProgressService,
-            StagePermissionService stagePermissionService)
+            StagePermissionService stagePermissionService,
+            PermissionHelpers permissionHelpers)
         {
             _onboardingFileService = onboardingFileService;
             _operatorContextService = operatorContextService;
@@ -56,6 +58,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             _workflowRepository = workflowRepository;
             _stageProgressService = stageProgressService;
             _stagePermissionService = stagePermissionService;
+            _permissionHelpers = permissionHelpers;
         }
 
         /// <summary>
@@ -553,6 +556,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             // Files not associated with any Stage are not restricted
             if (!stageId.HasValue)
+                return null;
+
+            // Admin bypass: System Admin and Tenant Admin always have full access
+            if (_permissionHelpers.HasAdminPrivileges())
                 return null;
 
             var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
