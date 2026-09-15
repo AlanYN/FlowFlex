@@ -424,7 +424,9 @@ namespace FlowFlex.Application.Services.OW.Permission
                         ? _helpers.CheckTeamBlacklist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserBlacklist(onboarding.ViewUsers, userId),
 
-                ViewPermissionModeEnum.Private => false, // Owner check is handled in CheckCasePermission
+                // Private: owner is already granted access in CheckCasePermission (Step 1).
+                // Here we additionally grant access to any user explicitly listed in ViewUsers.
+                ViewPermissionModeEnum.Private => _helpers.CheckUserWhitelist(onboarding.ViewUsers, userId),
 
                 _ => false
             };
