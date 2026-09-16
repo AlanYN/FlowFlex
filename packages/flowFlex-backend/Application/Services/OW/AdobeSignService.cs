@@ -191,6 +191,16 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, $"Agreement {id} not found");
             }
 
+            // If still Awaiting, sync signer statuses from Adobe Sign in real time
+            // so the Details modal always shows the latest per-person signing state
+            if (agreement.Status == "Awaiting")
+            {
+                try { await SyncSignerStatusesAsync(agreement); }
+                catch { /* non-critical — return cached data if sync fails */ }
+                // Re-read from DB to pick up the updated signers JSON
+                agreement = await _agreementRepository.GetByIdAsync(id) ?? agreement;
+            }
+
             return MapToOutputDto(agreement);
         }
 
