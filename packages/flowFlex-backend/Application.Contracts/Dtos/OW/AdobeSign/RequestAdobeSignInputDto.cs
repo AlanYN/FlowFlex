@@ -3,10 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.AdobeSign
 {
-    /// <summary>
-    /// Input DTO for initiating an Adobe Sign e-signature request (OW-731)
-    /// </summary>
-    public class RequestAdobeSignInputDto
+    public class RequestAdobeSignInputDto : IValidatableObject
     {
         /// <summary>
         /// The Onboarding (Case) ID this signing request belongs to
@@ -38,6 +35,17 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.AdobeSign
         /// Signing order: Sequential (one by one in Order index) or Parallel (all at once)
         /// </summary>
         public string SigningOrder { get; set; } = "Sequential";
+
+        private static readonly HashSet<string> ValidSigningOrders =
+            new(StringComparer.Ordinal) { "Sequential", "Parallel" };
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext context)
+        {
+            if (!ValidSigningOrders.Contains(SigningOrder))
+                yield return new ValidationResult(
+                    $"SigningOrder must be 'Sequential' or 'Parallel'.",
+                    new[] { nameof(SigningOrder) });
+        }
 
         /// <summary>
         /// Number of days before the agreement expires (7 / 14 / 30 / 60 / 90)

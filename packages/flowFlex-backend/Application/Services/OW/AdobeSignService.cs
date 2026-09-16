@@ -128,7 +128,7 @@ namespace FlowFlex.Application.Services.OW
             // Step 3: Build Agreement payload and POST to Adobe Sign
             var adobeAgreementId = await CreateAgreementAsync(transientDocumentId, input, sourceFile.OriginalFileName);
 
-            // Step 4: Persist agreement record
+            // Step 4: Persist agreement record — if DB write fails, recall the agreement to prevent orphans
             var signersJson = JsonSerializer.Serialize(input.Signers);
             var agreement = new AdobeSignAgreement
             {
@@ -144,7 +144,32 @@ namespace FlowFlex.Application.Services.OW
                 RequestedBy = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0,
             };
             agreement.InitCreateInfo(_userContext);
-            await _db.Insertable(agreement).ExecuteCommandAsync();
+            try
+            {
+                await _db.Insertable(agreement).ExecuteCommandAsync();
+            }
+            catch (Exception dbEx)
+            {
+                // DB write failed — recall the Agreement on Adobe Sign to prevent an orphan
+                _logger.LogError(dbEx,
+                    "[AdobeSign] DB insert failed after Agreement created on Adobe Sign. Recalling to prevent orphan. AdobeId={Id}",
+                    adobeAgreementId);
+                try
+                {
+                    var recallClient = CreateAdobeSignClient();
+                    var recallPayload = JsonSerializer.Serialize(new { state = "CANCELLED", comment = "Auto-recalled: local DB write failed" });
+                    await recallClient.PutAsync($"agreements/{adobeAgreementId}/state",
+                        new StringContent(recallPayload, Encoding.UTF8, "application/json"));
+                }
+                catch (Exception recallEx)
+                {
+                    _logger.LogError(recallEx,
+                        "[AdobeSign] Auto-recall also failed. Orphan Agreement exists on Adobe Sign. AdobeId={Id}",
+                        adobeAgreementId);
+                }
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    "Failed to save signing request. The Adobe Sign agreement has been automatically cancelled.");
+            }
 
             _logger.LogInformation(
                 "[AdobeSign] Agreement created. WFE ID={AgreementDbId}, Adobe ID={AdobeId}, File={FileId}",
@@ -421,7 +446,10 @@ namespace FlowFlex.Application.Services.OW
                             adobeAgreementId);
                         break;
                     }
-                    await UpdateStatusAsync(agreement, "Completed");
+                    // Archive first — only mark Completed after documents are successfully saved
+                    // This prevents the "Completed status but no file" inconsistency
+                    // Also sync signer statuses so the Details modal shows correct per-person state
+                    await SyncSignerStatusesAsync(agreement);
                     await ArchiveSignedDocumentsAsync(agreement);
                     break;
 
@@ -684,15 +712,23 @@ namespace FlowFlex.Application.Services.OW
                     .UpdateColumns(a => new { a.SignedFileId, a.AuditTrailFileId, a.CompletedDate, a.ModifyDate })
                     .ExecuteCommandAsync();
 
+                // Only mark Completed AFTER signed file is confirmed saved
+                // This prevents the "Completed status but no signed file" inconsistency (#5)
+                if (agreement.SignedFileId.HasValue)
+                {
+                    await UpdateStatusAsync(agreement, "Completed");
+                    await SyncSignedDocumentToDownstreamCasesAsync(agreement);
+                }
+                else
+                {
+                    _logger.LogError(
+                        "[AdobeSign] Signed PDF download failed — status NOT updated to Completed. AgreementId={Id}. Manual retry required.",
+                        agreement.AgreementId);
+                }
+
                 _logger.LogInformation(
                     "[AdobeSign] Documents archived. AgreementId={Id}, SignedFile={SignedId}, AuditFile={AuditId}",
                     agreement.AgreementId, agreement.SignedFileId, agreement.AuditTrailFileId);
-
-                // Sync signed documents to downstream Cases triggered from the same source Case
-                if (agreement.SignedFileId.HasValue)
-                {
-                    await SyncSignedDocumentToDownstreamCasesAsync(agreement);
-                }
             }
             catch (Exception ex)
             {
@@ -874,7 +910,8 @@ namespace FlowFlex.Application.Services.OW
 
                 var body = await response.Content.ReadAsStringAsync();
 
-                // Parse existing signers — these contain the original Email/Name/Role/Order
+                _logger.LogInformation("[AdobeSign] SyncSignerStatuses members response. AgreementId={Id}, Body={Body}",
+                    agreement.AgreementId, body);
                 List<AdobeSignerDto> signers = new();
                 if (!string.IsNullOrEmpty(agreement.Signers))
                 {
