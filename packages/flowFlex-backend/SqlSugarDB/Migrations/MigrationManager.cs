@@ -133,7 +133,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         (Action)(() => Migration_20260828000001_GlobalTriggerGraph.Up(_db))),
                     ("20260828001_AddWhatsNew", (Action)(() => Migration_20260828001_AddWhatsNew.Up(_db))),
                     ("20260908001_AddAdobeSignEnabledToStage", (Action)(() => Migration_20260908001_AddAdobeSignEnabledToStage.Up(_db))),
-                    ("20260908002_CreateAdobeSignAgreementTable", (Action)(() => Migration_20260908002_CreateAdobeSignAgreementTable.Up(_db)))
+                    ("20260908002_CreateAdobeSignAgreementTable", (Action)(() => Migration_20260908002_CreateAdobeSignAgreementTable.Up(_db))),
+                    ("202609080001_AddWorkflowRuntimePermission", (Action)(() => Migration_202609080001_AddWorkflowRuntimePermission.Up(_db))),
+                    ("202609080002_AddStageRuntimePermission", (Action)(() => Migration_202609080002_AddStageRuntimePermission.Up(_db))),
+                    ("202609080003_AddOnboardingPermissionSnapshot", (Action)(() => Migration_202609080003_AddOnboardingPermissionSnapshot.Up(_db))),
+                    ("202609140001_AddUseWorkflowRuntimePermissionToOnboarding", (Action)(() => Migration_202609140001_AddUseWorkflowRuntimePermissionToOnboarding.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

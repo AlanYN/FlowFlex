@@ -6,6 +6,9 @@ using System.Net;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Services.OW.Permission;
+using FlowFlex.Domain.Repository.OW;
 
 using Item.Internal.StandardApi.Response;
 using System.ComponentModel;
@@ -29,15 +32,33 @@ namespace FlowFlex.WebApi.Controllers.OW
         private readonly IOnboardingFileService _onboardingFileService;
         private readonly IOperatorContextService _operatorContextService;
         private readonly FileStorageOptions _fileStorageOptions;
+        private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IStageRepository _stageRepository;
+        private readonly IWorkflowRepository _workflowRepository;
+        private readonly IOnboardingStageProgressService _stageProgressService;
+        private readonly StagePermissionService _stagePermissionService;
+        private readonly PermissionHelpers _permissionHelpers;
 
         public OnboardingFileController(
             IOnboardingFileService onboardingFileService,
             IOperatorContextService operatorContextService,
-            IOptions<FileStorageOptions> fileStorageOptions)
+            IOptions<FileStorageOptions> fileStorageOptions,
+            IOnboardingRepository onboardingRepository,
+            IStageRepository stageRepository,
+            IWorkflowRepository workflowRepository,
+            IOnboardingStageProgressService stageProgressService,
+            StagePermissionService stagePermissionService,
+            PermissionHelpers permissionHelpers)
         {
             _onboardingFileService = onboardingFileService;
             _operatorContextService = operatorContextService;
             _fileStorageOptions = fileStorageOptions.Value;
+            _onboardingRepository = onboardingRepository;
+            _stageRepository = stageRepository;
+            _workflowRepository = workflowRepository;
+            _stageProgressService = stageProgressService;
+            _stagePermissionService = stagePermissionService;
+            _permissionHelpers = permissionHelpers;
         }
 
         /// <summary>
@@ -293,6 +314,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType(typeof(FileResult), 200)]
         public async Task<IActionResult> DownloadFileAsync([FromRoute] long fileId)
         {
+            var permissionResult = await CheckStageFileOperatePermissionAsync(fileId);
+            if (permissionResult != null) return permissionResult;
+
             var (stream, fileName, contentType) = await _onboardingFileService.DownloadFileAsync(fileId);
             return File(stream, contentType, fileName);
         }
@@ -306,6 +330,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetFileUrlAsync([FromRoute] long fileId)
         {
+            var permissionResult = await CheckStageFileOperatePermissionAsync(fileId);
+            if (permissionResult != null) return permissionResult;
+
             var result = await _onboardingFileService.GetFileUrlAsync(fileId);
             return Success(result);
         }
@@ -323,6 +350,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType(typeof(FileStreamResult), 200)]
         public async Task<IActionResult> PreviewFileAsync([FromRoute] long fileId)
         {
+            var permissionResult = await CheckStageFileOperatePermissionAsync(fileId);
+            if (permissionResult != null) return permissionResult;
+
             var (stream, fileName, contentType) = await _onboardingFileService.DownloadFileAsync(fileId);
             return File(stream, contentType ?? "application/octet-stream", fileName);
         }
@@ -512,5 +542,64 @@ namespace FlowFlex.WebApi.Controllers.OW
             var result = await _onboardingFileService.GetFileDetailsAsync(fileId);
             return Success(result);
         }
+
+        #region Private Helpers
+
+        /// <summary>
+        /// Check if the current user has Operate permission for the Stage that owns the given file.
+        /// Returns null if access is allowed (file has no Stage, or user has Operate permission).
+        /// Returns a Forbidden IActionResult if the user only has View permission but not Operate.
+        /// </summary>
+        private async Task<IActionResult> CheckStageFileOperatePermissionAsync(long fileId)
+        {
+            var (stageId, onboardingId) = await _onboardingFileService.GetFileStageInfoAsync(fileId);
+
+            // Files not associated with any Stage are not restricted
+            if (!stageId.HasValue)
+                return null;
+
+            // Admin bypass: System Admin and Tenant Admin always have full access
+            if (_permissionHelpers.HasAdminPrivileges())
+                return null;
+
+            var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+            if (onboarding == null)
+                return null;
+
+            var stage = await _stageRepository.GetByIdAsync(stageId.Value);
+            if (stage == null)
+                return null;
+
+            var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+            if (workflow == null)
+                return null;
+
+            _stageProgressService.LoadStagesProgressFromJsonReadOnly(onboarding);
+            var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId.Value);
+
+            // If no stage progress record exists yet, fall back to no restriction
+            if (stageProgress == null)
+                return null;
+
+            var userId = _operatorContextService.GetOperatorId();
+            var result = _stagePermissionService.CheckStagePermissionWithCaseStage(
+                stage,
+                workflow,
+                onboarding,
+                stageProgress,
+                userId,
+                FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+
+            if (!result.CanOperate)
+            {
+                return StatusCode(
+                    (int)HttpStatusCode.Forbidden,
+                    new { msg = "You don't have permission to access files in this stage." });
+            }
+
+            return null;
+        }
+
+        #endregion
     }
 }

@@ -44,7 +44,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewTeams)))
                 .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewUsers)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeSubjectList(src.OperateTeams)))
-                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.OperateUsers)));
+                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.OperateUsers)))
+                // UseWorkflowRuntimePermission 1:1 mapping
+                .ForMember(dest => dest.UseWorkflowRuntimePermission, opt => opt.MapFrom(src => src.UseWorkflowRuntimePermission));
 
             // Entity to DTO mapping
             CreateMap<Onboarding, OnboardingOutputDto>()
@@ -59,7 +61,12 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewTeams)))
                 .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewUsers)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.OperateTeams)))
-                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.OperateUsers)));
+                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.OperateUsers)))
+                // UseWorkflowRuntimePermission + Snapshot fields 1:1 mappings (JSONB string → List<string> for team lists)
+                .ForMember(dest => dest.UseWorkflowRuntimePermission, opt => opt.MapFrom(src => src.UseWorkflowRuntimePermission))
+                .ForMember(dest => dest.MaxViewPermissionMode, opt => opt.MapFrom(src => src.MaxViewPermissionMode))
+                .ForMember(dest => dest.MaxViewTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.MaxViewTeams)))
+                .ForMember(dest => dest.MaxOperateTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.MaxOperateTeams)));
 
             // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
@@ -124,7 +131,30 @@ namespace FlowFlex.Application.Maps
                         ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue) != null
                             ? src.BlockerHistory.LastOrDefault(b => !b.BlockerResolvedDate.HasValue).BlockerStartDate
                             : (DateTimeOffset?)null
-                        : null));
+                        : null))
+                // Case Stage Runtime Permission — actual configuration fields (14 props) 1:1 mappings
+                .ForMember(dest => dest.StagePermissionInheritFromWorkflowStage, opt => opt.MapFrom(src => src.StagePermissionInheritFromWorkflowStage))
+                .ForMember(dest => dest.StageViewPermissionMode, opt => opt.MapFrom(src => src.StageViewPermissionMode))
+                .ForMember(dest => dest.StageViewPermissionSubjectType, opt => opt.MapFrom(src => src.StageViewPermissionSubjectType))
+                .ForMember(dest => dest.StageViewTeams, opt => opt.MapFrom(src => src.StageViewTeams))
+                .ForMember(dest => dest.StageViewUsers, opt => opt.MapFrom(src => src.StageViewUsers))
+                .ForMember(dest => dest.StageUseSameTeamForOperate, opt => opt.MapFrom(src => src.StageUseSameTeamForOperate))
+                .ForMember(dest => dest.StageOperatePermissionSubjectType, opt => opt.MapFrom(src => src.StageOperatePermissionSubjectType))
+                .ForMember(dest => dest.StageOperateTeams, opt => opt.MapFrom(src => src.StageOperateTeams))
+                .ForMember(dest => dest.StageOperateUsers, opt => opt.MapFrom(src => src.StageOperateUsers))
+                .ForMember(dest => dest.StageRollBackInherit, opt => opt.MapFrom(src => src.StageRollBackInherit))
+                .ForMember(dest => dest.StageRollBackUseSameAsOperate, opt => opt.MapFrom(src => src.StageRollBackUseSameAsOperate))
+                .ForMember(dest => dest.StageRollBackPermissionSubjectType, opt => opt.MapFrom(src => src.StageRollBackPermissionSubjectType))
+                .ForMember(dest => dest.StageRollBackTeams, opt => opt.MapFrom(src => src.StageRollBackTeams))
+                .ForMember(dest => dest.StageRollBackUsers, opt => opt.MapFrom(src => src.StageRollBackUsers))
+                // Case Stage Runtime Permission — snapshot fields (5 props) 1:1 mappings
+                // Effective fields (EffectiveViewTeams, EffectiveOperateTeams, EffectiveRollBackTeams) are NOT computed
+                // here; Service layer fills them manually after mapping.
+                .ForMember(dest => dest.MaxStageViewPermissionMode, opt => opt.MapFrom(src => src.MaxStageViewPermissionMode))
+                .ForMember(dest => dest.MaxStageViewTeams, opt => opt.MapFrom(src => src.MaxStageViewTeams))
+                .ForMember(dest => dest.MaxStageOperatePermissionMode, opt => opt.MapFrom(src => src.MaxStageOperatePermissionMode))
+                .ForMember(dest => dest.MaxStageOperateTeams, opt => opt.MapFrom(src => src.MaxStageOperateTeams))
+                .ForMember(dest => dest.MaxStageRollBackTeams, opt => opt.MapFrom(src => src.MaxStageRollBackTeams));
 
             // OnboardingStageProgressDto  OnboardingStageProgress ӳ
             CreateMap<OnboardingStageProgressDto, OnboardingStageProgress>()

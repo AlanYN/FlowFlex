@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -21,8 +22,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using System.Text.Json;
+using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Shared.Events;
 using MediatR;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
@@ -53,6 +56,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<OnboardingCrudService> _logger;
         private readonly IMediator _mediator;
+        private readonly StagePermissionService _stagePermissionService;
 
         // Shared JSON serializer options - use OnboardingSharedUtilities.JsonOptions for consistency
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -80,7 +84,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IUserService userService,
             IServiceProvider serviceProvider,
             ILogger<OnboardingCrudService> logger,
-            IMediator mediator)
+            IMediator mediator,
+            StagePermissionService stagePermissionService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -101,6 +106,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _stagePermissionService = stagePermissionService ?? throw new ArgumentNullException(nameof(stagePermissionService));
         }
 
         #endregion
@@ -134,6 +140,19 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 // Step 7: Validate entity
                 ValidateOnboardingEntity(entity);
+
+                // Step 7a: Write Workflow Runtime permission snapshot to entity
+                try
+                {
+                    var wfRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(workflow);
+                    entity.MaxViewPermissionMode = wfRuntime.ViewMode;
+                    entity.MaxViewTeams = JsonSerializer.Serialize(wfRuntime.ViewTeams);
+                    entity.MaxOperateTeams = JsonSerializer.Serialize(wfRuntime.OperateTeams);
+                }
+                catch (Exception snapshotEx)
+                {
+                    _logger.LogWarning(snapshotEx, "CreateAsync - Failed to write Workflow Runtime permission snapshot for entity. Continuing without snapshot.");
+                }
 
                 // Step 8: Insert into database
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
@@ -185,7 +204,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Step 9: Post-creation processing
                 if (insertedId > 0)
                 {
-                    await ProcessPostCreationAsync(insertedId, stages.ToList());
+                    await ProcessPostCreationAsync(insertedId, stages.ToList(), workflow);
                     QueueCacheClearAndLogging(insertedId);
                 }
 
@@ -528,7 +547,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Get actions and permissions for each stage in stagesProgress
                 if (result.StagesProgress != null && result.StagesProgress.Any())
                 {
-                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong);
+                    await PopulateStageActionsAndPermissionsAsync(result, hasUserId, userIdLong, entity, workflow);
                 }
 
                 // Convert legacy field names to numeric IDs
@@ -757,7 +776,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <summary>
         /// Post-creation processing: initialize stages progress, create user invitation
         /// </summary>
-        private async Task ProcessPostCreationAsync(long insertedId, List<Stage> stages)
+        private async Task ProcessPostCreationAsync(long insertedId, List<Stage> stages, Workflow workflow = null)
         {
             if (insertedId <= 0)
             {
@@ -781,6 +800,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 // Initialize stage progress
                 await _stageProgressService.InitializeStagesProgressAsync(insertedEntity, stages);
+
+                // Write permission snapshots to each StageProgress after initialization
+                if (workflow != null && stages != null && stages.Count > 0)
+                {
+                    await WriteStagePermissionSnapshotsAsync(insertedEntity, workflow, stages);
+                }
 
                 // Update entity to save stage progress
                 var updateResult = await SafeUpdateOnboardingAsync(insertedEntity);
@@ -821,6 +846,88 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 _logger.LogError(ex, "Error during post-creation processing for Onboarding {OnboardingId}", insertedId);
             }
+        }
+
+        /// <summary>
+        /// Write Stage Runtime permission snapshots (MaxStage* fields) to each StageProgress
+        /// after InitializeStagesProgressAsync has populated the StagesProgress list.
+        /// Called at Case creation time only.
+        /// </summary>
+        private Task WriteStagePermissionSnapshotsAsync(
+            Onboarding entity,
+            Workflow workflow,
+            IEnumerable<Stage> stages)
+        {
+            try
+            {
+                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
+                {
+                    _logger.LogDebug("WriteStagePermissionSnapshotsAsync - No stage progress found for Onboarding {OnboardingId}, skipping", entity.Id);
+                    return Task.CompletedTask;
+                }
+
+                var wfRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(workflow);
+                var stageMap = stages.ToDictionary(s => s.Id);
+
+                foreach (var stageProgress in entity.StagesProgress)
+                {
+                    if (!stageMap.TryGetValue(stageProgress.StageId, out var stage))
+                    {
+                        _logger.LogDebug(
+                            "WriteStagePermissionSnapshotsAsync - Stage {StageId} not found in stage map for Onboarding {OnboardingId}, skipping",
+                            stageProgress.StageId, entity.Id);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var stageRuntime = PermissionCalculator.ComputeStageEffectiveRuntime(stage, wfRuntime);
+                        stageProgress.MaxStageViewPermissionMode = stageRuntime.ViewMode;
+                        stageProgress.MaxStageViewTeams = stageRuntime.ViewTeams;
+                        stageProgress.MaxStageOperatePermissionMode = stageRuntime.OperateMode;
+                        stageProgress.MaxStageOperateTeams = stageRuntime.OperateTeams;
+                        stageProgress.MaxStageRollBackTeams = stageRuntime.RollBackTeams;
+                    }
+                    catch (CRMException crmEx) when (crmEx.Code == ErrorCodeEnum.BusinessError)
+                    {
+                        // Stage teams exceed workflow runtime boundary (stale config or mis-save).
+                        // Clamp to the intersection of stage teams and workflow runtime teams so the
+                        // snapshot is still written and the case is not permanently broken.
+                        _logger.LogWarning(
+                            "WriteStagePermissionSnapshotsAsync - Stage {StageId} teams exceed Workflow runtime boundary for Onboarding {OnboardingId}. Clamping snapshot to intersection.",
+                            stageProgress.StageId, entity.Id);
+
+                        var clampedViewTeams = PermissionCalculator.DeserializeTeamsPublic(stage.RuntimeViewTeams)
+                            .Where(t => wfRuntime.ViewTeams.Contains(t, StringComparer.Ordinal))
+                            .ToList();
+                        var clampedOperateTeams = PermissionCalculator.DeserializeTeamsPublic(stage.RuntimeOperateTeams)
+                            .Where(t => wfRuntime.OperateTeams.Contains(t, StringComparer.Ordinal))
+                            .ToList();
+
+                        stageProgress.MaxStageViewPermissionMode = stage.RuntimeViewPermissionMode;
+                        stageProgress.MaxStageViewTeams = clampedViewTeams;
+                        stageProgress.MaxStageOperatePermissionMode = stage.RuntimeViewPermissionMode;
+                        stageProgress.MaxStageOperateTeams = clampedOperateTeams;
+                        stageProgress.MaxStageRollBackTeams = PermissionCalculator.DeserializeTeamsPublic(stage.RollBackTeams)
+                            .Where(t => clampedOperateTeams.Contains(t, StringComparer.Ordinal))
+                            .ToList();
+                    }
+                    catch (Exception stageEx)
+                    {
+                        _logger.LogWarning(stageEx,
+                            "WriteStagePermissionSnapshotsAsync - Failed to compute snapshot for Stage {StageId} in Onboarding {OnboardingId}",
+                            stageProgress.StageId, entity.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "WriteStagePermissionSnapshotsAsync - Failed to write stage permission snapshots for Onboarding {OnboardingId}",
+                    entity.Id);
+            }
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -1254,7 +1361,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <summary>
         /// Populate stage actions and permissions
         /// </summary>
-        private async Task PopulateStageActionsAndPermissionsAsync(OnboardingOutputDto result, bool hasUserId, long userIdLong)
+        private async Task PopulateStageActionsAndPermissionsAsync(OnboardingOutputDto result, bool hasUserId, long userIdLong, Onboarding entity = null, Workflow workflow = null)
         {
             // Batch query all actions for all stages at once
             var stageIds = result.StagesProgress.Select(sp => sp.StageId).ToList();
@@ -1286,6 +1393,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 || (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId));
             var userTeamIds = hasUserId ? _permissionService.GetUserTeamIds() : new List<string>();
 
+            // Build a lookup from entity's domain StagesProgress for permission checks
+            var domainStageProgressDict = (entity?.StagesProgress ?? new List<OnboardingStageProgress>())
+                .ToDictionary(sp => sp.StageId);
+
             foreach (var stageProgress in result.StagesProgress)
             {
                 // Get actions for this stage from batch result
@@ -1293,10 +1404,62 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     ? actions
                     : new List<ActionTriggerMappingWithActionInfo>();
 
-                // Get permission for this stage (inherit from Case permission in Case detail context)
+                // Compute Stage-level permission using the three-layer model (OW-736).
+                // When entity + workflow are available (detail context), run the full check.
+                // Fallback: copy Case-level permission for backward compatibility (list context / missing data).
                 if (hasUserId)
                 {
-                    stageProgress.Permission = result.Permission;
+                    // Admin bypass: system admin and tenant admin see all stages unconditionally
+                    if (isAdmin)
+                    {
+                        stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                        {
+                            CanView = true,
+                            CanOperate = true,
+                            ErrorMessage = null
+                        };
+                    }
+                    else
+                    {
+                    bool stagePermissionComputed = false;
+
+                    if (entity != null && workflow != null
+                        && stageDict.TryGetValue(stageProgress.StageId, out var stageForPermission)
+                        && domainStageProgressDict.TryGetValue(stageProgress.StageId, out var domainStageProgress))
+                    {
+                        try
+                        {
+                            var permResult = _stagePermissionService.CheckStagePermissionWithCaseStage(
+                                stageForPermission,
+                                workflow,
+                                entity,
+                                domainStageProgress,
+                                userIdLong,
+                                PermissionOperationType.Operate,
+                                userTeamIds);
+
+                            stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                            {
+                                CanView = permResult.CanView,
+                                CanOperate = permResult.CanOperate,
+                                ErrorMessage = permResult.Success ? null : permResult.ErrorMessage
+                            };
+                            stagePermissionComputed = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex,
+                                "PopulateStageActionsAndPermissionsAsync - Stage permission check failed for Stage {StageId}, falling back to Case permission",
+                                stageProgress.StageId);
+                        }
+                    }
+
+                    if (!stagePermissionComputed)
+                    {
+                        // Fallback: use Case-level permission (no per-stage restriction can be applied)
+                        stageProgress.Permission = result.Permission;
+                    }
+                    }
                 }
                 else
                 {
@@ -1308,10 +1471,23 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     };
                 }
 
-                // Compute CanRollBack: admin always true, others check RollBackTeams whitelist
+                // Compute CanRollBack using the three-layer roll back logic (OW-736).
+                // Priority: Case Stage roll back config (stageProgress) > Workflow Stage (stage.RollBackTeams legacy)
                 if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
                 {
-                    stageProgress.CanRollBack = isAdmin || ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                    if (isAdmin)
+                    {
+                        stageProgress.CanRollBack = true;
+                    }
+                    else if (domainStageProgressDict.TryGetValue(stageProgress.StageId, out var domainSp))
+                    {
+                        stageProgress.CanRollBack = ComputeCanRollBackWithCaseStage(domainSp, userTeamIds);
+                    }
+                    else
+                    {
+                        // Fallback: legacy path using Workflow Stage RollBackTeams
+                        stageProgress.CanRollBack = ComputeCanRollBack(stage.RollBackTeams, userTeamIds);
+                    }
                 }
             }
         }
@@ -1345,6 +1521,47 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Determines CanRollBack using the Case Stage three-layer roll back logic (OW-736).
+        /// - stageRollBackInherit = true  → use maxStageRollBackTeams snapshot
+        /// - stageRollBackInherit = false AND stageRollBackUseSameAsOperate = true  → use effective operate teams
+        /// - stageRollBackInherit = false AND stageRollBackUseSameAsOperate = false → use stageRollBackTeams
+        /// An empty/null effective team list means nobody can roll back (explicit empty = no permission).
+        /// </summary>
+        private static bool ComputeCanRollBackWithCaseStage(OnboardingStageProgress sp, List<string> userTeamIds)
+        {
+            if (userTeamIds == null || userTeamIds.Count == 0)
+                return false;
+
+            List<string> effectiveTeams;
+
+            bool inherit = sp.StageRollBackInherit != false; // null or true → inherit
+
+            if (inherit)
+            {
+                // Use the snapshot: maxStageRollBackTeams
+                effectiveTeams = sp.MaxStageRollBackTeams ?? new List<string>();
+            }
+            else if (sp.StageRollBackUseSameAsOperate)
+            {
+                // Use effective operate teams (Stage Operate takes priority over View in this context)
+                // Effective operate = StageOperateTeams if independently configured, else StageViewTeams
+                effectiveTeams = (sp.StageOperateTeams?.Count > 0 ? sp.StageOperateTeams : sp.StageViewTeams)
+                    ?? new List<string>();
+            }
+            else
+            {
+                // Use independently configured roll back teams
+                effectiveTeams = sp.StageRollBackTeams ?? new List<string>();
+            }
+
+            // Empty effective list = explicitly no one has roll back permission
+            if (effectiveTeams.Count == 0)
+                return false;
+
+            return userTeamIds.Any(t => effectiveTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -1528,12 +1745,18 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 var result = await _onboardingRepository.UpdateAsync(entity);
 
+                // Force-write use_workflow_runtime_permission via raw SQL to guarantee
+                // the bool false value is persisted (SqlSugar may skip false as default)
+                var dbClient = _onboardingRepository.GetSqlSugarClient();
+                await dbClient.Ado.ExecuteCommandAsync(
+                    "UPDATE ff_onboarding SET use_workflow_runtime_permission = @Val WHERE id = @Id",
+                    new { Val = entity.UseWorkflowRuntimePermission, Id = entity.Id });
+
                 // Update stages_progress_json separately with JSONB casting
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    var db = _onboardingRepository.GetSqlSugarClient();
                     var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
-                    await db.Ado.ExecuteCommandAsync(progressSql, new
+                    await dbClient.Ado.ExecuteCommandAsync(progressSql, new
                     {
                         StagesProgressJson = entity.StagesProgressJson,
                         Id = entity.Id
@@ -1554,6 +1777,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                             modify_date = @ModifyDate,
                             modify_by = @ModifyBy,
                             modify_user_id = @ModifyUserId,
+                            use_workflow_runtime_permission = @UseWorkflowRuntimePermission,
                             stages_progress_json = @StagesProgressJson::jsonb
                         WHERE id = @Id";
 
@@ -1562,6 +1786,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         ModifyDate = entity.ModifyDate,
                         ModifyBy = entity.ModifyBy,
                         ModifyUserId = entity.ModifyUserId,
+                        UseWorkflowRuntimePermission = entity.UseWorkflowRuntimePermission,
                         StagesProgressJson = entity.StagesProgressJson,
                         Id = entity.Id
                     };
@@ -1576,7 +1801,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         UPDATE ff_onboarding SET
                             modify_date = @ModifyDate,
                             modify_by = @ModifyBy,
-                            modify_user_id = @ModifyUserId
+                            modify_user_id = @ModifyUserId,
+                            use_workflow_runtime_permission = @UseWorkflowRuntimePermission
                         WHERE id = @Id";
 
                     var commandResult = await db.Ado.ExecuteCommandAsync(sql, new
@@ -1584,6 +1810,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         ModifyDate = entity.ModifyDate,
                         ModifyBy = entity.ModifyBy,
                         ModifyUserId = entity.ModifyUserId,
+                        UseWorkflowRuntimePermission = entity.UseWorkflowRuntimePermission,
                         Id = entity.Id
                     });
                     return commandResult > 0;

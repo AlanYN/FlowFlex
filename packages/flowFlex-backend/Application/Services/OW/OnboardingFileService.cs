@@ -714,6 +714,17 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
+        public async Task<(long? stageId, long onboardingId)> GetFileStageInfoAsync(long fileId)
+        {
+            var onboardingFile = await _onboardingFileRepository.GetByIdAsync(fileId);
+            if (onboardingFile == null || !onboardingFile.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "File not found");
+            }
+
+            return (onboardingFile.StageId, onboardingFile.OnboardingId);
+        }
+
         public async Task<List<OnboardingFileOutputDto>> GetFilesByStageAsync(long stageId)
         {
             try

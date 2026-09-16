@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -143,8 +145,10 @@ namespace FlowFlex.Application.Services.OW.Permission
         #region Workflow Inheritance (Public Mode)
 
         /// <summary>
-        /// Check Case permission with Workflow inheritance (Public mode only)
-        /// In Public mode, Case inherits Workflow's view and operate permissions
+        /// Check Case permission with Workflow inheritance (Public mode only).
+        /// When the Onboarding has a max_view_permission_mode snapshot (OW-736), uses the
+        /// snapshot instead of querying the live Workflow — avoids N+1 and ensures point-in-time semantics.
+        /// Falls back to live workflow query for legacy Cases that predate OW-736.
         /// </summary>
         private async Task<PermissionResult> CheckCasePermissionWithWorkflowInheritanceAsync(
             Onboarding onboarding,
@@ -154,11 +158,19 @@ namespace FlowFlex.Application.Services.OW.Permission
             string userIdString)
         {
             _logger.LogDebug(
-                "CheckCasePermissionWithWorkflowInheritance - CaseId: {CaseId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
+                "CheckCasePermissionWithWorkflowInheritance - CaseId: {CaseId}, WorkflowId: {WorkflowId}, Operation: {Operation}, HasSnapshot: {HasSnapshot}",
                 onboarding.Id,
                 onboarding.WorkflowId,
-                operationType);
+                operationType,
+                onboarding.MaxViewPermissionMode.HasValue);
 
+            // --- Snapshot path (OW-736): use max_view_* fields when available ---
+            if (onboarding.MaxViewPermissionMode.HasValue)
+            {
+                return CheckCasePermissionWithSnapshot(onboarding, userId, operationType, userTeamIds, userIdString);
+            }
+
+            // --- Legacy fallback: no snapshot, query live Workflow ---
             try
             {
                 // Load parent Workflow (now properly async)
@@ -245,6 +257,101 @@ namespace FlowFlex.Application.Services.OW.Permission
         }
 
         /// <summary>
+        /// Check Case permission using the OW-736 snapshot fields
+        /// (max_view_permission_mode, max_view_teams, max_operate_teams).
+        /// Fast-path: no DB query required.
+        /// </summary>
+        private PermissionResult CheckCasePermissionWithSnapshot(
+            Onboarding onboarding,
+            long userId,
+            PermissionOperationType operationType,
+            List<string> userTeamIds,
+            string userIdString)
+        {
+            var maxViewMode = onboarding.MaxViewPermissionMode!.Value;
+            var maxViewTeams = DeserializeTeamList(onboarding.MaxViewTeams);
+            var maxOperateTeams = DeserializeTeamList(onboarding.MaxOperateTeams);
+
+            _logger.LogDebug(
+                "CheckCasePermissionWithSnapshot - CaseId: {CaseId}, MaxViewMode: {MaxViewMode}, MaxViewTeamCount: {Count}",
+                onboarding.Id, maxViewMode, maxViewTeams.Count);
+
+            // Check view permission using snapshot
+            bool canView = maxViewMode switch
+            {
+                ViewPermissionModeEnum.Public => true,
+                ViewPermissionModeEnum.VisibleToTeams => maxViewTeams.Count == 0
+                    || userTeamIds.Any(t => maxViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                ViewPermissionModeEnum.InvisibleToTeams => !userTeamIds.Any(t => maxViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                ViewPermissionModeEnum.Private => false,
+                _ => false
+            };
+
+            if (!canView)
+            {
+                return PermissionResult.CreateFailure(
+                    "User does not have view permission (workflow runtime snapshot boundary check failed)",
+                    "WORKFLOW_RUNTIME_SNAPSHOT_VIEW_DENIED");
+            }
+
+            if (operationType == PermissionOperationType.Operate ||
+                operationType == PermissionOperationType.Delete)
+            {
+                // Operate: empty maxOperateTeams in Public/snapshot context = everyone can operate
+                bool canOperate = maxOperateTeams.Count == 0
+                    || userTeamIds.Any(t => maxOperateTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+
+                if (canOperate)
+                {
+                    return PermissionResult.CreateSuccess(true, true, "WorkflowSnapshotOperatePermission");
+                }
+                else
+                {
+                    var result = PermissionResult.CreateFailure(
+                        "User has view permission but not operate permission (workflow runtime snapshot boundary check failed)",
+                        "WORKFLOW_RUNTIME_SNAPSHOT_OPERATE_DENIED");
+                    result.CanView = true;
+                    return result;
+                }
+            }
+
+            return PermissionResult.CreateSuccess(true, false, "WorkflowSnapshotViewPermission");
+        }
+
+        /// <summary>
+        /// Validates that the configured Case view/operate teams are within the snapshot boundary.
+        /// Should be called at save time when the Case has independent (non-inherit) permissions.
+        /// Throws <see cref="CRMException"/> with <see cref="ErrorCodeEnum.PermissionBoundaryExceeded"/>
+        /// if any configured team falls outside the snapshot boundary.
+        /// </summary>
+        public void ValidateCasePermissionBoundary(Onboarding onboarding)
+        {
+            // Validate view teams
+            if (!string.IsNullOrEmpty(onboarding.ViewTeams) && !string.IsNullOrEmpty(onboarding.MaxViewTeams))
+            {
+                var configuredViewTeams = DeserializeTeamList(onboarding.ViewTeams);
+                var maxViewTeams = DeserializeTeamList(onboarding.MaxViewTeams);
+                if (!PermissionCalculator.IsSubsetOf(configuredViewTeams, maxViewTeams))
+                {
+                    throw new CRMException(ErrorCodeEnum.PermissionBoundaryExceeded,
+                        "Selected view teams exceed the snapshot boundary. Case View teams must be a subset of the Workflow Runtime snapshot.");
+                }
+            }
+
+            // Validate operate teams
+            if (!string.IsNullOrEmpty(onboarding.OperateTeams) && !string.IsNullOrEmpty(onboarding.MaxOperateTeams))
+            {
+                var configuredOperateTeams = DeserializeTeamList(onboarding.OperateTeams);
+                var maxOperateTeams = DeserializeTeamList(onboarding.MaxOperateTeams);
+                if (!PermissionCalculator.IsSubsetOf(configuredOperateTeams, maxOperateTeams))
+                {
+                    throw new CRMException(ErrorCodeEnum.PermissionBoundaryExceeded,
+                        "Selected operate teams exceed the snapshot boundary. Case Operate teams must be a subset of the Workflow Runtime snapshot.");
+                }
+            }
+        }
+
+        /// <summary>
         /// Fallback to Case's own permissions when Workflow inheritance fails
         /// </summary>
         private PermissionResult CheckCasePermissionFallback(
@@ -317,7 +424,9 @@ namespace FlowFlex.Application.Services.OW.Permission
                         ? _helpers.CheckTeamBlacklist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserBlacklist(onboarding.ViewUsers, userId),
 
-                ViewPermissionModeEnum.Private => false, // Owner check is handled in CheckCasePermission
+                // Private: owner is already granted access in CheckCasePermission (Step 1).
+                // Here we additionally grant access to any user explicitly listed in ViewUsers.
+                ViewPermissionModeEnum.Private => _helpers.CheckUserWhitelist(onboarding.ViewUsers, userId),
 
                 _ => false
             };
@@ -534,6 +643,23 @@ namespace FlowFlex.Application.Services.OW.Permission
         }
 
         #endregion
+
+        #region Helpers
+
+        private static List<string> DeserializeTeamList(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<string>();
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        #endregion
     }
 }
-

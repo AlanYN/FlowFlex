@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Enums;
+using FlowFlex.Domain.Shared.Enums.OW;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
 {
@@ -230,5 +231,134 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Date/time when the current blocker was reported (null when not blocked)
         /// </summary>
         public DateTimeOffset? BlockedAt { get; set; }
+
+        // ============================================================
+        // Case Stage Permission — Actual Configuration Fields (14 props)
+        // Written by PUT /ow/onboardings/v1/{id}/stage-permissions/{stageId}
+        // ============================================================
+
+        /// <summary>
+        /// Whether this Case Stage inherits permission from the Workflow Stage Runtime snapshot.
+        /// null or true = inherit (backward-compatible with legacy records); false = independent config.
+        /// </summary>
+        public bool? StagePermissionInheritFromWorkflowStage { get; set; }
+
+        /// <summary>
+        /// Case Stage View Permission Mode (InheritFromWorkflowStage = false).
+        /// Does NOT support Private at Case Stage level.
+        /// </summary>
+        public ViewPermissionModeEnum? StageViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Case Stage View Permission Subject Type.
+        /// </summary>
+        public PermissionSubjectTypeEnum StageViewPermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// Case Stage View Teams (used when StageViewPermissionSubjectType = Team).
+        /// </summary>
+        public List<string> StageViewTeams { get; set; }
+
+        /// <summary>
+        /// Case Stage View Users (used when StageViewPermissionSubjectType = User).
+        /// </summary>
+        public List<string> StageViewUsers { get; set; }
+
+        /// <summary>
+        /// Case Stage Use Same Team For Operate.
+        /// </summary>
+        public bool StageUseSameTeamForOperate { get; set; } = true;
+
+        /// <summary>
+        /// Case Stage Operate Permission Subject Type.
+        /// </summary>
+        public PermissionSubjectTypeEnum StageOperatePermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// Case Stage Operate Teams (used when StageUseSameTeamForOperate = false and subject type = Team).
+        /// </summary>
+        public List<string> StageOperateTeams { get; set; }
+
+        /// <summary>
+        /// Case Stage Operate Users (used when StageUseSameTeamForOperate = false and subject type = User).
+        /// </summary>
+        public List<string> StageOperateUsers { get; set; }
+
+        /// <summary>
+        /// Case Stage Roll Back Inherit - When true, uses MaxStageRollBackTeams snapshot.
+        /// </summary>
+        public bool StageRollBackInherit { get; set; } = true;
+
+        /// <summary>
+        /// Case Stage Roll Back Use Same As Operate.
+        /// When StageRollBackInherit = false and this is true, uses effective operate teams for roll back.
+        /// </summary>
+        public bool StageRollBackUseSameAsOperate { get; set; } = true;
+
+        /// <summary>
+        /// Case Stage Roll Back Permission Subject Type.
+        /// </summary>
+        public PermissionSubjectTypeEnum StageRollBackPermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// Case Stage Roll Back Teams (StageRollBackInherit = false, StageRollBackUseSameAsOperate = false, subject type = Team).
+        /// </summary>
+        public List<string> StageRollBackTeams { get; set; }
+
+        /// <summary>
+        /// Case Stage Roll Back Users (StageRollBackInherit = false, StageRollBackUseSameAsOperate = false, subject type = User).
+        /// </summary>
+        public List<string> StageRollBackUsers { get; set; }
+
+        // ============================================================
+        // Snapshot Fields (5 props) — written at Case creation, read-only
+        // AutoMapper maps these 1:1 from OnboardingStageProgress entity.
+        // ============================================================
+
+        /// <summary>
+        /// Snapshot: Stage Effective Runtime View Permission Mode (written at Case creation, read-only).
+        /// </summary>
+        public ViewPermissionModeEnum? MaxStageViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Snapshot: Stage Effective Runtime View Teams (written at Case creation, read-only).
+        /// </summary>
+        public List<string> MaxStageViewTeams { get; set; }
+
+        /// <summary>
+        /// Snapshot: Stage Effective Runtime Operate Permission Mode (written at Case creation, read-only).
+        /// </summary>
+        public ViewPermissionModeEnum? MaxStageOperatePermissionMode { get; set; }
+
+        /// <summary>
+        /// Snapshot: Stage Effective Runtime Operate Teams (written at Case creation, read-only).
+        /// </summary>
+        public List<string> MaxStageOperateTeams { get; set; }
+
+        /// <summary>
+        /// Snapshot: Stage Effective Runtime Roll Back Teams (written at Case creation, read-only).
+        /// </summary>
+        public List<string> MaxStageRollBackTeams { get; set; }
+
+        // ============================================================
+        // Effective Fields (3 props) — computed by Service layer, read-only
+        // Service layer assigns after mapping; AutoMapper does NOT compute these.
+        // ============================================================
+
+        /// <summary>
+        /// Effective View Teams for this Case Stage — resolved by Service layer from the three-layer intersection.
+        /// Used by frontend to display the inherited/effective teams in read-only mode.
+        /// </summary>
+        public List<string> EffectiveViewTeams { get; set; }
+
+        /// <summary>
+        /// Effective Operate Teams for this Case Stage — resolved by Service layer.
+        /// </summary>
+        public List<string> EffectiveOperateTeams { get; set; }
+
+        /// <summary>
+        /// Effective Roll Back Teams for this Case Stage — resolved by Service layer.
+        /// </summary>
+        public List<string> EffectiveRollBackTeams { get; set; }
     }
 }
