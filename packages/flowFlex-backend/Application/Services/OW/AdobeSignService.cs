@@ -200,11 +200,36 @@ namespace FlowFlex.Application.Services.OW
             }
 
             var client = CreateAdobeSignClient();
+
+            // Step 1: Get participant IDs for the requested signer emails
+            // Adobe Sign v6 /reminders requires participantIds, not email addresses
+            var membersResponse = await client.GetAsync($"agreements/{agreement.AgreementId}/members");
+            if (!membersResponse.IsSuccessStatusCode)
+            {
+                var membersError = await membersResponse.Content.ReadAsStringAsync();
+                _logger.LogWarning("[AdobeSign] GetMembers failed. AgreementId={Id}, Status={Status}, Body={Body}",
+                    agreement.AgreementId, membersResponse.StatusCode, membersError);
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to get agreement members from Adobe Sign (HTTP {(int)membersResponse.StatusCode})");
+            }
+
+            var membersBody = await membersResponse.Content.ReadAsStringAsync();
+            var participantIds = ExtractParticipantIds(membersBody, signerEmails);
+
+            if (!participantIds.Any())
+            {
+                _logger.LogWarning("[AdobeSign] No matching participant IDs found for emails. AgreementId={Id}", agreement.AgreementId);
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    "None of the specified signer emails were found as active participants in this agreement.");
+            }
+
+            // Step 2: Send reminder with participant IDs
+            // Adobe Sign v6: POST /reminders creates a new reminder with status ACTIVE
             var payload = new
             {
-                agreementId = agreement.AgreementId,
-                recipientEmailList = signerEmails,
-                message = "Reminder: Please sign the document at your earliest convenience."
+                recipientParticipantIds = participantIds,
+                status = "ACTIVE",
+                note = "Reminder: Please sign the document at your earliest convenience."
             };
 
             var json = JsonSerializer.Serialize(payload);
@@ -222,8 +247,39 @@ namespace FlowFlex.Application.Services.OW
             }
 
             _logger.LogInformation("[AdobeSign] Reminder sent. AgreementId={Id}, Recipients={Count}",
-                agreement.AgreementId, signerEmails.Count);
+                agreement.AgreementId, participantIds.Count);
             return true;
+        }
+
+        /// <summary>
+        /// Extracts participantIds from GET /members response for the given signer emails.
+        /// Response format: { "participantSets": [{ "memberInfos": [{ "id": "...", "email": "..." }] }] }
+        /// </summary>
+        private static List<string> ExtractParticipantIds(string membersJson, List<string> signerEmails)
+        {
+            var ids = new List<string>();
+            try
+            {
+                var node = JsonNode.Parse(membersJson);
+                var sets = node?["participantSets"]?.AsArray();
+                if (sets == null) return ids;
+
+                var emailSet = new HashSet<string>(signerEmails, StringComparer.OrdinalIgnoreCase);
+                foreach (var set in sets)
+                {
+                    var members = set?["memberInfos"]?.AsArray();
+                    if (members == null) continue;
+                    foreach (var member in members)
+                    {
+                        var email = member?["email"]?.GetValue<string>();
+                        var pid   = member?["id"]?.GetValue<string>();
+                        if (!string.IsNullOrEmpty(pid) && !string.IsNullOrEmpty(email) && emailSet.Contains(email))
+                            ids.Add(pid);
+                    }
+                }
+            }
+            catch { /* return whatever was collected */ }
+            return ids;
         }
 
         // ------------------------------------------------------------------ //
@@ -356,26 +412,38 @@ namespace FlowFlex.Application.Services.OW
                     await UpdateStatusAsync(agreement, "Awaiting");
                     break;
 
-                case "AGREEMENT_ACTION_COMPLETED":
-                    // A single signer completed — status stays Awaiting until all sign
-                    await SyncSignerStatusesAsync(agreement);
-                    break;
-
                 case "AGREEMENT_WORKFLOW_COMPLETED":
+                    // Idempotent: skip if already marked Completed and documents already archived
+                    if (agreement.Status == "Completed" && agreement.SignedFileId.HasValue)
+                    {
+                        _logger.LogInformation(
+                            "[AdobeSign] Duplicate AGREEMENT_WORKFLOW_COMPLETED ignored — already archived. AdobeId={Id}",
+                            adobeAgreementId);
+                        break;
+                    }
                     await UpdateStatusAsync(agreement, "Completed");
                     await ArchiveSignedDocumentsAsync(agreement);
                     break;
 
+                case "AGREEMENT_ACTION_COMPLETED":
+                    // A single signer completed — status stays Awaiting until all sign
+                    // Idempotent: SyncSignerStatusesAsync overwrites in place, safe to re-run
+                    await SyncSignerStatusesAsync(agreement);
+                    break;
+
                 case "AGREEMENT_REJECTED":
                 case "AGREEMENT_ACTION_REJECTED":
+                    if (agreement.Status == "Declined") break; // already processed
                     await UpdateStatusAsync(agreement, "Declined");
                     break;
 
                 case "AGREEMENT_EXPIRED":
+                    if (agreement.Status == "Expired") break;
                     await UpdateStatusAsync(agreement, "Expired");
                     break;
 
                 case "AGREEMENT_RECALLED":
+                    if (agreement.Status == "Cancelled") break;
                     await UpdateStatusAsync(agreement, "Cancelled");
                     break;
 
@@ -391,7 +459,15 @@ namespace FlowFlex.Application.Services.OW
 
         private HttpClient CreateAdobeSignClient()
         {
-            var client = _httpClientFactory.CreateClient("AdobeSign");
+            var token   = _configuration["AdobeSign:AccessToken"] ?? throw new InvalidOperationException("AdobeSign:AccessToken not configured");
+            var baseUrl = (_configuration["AdobeSign:BaseUrl"] ?? "https://api.na2.adobesign.com/api/rest/v6").TrimEnd('/');
+
+            var client = _httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl + "/");
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-AdobeSign/1.0");
+            client.Timeout = TimeSpan.FromSeconds(60);
             return client;
         }
 
@@ -403,11 +479,12 @@ namespace FlowFlex.Application.Services.OW
             var client = CreateAdobeSignClient();
 
             using var form = new MultipartFormDataContent();
+
+            // Adobe Sign v6 /transientDocuments expects exactly one part named "File"
+            // with the correct Content-Type. Extra fields (File-Name, Mime-Type) are not accepted.
             var fileContent = new ByteArrayContent(pdfBytes);
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
             form.Add(fileContent, "File", fileName);
-            form.Add(new StringContent("agreement"), "File-Name");
-            form.Add(new StringContent("APPLICATION_PDF"), "Mime-Type");
 
             var response = await client.PostAsync("transientDocuments", form);
             var responseBody = await response.Content.ReadAsStringAsync();
@@ -545,6 +622,14 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
+                // Second-layer idempotency guard: if signed file already exists, skip download
+                if (agreement.SignedFileId.HasValue)
+                {
+                    _logger.LogInformation(
+                        "[AdobeSign] ArchiveSignedDocuments skipped — SignedFileId already set. AgreementId={Id}",
+                        agreement.AgreementId);
+                    return;
+                }
                 var client = CreateAdobeSignClient();
 
                 // Get source file info for naming
