@@ -892,7 +892,10 @@ namespace FlowFlex.Application.Services.OW
                 fileEntity.ModifyDate = DateTimeOffset.UtcNow;
                 fileEntity.IsValid = true;
 
-                await _db.Insertable(fileEntity).ExecuteCommandAsync();
+                // Use ExecuteReturnSnowflakeIdAsync to get the actual inserted ID back
+                // and avoid duplicate key issues from rapid concurrent inserts
+                var insertedId = await _db.Insertable(fileEntity).ExecuteReturnSnowflakeIdAsync();
+                fileEntity.Id = insertedId;
                 return fileEntity.Id;
             }
             catch (Exception ex)
@@ -955,14 +958,20 @@ namespace FlowFlex.Application.Services.OW
 
                             if (signer != null)
                             {
-                                // Map Adobe Sign status to our internal status
-                                signer.Status = status?.ToUpperInvariant() switch
-                                {
-                                    "SIGNED" or "APPROVED" or "ACCEPTED" or "FORM_FILLED" => "Signed",
-                                    "DECLINED" or "REJECTED" => "Declined",
-                                    "CANCELLED" => "Cancelled",
-                                    _ => "Awaiting"
-                                };
+                                // Map Adobe Sign member status to our internal status
+                                // Adobe Sign member status: ACTIVE = waiting, WAITING_FOR_OTHERS = sequential wait
+                                // The set-level status COMPLETED is more reliable for "has signed"
+                                var setStatus = set?["status"]?.GetValue<string>();
+                                var memberIsDone = string.Equals(setStatus, "COMPLETED", StringComparison.OrdinalIgnoreCase)
+                                    || status?.ToUpperInvariant() is "SIGNED" or "APPROVED" or "ACCEPTED" or "FORM_FILLED" or "COMPLETED";
+
+                                signer.Status = memberIsDone ? "Signed"
+                                    : status?.ToUpperInvariant() switch
+                                    {
+                                        "DECLINED" or "REJECTED" => "Declined",
+                                        "CANCELLED" => "Cancelled",
+                                        _ => "Awaiting"
+                                    };
 
                                 if (!string.IsNullOrEmpty(completionDate) &&
                                     DateTimeOffset.TryParse(completionDate, out var dt))

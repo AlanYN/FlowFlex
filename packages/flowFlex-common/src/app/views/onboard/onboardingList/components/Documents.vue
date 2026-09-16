@@ -189,7 +189,18 @@
 				</div>
 
 				<div v-else-if="documents.length > 0" class="space-y-2">
-					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Files</h4>
+					<div class="flex items-center justify-between">
+						<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Files</h4>
+						<el-tooltip content="Refresh" placement="top">
+							<el-button
+								link
+								type="primary"
+								:icon="RefreshRight"
+								:loading="loading"
+								@click="handleRefreshAll"
+							/>
+						</el-tooltip>
+					</div>
 					<el-table
 						:data="documents"
 						stripe
@@ -405,13 +416,14 @@
 										</div>
 									</template>
 
-									<!-- OW-731: Request Legal Sign（无协议时才显示） -->
+									<!-- OW-731: Request Legal Sign（无协议时才显示，归档文件除外） -->
 									<div
 										v-if="
 											props.adobeSignEnabled &&
 											isPdf(row) &&
 											!row.isSigned &&
-											!getAgreement(String(row.id))
+											!getAgreement(String(row.id)) &&
+											row.source !== 'AdobeSign'
 										"
 									>
 										<el-tooltip content="Request Legal Sign" placement="top">
@@ -425,8 +437,8 @@
 										</el-tooltip>
 									</div>
 
-									<!-- Delete -->
-									<div v-if="!row.isSigned">
+									<!-- Delete — 归档文件（AdobeSign 来源）不允许删除 -->
+									<div v-if="!row.isSigned && row.source !== 'AdobeSign'">
 										<el-tooltip content="Delete" placement="top">
 											<el-button
 												type="danger"
@@ -520,6 +532,7 @@ import {
 	Bell,
 	RefreshLeft,
 	Refresh,
+	RefreshRight,
 } from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
@@ -726,6 +739,14 @@ const handleAdobeDetailsCompleted = async () => {
 	// Refresh file list so archived signed PDF and Audit Trail appear
 	await refreshDocumentsSilently();
 	await loadAgreements(documents.value);
+};
+
+// 手动刷新按钮 — 同时刷新文件列表和协议状态
+const handleRefreshAll = async () => {
+	await refreshDocumentsSilently();
+	if (props.adobeSignEnabled) {
+		await loadAgreements(documents.value);
+	}
 };
 
 const handleAdobeNewSignature = (row: DocumentItem) => {
