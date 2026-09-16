@@ -242,11 +242,6 @@ const handleRefresh = async () => {
 		loading.value = false;
 	}
 };
-	loading.value = false;
-	visible.value = false;
-	// Notify parent to refresh file list so archived signed PDF appears
-	if (wasCompleted) emit('completed');
-};
 
 defineExpose({ open });
 </script>
