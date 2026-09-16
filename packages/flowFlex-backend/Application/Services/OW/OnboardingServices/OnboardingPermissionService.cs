@@ -425,7 +425,13 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 }
 
                 // Requirement 13.4: ViewTeams ⊄ MaxStageViewTeams → boundary exceeded
-                if (input.ViewTeams != null && input.ViewTeams.Count > 0)
+                // Skip the boundary check when MaxStageViewTeams is null or empty — this covers:
+                //   1. Legacy Cases created before OW-736 (snapshot not populated)
+                //   2. Cases where the Workflow Runtime was Public (no team restriction = no boundary)
+                var hasStageSnapshot = stageProgress.MaxStageViewTeams != null
+                    && stageProgress.MaxStageViewTeams.Count > 0;
+
+                if (hasStageSnapshot && input.ViewTeams != null && input.ViewTeams.Count > 0)
                 {
                     if (!PermissionCalculator.IsSubsetOf(input.ViewTeams, stageProgress.MaxStageViewTeams))
                     {
