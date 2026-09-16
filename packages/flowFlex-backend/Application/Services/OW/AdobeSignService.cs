@@ -854,10 +854,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Do NOT use 'using' here — CloudFileStorageService may access the stream
-                // (including Length) after the async copy completes, so we let GC handle disposal.
-                var stream = new MemoryStream(fileBytes);
-                var formFile = new FormFileWrapper(stream, fileName, contentType);
+                var formFile = new FormFileWrapper(fileBytes, fileName, contentType);
                 var tenantId = agreement.TenantId ?? string.Empty;
                 var storageResult = await _fileStorageService.SaveFileAsync(formFile, "adobe-sign-completed", tenantId);
 
@@ -1070,13 +1067,13 @@ namespace FlowFlex.Application.Services.OW
     /// </summary>
     internal sealed class FormFileWrapper : Microsoft.AspNetCore.Http.IFormFile
     {
-        private readonly Stream _stream;
+        private readonly byte[] _bytes;
         private readonly string _fileName;
         private readonly string _contentType;
 
-        public FormFileWrapper(Stream stream, string fileName, string contentType)
+        public FormFileWrapper(byte[] bytes, string fileName, string contentType)
         {
-            _stream = stream;
+            _bytes = bytes;
             _fileName = fileName;
             _contentType = contentType;
         }
@@ -1084,13 +1081,14 @@ namespace FlowFlex.Application.Services.OW
         public string ContentType => _contentType;
         public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_fileName}\"";
         public Microsoft.AspNetCore.Http.IHeaderDictionary Headers => new Microsoft.AspNetCore.Http.HeaderDictionary();
-        public long Length => _stream.Length;
+        public long Length => _bytes.LongLength;
         public string Name => "file";
         public string FileName => _fileName;
 
-        public void CopyTo(Stream target) => _stream.CopyTo(target);
+        // Each call returns a fresh MemoryStream so callers that dispose it don't affect others
+        public void CopyTo(Stream target) => new MemoryStream(_bytes).CopyTo(target);
         public async Task CopyToAsync(Stream target, System.Threading.CancellationToken cancellationToken = default)
-            => await _stream.CopyToAsync(target, cancellationToken);
-        public Stream OpenReadStream() { _stream.Position = 0; return _stream; }
+            => await new MemoryStream(_bytes).CopyToAsync(target, cancellationToken);
+        public Stream OpenReadStream() => new MemoryStream(_bytes);
     }
 }
