@@ -949,7 +949,9 @@ namespace FlowFlex.Application.Services.OW
                         {
                             var email = member?["email"]?.GetValue<string>();
                             var status = member?["status"]?.GetValue<string>();
-                            var completionDate = member?["completionDate"]?.GetValue<string>();
+                            // completionDate is at the set level, not member level
+                            var completionDate = set?["completionDate"]?.GetValue<string>()
+                                ?? member?["completionDate"]?.GetValue<string>();
 
                             if (string.IsNullOrEmpty(email)) continue;
 
