@@ -483,7 +483,10 @@
 
 		<!-- OW-731: Adobe Sign Modals -->
 		<AdobeSignRequestModal ref="adobeRequestModalRef" @confirmed="handleAdobeConfirmed" />
-		<AdobeSignDetailsModal ref="adobeDetailsModalRef" />
+		<AdobeSignDetailsModal
+			ref="adobeDetailsModalRef"
+			@completed="handleAdobeDetailsCompleted"
+		/>
 		<AdobeSignReminderModal ref="adobeReminderModalRef" @sent="refreshDocumentsSilently" />
 		<AdobeSignRecallModal ref="adobeRecallModalRef" @recalled="handleAdobeRecalled" />
 		<ImportAttachmentsDialog
@@ -715,6 +718,12 @@ const openAdobeRecall = (row: DocumentItem) => {
 };
 
 const handleAdobeRecalled = async () => {
+	await refreshDocumentsSilently();
+	await loadAgreements(documents.value);
+};
+
+const handleAdobeDetailsCompleted = async () => {
+	// Refresh file list so archived signed PDF and Audit Trail appear
 	await refreshDocumentsSilently();
 	await loadAgreements(documents.value);
 };

@@ -184,6 +184,11 @@ import type { AdobeSignAgreement } from '#/adobeSign';
 import { ADOBE_SIGN_TAG_TYPES } from '@/enums/adobeSignConstants';
 import { timeZoneConvert } from '@/hooks/time';
 
+const emit = defineEmits<{
+	/** Fired when closing a Completed agreement — parent should refresh the file list */
+	completed: [];
+}>();
+
 const visible = ref(false);
 const fileName = ref('');
 const loading = ref(false);
@@ -207,10 +212,13 @@ const open = async (params: { agreementId: string | number; fileName?: string })
 };
 
 const handleClose = () => {
+	const wasCompleted = agreement.value?.status === 'Completed';
 	fileName.value = '';
 	agreement.value = null;
 	loading.value = false;
 	visible.value = false;
+	// Notify parent to refresh file list so archived signed PDF appears
+	if (wasCompleted) emit('completed');
 };
 
 defineExpose({ open });

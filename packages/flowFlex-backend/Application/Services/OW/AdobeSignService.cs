@@ -596,18 +596,27 @@ namespace FlowFlex.Application.Services.OW
 
             if (input.SigningOrder == "Parallel")
             {
-                // All signers in a single participant set (order=1)
-                var members = new List<object>();
+                // Each signer gets their own participant set with order=1 (all sent simultaneously).
+                // Adobe Sign's "group" semantics mean any member in a set can sign on behalf of the group.
+                // To require ALL signers to sign independently, each must be their own participant set.
                 foreach (var signer in input.Signers)
                 {
-                    members.Add(new { email = signer.Email, securityOption = new { authenticationMethod = "NONE" } });
+                    var role = signer.Role?.ToUpperInvariant() switch
+                    {
+                        "APPROVER" => "APPROVER",
+                        "CC" => "CC",
+                        _ => "SIGNER"
+                    };
+                    sets.Add(new
+                    {
+                        memberInfos = new[]
+                        {
+                            new { email = signer.Email, securityOption = new { authenticationMethod = "NONE" } }
+                        },
+                        order = 1,
+                        role
+                    });
                 }
-                sets.Add(new
-                {
-                    memberInfos = members,
-                    order = 1,
-                    role = "SIGNER"
-                });
             }
             else
             {
@@ -845,7 +854,9 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                using var stream = new MemoryStream(fileBytes);
+                // Do NOT use 'using' here — CloudFileStorageService may access the stream
+                // (including Length) after the async copy completes, so we let GC handle disposal.
+                var stream = new MemoryStream(fileBytes);
                 var formFile = new FormFileWrapper(stream, fileName, contentType);
                 var tenantId = agreement.TenantId ?? string.Empty;
                 var storageResult = await _fileStorageService.SaveFileAsync(formFile, "adobe-sign-completed", tenantId);
