@@ -974,7 +974,8 @@ namespace FlowFlex.Application.Services.OW
                                 // Adobe Sign member status: ACTIVE = waiting, WAITING_FOR_OTHERS = sequential wait
                                 // The set-level status COMPLETED is more reliable for "has signed"
                                 var setStatus = set?["status"]?.GetValue<string>();
-                                var memberIsDone = string.Equals(setStatus, "COMPLETED", StringComparison.OrdinalIgnoreCase)
+                                var memberIsDone = setStatus?.ToUpperInvariant() is
+                                    "COMPLETED" or "WAITING_FOR_OTHERS"
                                     || status?.ToUpperInvariant() is "SIGNED" or "APPROVED" or "ACCEPTED" or "FORM_FILLED" or "COMPLETED";
 
                                 signer.Status = memberIsDone ? "Signed"
