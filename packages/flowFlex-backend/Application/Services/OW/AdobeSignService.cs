@@ -12,7 +12,6 @@ using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos.OW.AdobeSign;
 using FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph;
 using FlowFlex.Application.Contracts.IServices.OW;
-using Newtonsoft.Json;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -853,7 +852,7 @@ namespace FlowFlex.Application.Services.OW
                     var expectedSourceId = $"input.files.{agreement.StageId}";
                     var mappings = string.IsNullOrEmpty(triggerLog.MappingsSnapshot)
                         ? new List<TriggerDataMappingConfig>()
-                        : JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
+                        : Newtonsoft.Json.JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
                           ?? new List<TriggerDataMappingConfig>();
                     var hasFileMapping = mappings.Any(m =>
                         string.Equals(m.SourceType, "file_management", StringComparison.OrdinalIgnoreCase)
@@ -998,7 +997,7 @@ namespace FlowFlex.Application.Services.OW
                     var expectedSourceIdForAudit = $"input.files.{agreement.StageId}";
                     var auditMappings = string.IsNullOrEmpty(triggerLog.MappingsSnapshot)
                         ? new List<TriggerDataMappingConfig>()
-                        : JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
+                        : Newtonsoft.Json.JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
                           ?? new List<TriggerDataMappingConfig>();
                     var hasFileMappingForAudit = auditMappings.Any(m =>
                         string.Equals(m.SourceType, "file_management", StringComparison.OrdinalIgnoreCase)
