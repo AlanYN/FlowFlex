@@ -813,8 +813,21 @@ namespace FlowFlex.Application.Services.OW
 
                 foreach (var downstreamId in downstreamIds)
                 {
+                    // Resolve the StageId for the downstream Case first.
+                    // TriggerExecution copies source files without setting source_file_id,
+                    // so match by original filename in the downstream case.
+                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
+                        ? await _db.Queryable<OnboardingFile>()
+                            .Where(f => f.OnboardingId == downstreamId
+                                     && f.OriginalFileName == sourceOriginalFileName
+                                     && f.Source != "AdobeSign"
+                                     && f.IsValid == true)
+                            .FirstAsync()
+                        : null;
+                    var downstreamStageId = downstreamSourceFile?.StageId;
+
                     // Check if a copy for this downstream Case already exists (idempotent).
-                    // Also handle legacy records that were inserted with stage_id = NULL — update them.
+                    // Also handle legacy records inserted with stage_id = NULL — patch them.
                     var existing = await _db.Queryable<OnboardingFile>()
                         .Where(f => f.OnboardingId == downstreamId
                                  && f.SourceFileId == signedFile.Id
@@ -823,7 +836,6 @@ namespace FlowFlex.Application.Services.OW
 
                     if (existing != null)
                     {
-                        // If stage_id was NULL (legacy insert), patch it now
                         if (existing.StageId == null && downstreamStageId != null)
                         {
                             existing.StageId = downstreamStageId;
@@ -842,19 +854,6 @@ namespace FlowFlex.Application.Services.OW
                         }
                         continue;
                     }
-
-                    // Resolve the StageId for the downstream Case.
-                    // TriggerExecution copies source files without setting source_file_id,
-                    // so match by original filename in the downstream case.
-                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
-                        ? await _db.Queryable<OnboardingFile>()
-                            .Where(f => f.OnboardingId == downstreamId
-                                     && f.OriginalFileName == sourceOriginalFileName
-                                     && f.Source != "AdobeSign"
-                                     && f.IsValid == true)
-                            .FirstAsync()
-                        : null;
-                    var downstreamStageId = downstreamSourceFile?.StageId;
 
                     // Copy the signed file record to the downstream Case
                     var downstreamFile = new OnboardingFile
