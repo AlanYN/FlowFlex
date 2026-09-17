@@ -823,12 +823,22 @@ namespace FlowFlex.Application.Services.OW
                         continue;
                     }
 
+                    // Resolve the StageId for the downstream Case.
+                    // When the trigger fired it used file_management mapping to copy the source PDF
+                    // into a specific target stage; that copied record has source_file_id = agreement.SourceFileId.
+                    // Use the same stage so the signed file appears alongside the original.
+                    var downstreamSourceFile = await _db.Queryable<OnboardingFile>()
+                        .Where(f => f.OnboardingId == downstreamId
+                                 && f.SourceFileId  == agreement.SourceFileId
+                                 && f.IsValid       == true)
+                        .FirstAsync();
+                    var downstreamStageId = downstreamSourceFile?.StageId;
+
                     // Copy the signed file record to the downstream Case
-                    // StageId is intentionally null — the downstream case may have different stages
                     var downstreamFile = new OnboardingFile
                     {
                         OnboardingId     = downstreamId,
-                        StageId          = null,
+                        StageId          = downstreamStageId,
                         AttachmentId     = 0,
                         OriginalFileName = signedFile.OriginalFileName,
                         StoredFileName   = signedFile.StoredFileName,
@@ -903,10 +913,19 @@ namespace FlowFlex.Application.Services.OW
 
                     if (existing != null) continue;
 
+                    // Same stage resolution as SyncSignedDocument: find the downstream copy of the
+                    // original source file to get the correct target StageId.
+                    var downstreamSourceFile = await _db.Queryable<OnboardingFile>()
+                        .Where(f => f.OnboardingId == downstreamId
+                                 && f.SourceFileId  == agreement.SourceFileId
+                                 && f.IsValid       == true)
+                        .FirstAsync();
+                    var downstreamStageId = downstreamSourceFile?.StageId;
+
                     var downstreamFile = new OnboardingFile
                     {
                         OnboardingId     = downstreamId,
-                        StageId          = null,
+                        StageId          = downstreamStageId,
                         AttachmentId     = 0,
                         OriginalFileName = auditFile.OriginalFileName,
                         StoredFileName   = auditFile.StoredFileName,
