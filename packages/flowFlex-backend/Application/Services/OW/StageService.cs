@@ -1710,6 +1710,7 @@ namespace FlowFlex.Application.Services.OW
                         writer.WriteNumber("EstimatedDuration", stage.EstimatedDuration.Value);
                     writer.WriteNumber("Order", stage.Order);
                     writer.WriteBoolean("AttachmentManagementNeeded", stage.AttachmentManagementNeeded);
+                    writer.WriteBoolean("AdobeSignEnabled", stage.AdobeSignEnabled);
 
                     // Nested JSON fields
                     WriteJsonArrayProperty(writer, "DefaultAssignee", stage.DefaultAssignee, stage.Id);
