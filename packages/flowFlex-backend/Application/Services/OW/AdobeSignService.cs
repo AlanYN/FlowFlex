@@ -732,11 +732,15 @@ namespace FlowFlex.Application.Services.OW
                     .ExecuteCommandAsync();
 
                 // Only mark Completed AFTER signed file is confirmed saved
-                // This prevents the "Completed status but no signed file" inconsistency (#5)
                 if (agreement.SignedFileId.HasValue)
                 {
                     await UpdateStatusAsync(agreement, "Completed");
+                    // Sync both signed PDF and audit trail to downstream Cases
                     await SyncSignedDocumentToDownstreamCasesAsync(agreement);
+                    if (agreement.AuditTrailFileId.HasValue)
+                    {
+                        await SyncAuditTrailToDownstreamCasesAsync(agreement);
+                    }
                 }
                 else
                 {
@@ -837,7 +841,7 @@ namespace FlowFlex.Application.Services.OW
                     downstreamFile.ModifyDate = now;
                     downstreamFile.IsValid    = true;
 
-                    await _db.Insertable(downstreamFile).ExecuteCommandAsync();
+                    await _db.Insertable(downstreamFile).ExecuteReturnSnowflakeIdAsync();
 
                     _logger.LogInformation(
                         "[AdobeSign] Signed file synced to downstream Case {DownstreamId}. SignedFileId={FileId}",
@@ -848,6 +852,83 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogWarning(ex,
                     "[AdobeSign] Failed to sync signed documents to downstream cases. AgreementId={Id}",
+                    agreement.AgreementId);
+                // Non-critical — don't rethrow
+            }
+        }
+
+        /// <summary>
+        /// Sync Audit Trail to all downstream Cases.
+        /// Same pattern as SyncSignedDocumentToDownstreamCasesAsync.
+        /// </summary>
+        private async Task SyncAuditTrailToDownstreamCasesAsync(AdobeSignAgreement agreement)
+        {
+            try
+            {
+                var triggerLogs = await _triggerLogRepository.GetBySourceOnboardingIdAsync(agreement.OnboardingId);
+                var downstreamIds = triggerLogs
+                    .Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue)
+                    .Select(l => l.TargetOnboardingId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (!downstreamIds.Any()) return;
+
+                var auditFile = await _onboardingFileRepository.GetByIdAsync(agreement.AuditTrailFileId!.Value);
+                if (auditFile == null)
+                {
+                    _logger.LogWarning("[AdobeSign] Audit trail file {Id} not found for downstream sync", agreement.AuditTrailFileId);
+                    return;
+                }
+
+                var now = DateTimeOffset.UtcNow;
+                foreach (var downstreamId in downstreamIds)
+                {
+                    var existing = await _db.Queryable<OnboardingFile>()
+                        .Where(f => f.OnboardingId == downstreamId
+                                 && f.SourceFileId == auditFile.Id
+                                 && f.IsValid == true)
+                        .FirstAsync();
+
+                    if (existing != null) continue;
+
+                    var downstreamFile = new OnboardingFile
+                    {
+                        OnboardingId     = downstreamId,
+                        StageId          = null,
+                        AttachmentId     = 0,
+                        OriginalFileName = auditFile.OriginalFileName,
+                        StoredFileName   = auditFile.StoredFileName,
+                        FileExtension    = auditFile.FileExtension,
+                        FileSize         = auditFile.FileSize,
+                        ContentType      = auditFile.ContentType,
+                        Category         = auditFile.Category,
+                        AccessUrl        = auditFile.AccessUrl,
+                        StoragePath      = auditFile.StoragePath,
+                        UploadedById     = auditFile.UploadedById,
+                        UploadedDate     = now,
+                        Status           = "Active",
+                        Version          = 1,
+                        Source           = "AdobeSign",
+                        SourceFileId     = auditFile.Id,
+                    };
+                    downstreamFile.TenantId   = agreement.TenantId;
+                    downstreamFile.AppCode    = agreement.AppCode;
+                    downstreamFile.CreateDate = now;
+                    downstreamFile.ModifyDate = now;
+                    downstreamFile.IsValid    = true;
+
+                    await _db.Insertable(downstreamFile).ExecuteReturnSnowflakeIdAsync();
+
+                    _logger.LogInformation(
+                        "[AdobeSign] Audit trail synced to downstream Case {DownstreamId}. AuditFileId={FileId}",
+                        downstreamId, auditFile.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "[AdobeSign] Failed to sync audit trail to downstream cases. AgreementId={Id}",
                     agreement.AgreementId);
                 // Non-critical — don't rethrow
             }
