@@ -742,6 +742,9 @@ namespace FlowFlex.Application.Services.OW
                         _userContext.TenantId = agreement.TenantId;
                         _userContext.AppCode  = agreement.AppCode;
                     }
+                    _logger.LogInformation(
+                        "[AdobeSign] Syncing to downstream cases. OnboardingId={Id} TenantId={TenantId} AppCode={AppCode}",
+                        agreement.OnboardingId, agreement.TenantId, agreement.AppCode);
                     // Sync both signed PDF and audit trail to downstream Cases
                     await SyncSignedDocumentToDownstreamCasesAsync(agreement);
                     if (agreement.AuditTrailFileId.HasValue)
@@ -787,8 +790,9 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!downstreamIds.Any())
                 {
-                    _logger.LogDebug(
-                        "[AdobeSign] No downstream cases to sync for OnboardingId={Id}", agreement.OnboardingId);
+                    _logger.LogInformation(
+                        "[AdobeSign] No downstream cases to sync for OnboardingId={Id} TenantId={TenantId}",
+                        agreement.OnboardingId, agreement.TenantId);
                     return;
                 }
 
