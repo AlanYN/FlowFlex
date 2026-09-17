@@ -796,18 +796,25 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
-                // Load the signed file record that was just saved
-                var signedFile = await _onboardingFileRepository.GetByIdAsync(agreement.SignedFileId!.Value);
+                // Load the signed file record that was just saved.
+                // Use direct db query to bypass any global tenant filters that may be active in Webhook context.
+                var signedFile = await _db.Queryable<OnboardingFile>()
+                    .Where(f => f.Id == agreement.SignedFileId!.Value && f.IsValid == true)
+                    .FirstAsync();
                 if (signedFile == null)
                 {
                     _logger.LogWarning("[AdobeSign] Signed file {Id} not found for downstream sync", agreement.SignedFileId);
                     return;
                 }
 
-                // Load the original source file to resolve downstream StageId by filename match.
-                // TriggerExecution copies files without setting source_file_id, so we match by name.
-                var sourceOriginalFile = await _onboardingFileRepository.GetByIdAsync(agreement.SourceFileId);
+                // Load the original source file by direct query to get filename for stage resolution.
+                var sourceOriginalFile = await _db.Queryable<OnboardingFile>()
+                    .Where(f => f.Id == agreement.SourceFileId && f.IsValid == true)
+                    .FirstAsync();
                 var sourceOriginalFileName = sourceOriginalFile?.OriginalFileName;
+                _logger.LogInformation(
+                    "[AdobeSign] Source file for stage resolution: Id={Id} FileName={Name}",
+                    agreement.SourceFileId, sourceOriginalFileName ?? "(null)");
 
                 var now = DateTimeOffset.UtcNow;
 
@@ -916,15 +923,19 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!downstreamIds.Any()) return;
 
-                var auditFile = await _onboardingFileRepository.GetByIdAsync(agreement.AuditTrailFileId!.Value);
+                var auditFile = await _db.Queryable<OnboardingFile>()
+                    .Where(f => f.Id == agreement.AuditTrailFileId!.Value && f.IsValid == true)
+                    .FirstAsync();
                 if (auditFile == null)
                 {
                     _logger.LogWarning("[AdobeSign] Audit trail file {Id} not found for downstream sync", agreement.AuditTrailFileId);
                     return;
                 }
 
-                // Load source original filename for downstream stage resolution
-                var sourceOriginalFile = await _onboardingFileRepository.GetByIdAsync(agreement.SourceFileId);
+                // Load source original filename for downstream stage resolution (direct query, no tenant filter)
+                var sourceOriginalFile = await _db.Queryable<OnboardingFile>()
+                    .Where(f => f.Id == agreement.SourceFileId && f.IsValid == true)
+                    .FirstAsync();
                 var sourceOriginalFileName = sourceOriginalFile?.OriginalFileName;
 
                 var now = DateTimeOffset.UtcNow;
