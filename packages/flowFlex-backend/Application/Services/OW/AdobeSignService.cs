@@ -735,6 +735,13 @@ namespace FlowFlex.Application.Services.OW
                 if (agreement.SignedFileId.HasValue)
                 {
                     await UpdateStatusAsync(agreement, "Completed");
+                    // Restore tenant context from agreement so repository queries work
+                    // in this Webhook (anonymous/background) execution context
+                    if (_userContext != null)
+                    {
+                        _userContext.TenantId = agreement.TenantId;
+                        _userContext.AppCode  = agreement.AppCode;
+                    }
                     // Sync both signed PDF and audit trail to downstream Cases
                     await SyncSignedDocumentToDownstreamCasesAsync(agreement);
                     if (agreement.AuditTrailFileId.HasValue)
