@@ -820,9 +820,9 @@ namespace FlowFlex.Application.Services.OW
 
                 foreach (var downstreamId in downstreamIds)
                 {
-                    // Resolve the StageId for the downstream Case first.
-                    // TriggerExecution copies source files without setting source_file_id,
-                    // so match by original filename in the downstream case.
+                    // Resolve the StageId for the downstream Case.
+                    // First try to match by original filename (most accurate).
+                    // If that fails, fall back to the first non-AdobeSign file's stage in that case.
                     var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
                         ? await _db.Queryable<OnboardingFile>()
                             .Where(f => f.OnboardingId == downstreamId
@@ -831,7 +831,22 @@ namespace FlowFlex.Application.Services.OW
                                      && f.IsValid == true)
                             .FirstAsync()
                         : null;
+
+                    // Fallback: if filename match failed, use any existing non-AdobeSign file's stage
+                    if (downstreamSourceFile == null)
+                    {
+                        downstreamSourceFile = await _db.Queryable<OnboardingFile>()
+                            .Where(f => f.OnboardingId == downstreamId
+                                     && f.Source != "AdobeSign"
+                                     && f.IsValid == true)
+                            .OrderBy(f => f.CreateDate)
+                            .FirstAsync();
+                    }
+
                     var downstreamStageId = downstreamSourceFile?.StageId;
+                    _logger.LogInformation(
+                        "[AdobeSign] Resolved downstream StageId={StageId} for Case {DownstreamId} (fileName={FileName})",
+                        downstreamStageId?.ToString() ?? "null", downstreamId, sourceOriginalFileName ?? "null");
 
                     // Check if a copy for this downstream Case already exists (idempotent).
                     // Also handle legacy records inserted with stage_id = NULL — patch them.
@@ -950,6 +965,18 @@ namespace FlowFlex.Application.Services.OW
                                      && f.IsValid == true)
                             .FirstAsync()
                         : null;
+
+                    // Fallback: use any non-AdobeSign file's stage if filename match fails
+                    if (downstreamSourceFile == null)
+                    {
+                        downstreamSourceFile = await _db.Queryable<OnboardingFile>()
+                            .Where(f => f.OnboardingId == downstreamId
+                                     && f.Source != "AdobeSign"
+                                     && f.IsValid == true)
+                            .OrderBy(f => f.CreateDate)
+                            .FirstAsync();
+                    }
+
                     var downstreamStageId = downstreamSourceFile?.StageId;
 
                     var existing = await _db.Queryable<OnboardingFile>()
