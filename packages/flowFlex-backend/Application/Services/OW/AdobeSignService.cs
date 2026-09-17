@@ -10,7 +10,9 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos.OW.AdobeSign;
+using FlowFlex.Application.Contracts.Dtos.OW.TriggerGraph;
 using FlowFlex.Application.Contracts.IServices.OW;
+using Newtonsoft.Json;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -818,20 +820,51 @@ namespace FlowFlex.Application.Services.OW
 
                 var now = DateTimeOffset.UtcNow;
 
+                // Look up the source stage order once, to find the matching stage in each target workflow
+                var sourceStage = await _db.Queryable<Stage>()
+                    .Where(s => s.Id == agreement.StageId && s.IsValid == true)
+                    .FirstAsync();
+                var sourceStageOrder = sourceStage?.Order ?? 1;
+
                 foreach (var triggerLog in triggerLogs.Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue).DistinctBy(l => l.TargetOnboardingId))
                 {
                     var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
-                    // Resolve the StageId from the target workflow's first stage (by order).
-                    // This is the correct downstream Stage regardless of what files exist.
+                    // Find the stage in the target workflow with the same order_index as the source stage.
+                    // This ensures AdobeTest-5.pdf (Stage 2 in source) goes to Stage 2 in downstream.
                     var targetStage = await _db.Queryable<Stage>()
-                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
-                        .OrderBy(s => s.Id)
-                        .FirstAsync();
+                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId
+                                 && s.Order == sourceStageOrder
+                                 && s.IsValid == true)
+                        .FirstAsync()
+                        // Fallback to first stage if no matching order found
+                        ?? await _db.Queryable<Stage>()
+                            .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
+                            .OrderBy(s => s.Order)
+                            .FirstAsync();
                     var downstreamStageId = targetStage?.Id;
                     _logger.LogInformation(
-                        "[AdobeSign] Resolved downstream StageId={StageId} from TargetWorkflowId={WorkflowId} for Case {DownstreamId}",
-                        downstreamStageId?.ToString() ?? "null", triggerLog.TargetWorkflowId, downstreamId);
+                        "[AdobeSign] Resolved downstream StageId={StageId} (order={Order}) from TargetWorkflowId={WorkflowId} for Case {DownstreamId}",
+                        downstreamStageId?.ToString() ?? "null", sourceStageOrder, triggerLog.TargetWorkflowId, downstreamId);
+
+                    // Only sync if this trigger connection's file_management mapping covers the source stage.
+                    // Parse MappingsSnapshot to check for a mapping with sourceType=file_management
+                    // and sourceId=input.files.{agreement.StageId}
+                    var expectedSourceId = $"input.files.{agreement.StageId}";
+                    var mappings = string.IsNullOrEmpty(triggerLog.MappingsSnapshot)
+                        ? new List<TriggerDataMappingConfig>()
+                        : JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
+                          ?? new List<TriggerDataMappingConfig>();
+                    var hasFileMapping = mappings.Any(m =>
+                        string.Equals(m.SourceType, "file_management", StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(m.SourceId, expectedSourceId, StringComparison.OrdinalIgnoreCase));
+                    if (!hasFileMapping)
+                    {
+                        _logger.LogInformation(
+                            "[AdobeSign] Skipping downstream Case {DownstreamId} — no file_management mapping for source stage {StageId}",
+                            downstreamId, agreement.StageId);
+                        continue;
+                    }
 
                     // Check if a copy for this downstream Case already exists (idempotent).
                     // Also handle legacy records inserted with stage_id = NULL — patch them.
@@ -932,16 +965,51 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var now = DateTimeOffset.UtcNow;
+
+                // Look up source stage order to find matching stage in target workflow
+                var sourceStage = await _db.Queryable<Stage>()
+                    .Where(s => s.Id == agreement.StageId && s.IsValid == true)
+                    .FirstAsync();
+                var sourceStageOrder = sourceStage?.Order ?? 1;
+
+                // Load source original filename to check if downstream Case has the file
+                var sourceOriginalFileForAudit = await _db.Queryable<OnboardingFile>()
+                    .Where(f => f.Id == agreement.SourceFileId && f.IsValid == true)
+                    .FirstAsync();
+                var sourceOriginalFileName = sourceOriginalFileForAudit?.OriginalFileName;
+
                 foreach (var triggerLog in validLogs)
                 {
                     var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
-                    // Resolve StageId from the target workflow's first stage
+                    // Find the stage in the target workflow with the same order_index as the source stage
                     var targetStage = await _db.Queryable<Stage>()
-                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
-                        .OrderBy(s => s.Id)
-                        .FirstAsync();
+                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId
+                                 && s.Order == sourceStageOrder
+                                 && s.IsValid == true)
+                        .FirstAsync()
+                        ?? await _db.Queryable<Stage>()
+                            .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
+                            .OrderBy(s => s.Order)
+                            .FirstAsync();
                     var downstreamStageId = targetStage?.Id;
+
+                    // Only sync if this trigger connection's file_management mapping covers the source stage
+                    var expectedSourceIdForAudit = $"input.files.{agreement.StageId}";
+                    var auditMappings = string.IsNullOrEmpty(triggerLog.MappingsSnapshot)
+                        ? new List<TriggerDataMappingConfig>()
+                        : JsonConvert.DeserializeObject<List<TriggerDataMappingConfig>>(triggerLog.MappingsSnapshot)
+                          ?? new List<TriggerDataMappingConfig>();
+                    var hasFileMappingForAudit = auditMappings.Any(m =>
+                        string.Equals(m.SourceType, "file_management", StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(m.SourceId, expectedSourceIdForAudit, StringComparison.OrdinalIgnoreCase));
+                    if (!hasFileMappingForAudit)
+                    {
+                        _logger.LogInformation(
+                            "[AdobeSign] Skipping audit trail sync for Case {DownstreamId} — no file_management mapping for source stage {StageId}",
+                            downstreamId, agreement.StageId);
+                        continue;
+                    }
 
                     var existing = await _db.Queryable<OnboardingFile>()
                         .Where(f => f.OnboardingId == downstreamId
