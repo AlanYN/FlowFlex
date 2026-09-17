@@ -804,11 +804,17 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
+                // Load the original source file to resolve downstream StageId by filename match.
+                // TriggerExecution copies files without setting source_file_id, so we match by name.
+                var sourceOriginalFile = await _onboardingFileRepository.GetByIdAsync(agreement.SourceFileId);
+                var sourceOriginalFileName = sourceOriginalFile?.OriginalFileName;
+
                 var now = DateTimeOffset.UtcNow;
 
                 foreach (var downstreamId in downstreamIds)
                 {
-                    // Check if a copy for this downstream Case already exists (idempotent)
+                    // Check if a copy for this downstream Case already exists (idempotent).
+                    // Also handle legacy records that were inserted with stage_id = NULL — update them.
                     var existing = await _db.Queryable<OnboardingFile>()
                         .Where(f => f.OnboardingId == downstreamId
                                  && f.SourceFileId == signedFile.Id
@@ -817,21 +823,37 @@ namespace FlowFlex.Application.Services.OW
 
                     if (existing != null)
                     {
-                        _logger.LogDebug(
-                            "[AdobeSign] Signed file already synced to downstream Case {DownstreamId}, skipping",
-                            downstreamId);
+                        // If stage_id was NULL (legacy insert), patch it now
+                        if (existing.StageId == null && downstreamStageId != null)
+                        {
+                            existing.StageId = downstreamStageId;
+                            await _db.Updateable(existing)
+                                .UpdateColumns(f => new { f.StageId })
+                                .ExecuteCommandAsync();
+                            _logger.LogInformation(
+                                "[AdobeSign] Patched StageId on existing downstream signed file {FileId} for Case {DownstreamId}",
+                                existing.Id, downstreamId);
+                        }
+                        else
+                        {
+                            _logger.LogDebug(
+                                "[AdobeSign] Signed file already synced to downstream Case {DownstreamId}, skipping",
+                                downstreamId);
+                        }
                         continue;
                     }
 
                     // Resolve the StageId for the downstream Case.
-                    // When the trigger fired it used file_management mapping to copy the source PDF
-                    // into a specific target stage; that copied record has source_file_id = agreement.SourceFileId.
-                    // Use the same stage so the signed file appears alongside the original.
-                    var downstreamSourceFile = await _db.Queryable<OnboardingFile>()
-                        .Where(f => f.OnboardingId == downstreamId
-                                 && f.SourceFileId  == agreement.SourceFileId
-                                 && f.IsValid       == true)
-                        .FirstAsync();
+                    // TriggerExecution copies source files without setting source_file_id,
+                    // so match by original filename in the downstream case.
+                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
+                        ? await _db.Queryable<OnboardingFile>()
+                            .Where(f => f.OnboardingId == downstreamId
+                                     && f.OriginalFileName == sourceOriginalFileName
+                                     && f.Source != "AdobeSign"
+                                     && f.IsValid == true)
+                            .FirstAsync()
+                        : null;
                     var downstreamStageId = downstreamSourceFile?.StageId;
 
                     // Copy the signed file record to the downstream Case
@@ -902,25 +924,44 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
+                // Load source original filename for downstream stage resolution
+                var sourceOriginalFile = await _onboardingFileRepository.GetByIdAsync(agreement.SourceFileId);
+                var sourceOriginalFileName = sourceOriginalFile?.OriginalFileName;
+
                 var now = DateTimeOffset.UtcNow;
                 foreach (var downstreamId in downstreamIds)
                 {
+                    // Same stage resolution as SyncSignedDocument: match by original filename.
+                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
+                        ? await _db.Queryable<OnboardingFile>()
+                            .Where(f => f.OnboardingId == downstreamId
+                                     && f.OriginalFileName == sourceOriginalFileName
+                                     && f.Source != "AdobeSign"
+                                     && f.IsValid == true)
+                            .FirstAsync()
+                        : null;
+                    var downstreamStageId = downstreamSourceFile?.StageId;
+
                     var existing = await _db.Queryable<OnboardingFile>()
                         .Where(f => f.OnboardingId == downstreamId
                                  && f.SourceFileId == auditFile.Id
                                  && f.IsValid == true)
                         .FirstAsync();
 
-                    if (existing != null) continue;
-
-                    // Same stage resolution as SyncSignedDocument: find the downstream copy of the
-                    // original source file to get the correct target StageId.
-                    var downstreamSourceFile = await _db.Queryable<OnboardingFile>()
-                        .Where(f => f.OnboardingId == downstreamId
-                                 && f.SourceFileId  == agreement.SourceFileId
-                                 && f.IsValid       == true)
-                        .FirstAsync();
-                    var downstreamStageId = downstreamSourceFile?.StageId;
+                    if (existing != null)
+                    {
+                        if (existing.StageId == null && downstreamStageId != null)
+                        {
+                            existing.StageId = downstreamStageId;
+                            await _db.Updateable(existing)
+                                .UpdateColumns(f => new { f.StageId })
+                                .ExecuteCommandAsync();
+                            _logger.LogInformation(
+                                "[AdobeSign] Patched StageId on existing downstream audit file {FileId} for Case {DownstreamId}",
+                                existing.Id, downstreamId);
+                        }
+                        continue;
+                    }
 
                     var downstreamFile = new OnboardingFile
                     {
