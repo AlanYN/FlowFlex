@@ -728,7 +728,11 @@ namespace FlowFlex.Application.Services.OW
                 if (key == "quicklinks" || key == "quicklink") continue;
 
                 decimal componentCompletion = ComputeComponentCompletion(key, component, progress, completionsByStage, tasksByChecklist, answerLookup, fieldValuesByStage);
-                decimal weight = weights.TryGetValue(component.Key, out var w) ? w : 0m;
+
+                // Look up weight by the unique per-component ID (checklist/questionnaire ID, or "fields"/"files").
+                // weights is keyed by item.Id — NOT by item.Type — so multiple checklist components each
+                // carry their own weight instead of all collapsing onto a single "checklist" key.
+                decimal weight = GetComponentWeight(key, component, weights);
                 weightedSum += weight * componentCompletion;
             }
 
@@ -836,11 +840,21 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Parse ComponentWeight entries from the stage's ComponentWeights JSONB column.
         /// Falls back to equal distribution when null/empty.
-        /// Returns a map from component Key → weight value (0–100 scale).
-        /// Orphan weight records (whose Id does not correspond to any component in <paramref name="components"/>) are filtered out.
+        ///
+        /// Returns a map keyed by the unique component identifier used in component_weights:
+        ///   - For checklist / questionnaire entries: key = checklist/questionnaire ID string
+        ///   - For fields / files entries: key = "fields" / "files"
+        ///
+        /// This per-ID keying is required because a single Stage can have multiple independent
+        /// checklist components (each with its own ChecklistId and weight). Using item.Type as key
+        /// would cause all same-type entries to overwrite each other in the dictionary.
+        ///
+        /// Orphan weight records (whose Id does not correspond to any component in
+        /// <paramref name="components"/>) are filtered out.
         /// </summary>
         private static Dictionary<string, decimal> ParseComponentWeights(string componentWeightsJson, List<StageComponent> components)
         {
+            // result is keyed by per-component unique ID (checklist ID, questionnaire ID, "fields", "files")
             var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
             if (!string.IsNullOrWhiteSpace(componentWeightsJson))
@@ -873,18 +887,15 @@ namespace FlowFlex.Application.Services.OW
                         // Filter orphan records — only keep items with a matching Id in current components
                         items = items.Where(item => !string.IsNullOrEmpty(item.Id) && validIds.Contains(item.Id)).ToList();
 
+                        // Key by item.Id (unique per checklist/questionnaire) rather than item.Type.
+                        // Using item.Type as key would cause multiple same-type entries (e.g. 8 separate
+                        // checklist components) to overwrite each other, leaving only the last weight value.
                         foreach (var item in items)
                         {
-                            if (!string.IsNullOrEmpty(item.Type))
-                            {
-                                // Normalise singular "questionnaire" to plural "questionnaires" so it matches
-                                // the component Key used in components_json (frontend always stores "questionnaires")
-                                var normalizedType = item.Type.Equals("questionnaire", StringComparison.OrdinalIgnoreCase)
-                                    ? "questionnaires"
-                                    : item.Type;
-                                result[normalizedType] = item.Weight;
-                            }
+                            if (!string.IsNullOrEmpty(item.Id))
+                                result[item.Id] = item.Weight;
                         }
+
                         if (result.Any())
                             return result;
                     }
@@ -895,23 +906,71 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
 
-            // Equal distribution fallback: ignore quickLinks
-            var eligibleKeys = components
+            // Equal distribution fallback: each non-quicklink component gets weight = 100 / count.
+            // We still use the per-component unique ID as key so the lookup in
+            // ComputeCompletionPercentage works uniformly regardless of whether weights came from
+            // the database or the fallback path.
+            var eligibleComponents = components
                 .Where(c => !string.IsNullOrEmpty(c.Key) &&
                             !c.Key.Equals("quicklinks", StringComparison.OrdinalIgnoreCase) &&
                             !c.Key.Equals("quicklink", StringComparison.OrdinalIgnoreCase))
-                .Select(c => c.Key)
-                .Distinct()
                 .ToList();
 
-            if (!eligibleKeys.Any())
+            if (!eligibleComponents.Any())
                 return result;
 
-            decimal equalWeight = 100m / eligibleKeys.Count;
-            foreach (var key in eligibleKeys)
-                result[key] = equalWeight;
+            decimal equalWeight = 100m / eligibleComponents.Count;
+            foreach (var comp in eligibleComponents)
+            {
+                var k = comp.Key?.ToLowerInvariant() ?? "";
+                if (k == "fields")
+                    result["fields"] = equalWeight;
+                else if (k == "files")
+                    result["files"] = equalWeight;
+                else
+                {
+                    // Distribute equal weight per individual checklist/questionnaire ID
+                    var ids = (comp.ChecklistIds?.Select(id => id.ToString()) ?? Enumerable.Empty<string>())
+                        .Concat(comp.QuestionnaireIds?.Select(id => id.ToString()) ?? Enumerable.Empty<string>())
+                        .ToList();
+                    foreach (var id in ids)
+                        result[id] = equalWeight;
+                }
+            }
 
             return result;
+        }
+
+        /// <summary>
+        /// Return the weight (0–100) for a single component, given the per-ID weights dictionary
+        /// returned by <see cref="ParseComponentWeights"/>.
+        ///
+        /// For "fields" and "files" components the weight is stored under the literal key "fields" / "files".
+        /// For checklist and questionnaire components the weight is stored per individual ID, so we sum
+        /// the weights of all IDs that belong to this component instance.
+        /// </summary>
+        private static decimal GetComponentWeight(string componentKey, StageComponent component, Dictionary<string, decimal> weights)
+        {
+            if (componentKey == "fields")
+                return weights.TryGetValue("fields", out var fw) ? fw : 0m;
+
+            if (componentKey == "files")
+                return weights.TryGetValue("files", out var fiw) ? fiw : 0m;
+
+            // Checklist and questionnaire: sum weights for every ID in this component instance
+            decimal total = 0m;
+            if (componentKey == "checklist" && component.ChecklistIds != null)
+            {
+                foreach (var id in component.ChecklistIds)
+                    if (weights.TryGetValue(id.ToString(), out var w)) total += w;
+            }
+            else if ((componentKey == "questionnaire" || componentKey == "questionnaires") && component.QuestionnaireIds != null)
+            {
+                foreach (var id in component.QuestionnaireIds)
+                    if (weights.TryGetValue(id.ToString(), out var w)) total += w;
+            }
+
+            return total;
         }
 
         /// <summary>

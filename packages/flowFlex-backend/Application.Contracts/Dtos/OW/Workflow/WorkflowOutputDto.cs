@@ -102,6 +102,49 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// </summary>
         public bool UseSameTeamForOperate { get; set; }
 
+        // --- Runtime Permission Configuration (persisted, echoed back) ---
+
+        /// <summary>
+        /// Runtime Use Same As Template - When true, Runtime Permission inherits from Template Permission.
+        /// </summary>
+        public bool RuntimeUseSameAsTemplate { get; set; } = true;
+
+        /// <summary>
+        /// Runtime View Permission Mode (only used when RuntimeUseSameAsTemplate = false).
+        /// </summary>
+        public ViewPermissionModeEnum RuntimeViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Runtime View Teams (only used when RuntimeUseSameAsTemplate = false).
+        /// </summary>
+        public List<string> RuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Runtime Operate Teams (always independent at Workflow Runtime layer).
+        /// Only used when RuntimeUseSameAsTemplate = false.
+        /// </summary>
+        public List<string> RuntimeOperateTeams { get; set; }
+
+        // --- Effective Runtime Permission (computed by Service layer, NOT by AutoMapper) ---
+
+        /// <summary>
+        /// Effective Runtime View Permission Mode - computed by PermissionCalculator in Service layer.
+        /// AutoMapper does NOT compute this; Service layer manually assigns after mapping.
+        /// </summary>
+        public ViewPermissionModeEnum EffectiveRuntimeViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Effective Runtime View Teams - computed by PermissionCalculator in Service layer.
+        /// AutoMapper does NOT compute this; Service layer manually assigns after mapping.
+        /// </summary>
+        public List<string> EffectiveRuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Effective Runtime Operate Teams - computed by PermissionCalculator in Service layer.
+        /// AutoMapper does NOT compute this; Service layer manually assigns after mapping.
+        /// </summary>
+        public List<string> EffectiveRuntimeOperateTeams { get; set; }
+
         /// <summary>
         /// Create date
         /// </summary>

@@ -97,6 +97,31 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         public bool UseSameTeamForOperate { get; set; } = false;
 
         /// <summary>
+        /// Runtime Use Same As Template - When true, Runtime Permission inherits from Template Permission.
+        /// When false, the Runtime_* fields below are used independently.
+        /// </summary>
+        public bool RuntimeUseSameAsTemplate { get; set; } = true;
+
+        /// <summary>
+        /// Runtime View Permission Mode - Public/VisibleTo/InvisibleTo (no Private at this layer).
+        /// Only effective when RuntimeUseSameAsTemplate = false.
+        /// </summary>
+        public ViewPermissionModeEnum RuntimeViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// Runtime View Teams - List of team IDs for Runtime view permission control.
+        /// Only effective when RuntimeUseSameAsTemplate = false.
+        /// </summary>
+        public List<string>? RuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Runtime Operate Teams - List of team IDs for Runtime operate permission control.
+        /// Always an independent selector at the Workflow Runtime layer (no "Use same" flag).
+        /// Only effective when RuntimeUseSameAsTemplate = false.
+        /// </summary>
+        public List<string>? RuntimeOperateTeams { get; set; }
+
+        /// <summary>
         /// Stages to be created with this workflow
         /// </summary>
         public List<StageInputDto>? Stages { get; set; }

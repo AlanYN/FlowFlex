@@ -971,6 +971,8 @@ const handleViewDocument = async (document: DocumentItem) => {
 		offloading.value = true;
 		// 调用API获取文件内容
 		const res = await previewOnboardingFile(props.onboardingId, document.id);
+		// Global interceptor returns undefined for 403 (blob mode); abort silently
+		if (!res) return;
 
 		perviewFileShow.value = true;
 		// doc、msg、eml文件不支持预览，直接下载
@@ -983,6 +985,14 @@ const handleViewDocument = async (document: DocumentItem) => {
 			const blob = res instanceof Blob ? res : new Blob([res], { type: mimeType });
 			fileUrl.value = URL.createObjectURL(blob);
 		}
+	} catch (error: any) {
+		// Handle 403: stage file access permission denied.
+		// Note: the global Axios interceptor (index.ts) handles blob 403 and shows the error toast.
+		// This catch block is a fallback for non-blob contexts where the error is not swallowed.
+		if (error?.response?.status === 403) {
+			return;
+		}
+		throw error;
 	} finally {
 		offloading.value = false;
 		viewDocumentIds.value = viewDocumentIds.value.filter((id) => id !== document.id);
