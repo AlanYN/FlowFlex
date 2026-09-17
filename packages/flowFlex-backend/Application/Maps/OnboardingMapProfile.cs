@@ -73,6 +73,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
+                .ForMember(dest => dest.AdobeSignEnabled, opt => opt.MapFrom(src => src.AdobeSignEnabled))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => 
                     src.Components != null && src.Components.Any() 
@@ -160,6 +161,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
+                .ForMember(dest => dest.AdobeSignEnabled, opt => opt.MapFrom(src => src.AdobeSignEnabled))
                 .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 .ForMember(dest => dest.ComponentsJson, opt => opt.MapFrom(src => SerializeComponents(src.Components)))
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => src.Components))

@@ -117,6 +117,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight, Top, Bottom, Loading } from '@element-plus/icons-vue';
 import { getRelatedCases } from '@/apis/ow/triggers';
+import { timeZoneConvert } from '@/hooks/time';
 
 const props = defineProps<{ onboardingId: string }>();
 const router = useRouter();
@@ -130,16 +131,7 @@ const totalCount = computed(() => upstream.value.length + downstream.value.lengt
 
 const formatDate = (dateStr: string) => {
 	if (!dateStr) return '';
-	try {
-		return new Date(dateStr).toLocaleDateString('zh-CN', {
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-		});
-	} catch {
-		return dateStr;
-	}
+	return timeZoneConvert(dateStr);
 };
 
 const goToCase = (id: string) => {
