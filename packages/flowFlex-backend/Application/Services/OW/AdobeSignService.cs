@@ -825,7 +825,16 @@ namespace FlowFlex.Application.Services.OW
                     .FirstAsync();
                 var sourceStageOrder = sourceStage?.Order ?? 1;
 
-                foreach (var triggerLog in triggerLogs.Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue).DistinctBy(l => l.TargetOnboardingId))
+                // For each ConnectionId, keep only the most recent Triggered log.
+                // This ensures that after Rollback + re-Complete, we only sync to the newest downstream Case,
+                // not the one created by the first Complete.
+                var latestLogs = triggerLogs
+                    .Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue)
+                    .GroupBy(l => l.ConnectionId)
+                    .Select(g => g.OrderByDescending(l => l.CreateDate).First())
+                    .ToList();
+
+                foreach (var triggerLog in latestLogs)
                 {
                     var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
@@ -977,7 +986,13 @@ namespace FlowFlex.Application.Services.OW
                     .FirstAsync();
                 var sourceOriginalFileName = sourceOriginalFileForAudit?.OriginalFileName;
 
-                foreach (var triggerLog in validLogs)
+                // For each ConnectionId, keep only the most recent Triggered log.
+                var latestLogs = validLogs
+                    .GroupBy(l => l.ConnectionId)
+                    .Select(g => g.OrderByDescending(l => l.CreateDate).First())
+                    .ToList();
+
+                foreach (var triggerLog in latestLogs)
                 {
                     var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
