@@ -818,35 +818,20 @@ namespace FlowFlex.Application.Services.OW
 
                 var now = DateTimeOffset.UtcNow;
 
-                foreach (var downstreamId in downstreamIds)
+                foreach (var triggerLog in triggerLogs.Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue).DistinctBy(l => l.TargetOnboardingId))
                 {
-                    // Resolve the StageId for the downstream Case.
-                    // First try to match by original filename (most accurate).
-                    // If that fails, fall back to the first non-AdobeSign file's stage in that case.
-                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
-                        ? await _db.Queryable<OnboardingFile>()
-                            .Where(f => f.OnboardingId == downstreamId
-                                     && f.OriginalFileName == sourceOriginalFileName
-                                     && f.Source != "AdobeSign"
-                                     && f.IsValid == true)
-                            .FirstAsync()
-                        : null;
+                    var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
-                    // Fallback: if filename match failed, use any existing non-AdobeSign file's stage
-                    if (downstreamSourceFile == null)
-                    {
-                        downstreamSourceFile = await _db.Queryable<OnboardingFile>()
-                            .Where(f => f.OnboardingId == downstreamId
-                                     && f.Source != "AdobeSign"
-                                     && f.IsValid == true)
-                            .OrderBy(f => f.CreateDate)
-                            .FirstAsync();
-                    }
-
-                    var downstreamStageId = downstreamSourceFile?.StageId;
+                    // Resolve the StageId from the target workflow's first stage (by order).
+                    // This is the correct downstream Stage regardless of what files exist.
+                    var targetStage = await _db.Queryable<Stage>()
+                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
+                        .OrderBy(s => s.Id)
+                        .FirstAsync();
+                    var downstreamStageId = targetStage?.Id;
                     _logger.LogInformation(
-                        "[AdobeSign] Resolved downstream StageId={StageId} for Case {DownstreamId} (fileName={FileName})",
-                        downstreamStageId?.ToString() ?? "null", downstreamId, sourceOriginalFileName ?? "null");
+                        "[AdobeSign] Resolved downstream StageId={StageId} from TargetWorkflowId={WorkflowId} for Case {DownstreamId}",
+                        downstreamStageId?.ToString() ?? "null", triggerLog.TargetWorkflowId, downstreamId);
 
                     // Check if a copy for this downstream Case already exists (idempotent).
                     // Also handle legacy records inserted with stage_id = NULL — patch them.
@@ -930,13 +915,12 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 var triggerLogs = await _triggerLogRepository.GetBySourceOnboardingIdAsync(agreement.OnboardingId);
-                var downstreamIds = triggerLogs
+                var validLogs = triggerLogs
                     .Where(l => l.Status == "Triggered" && l.TargetOnboardingId.HasValue)
-                    .Select(l => l.TargetOnboardingId!.Value)
-                    .Distinct()
+                    .DistinctBy(l => l.TargetOnboardingId)
                     .ToList();
 
-                if (!downstreamIds.Any()) return;
+                if (!validLogs.Any()) return;
 
                 var auditFile = await _db.Queryable<OnboardingFile>()
                     .Where(f => f.Id == agreement.AuditTrailFileId!.Value && f.IsValid == true)
@@ -947,37 +931,17 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
-                // Load source original filename for downstream stage resolution (direct query, no tenant filter)
-                var sourceOriginalFile = await _db.Queryable<OnboardingFile>()
-                    .Where(f => f.Id == agreement.SourceFileId && f.IsValid == true)
-                    .FirstAsync();
-                var sourceOriginalFileName = sourceOriginalFile?.OriginalFileName;
-
                 var now = DateTimeOffset.UtcNow;
-                foreach (var downstreamId in downstreamIds)
+                foreach (var triggerLog in validLogs)
                 {
-                    // Same stage resolution as SyncSignedDocument: match by original filename.
-                    var downstreamSourceFile = !string.IsNullOrEmpty(sourceOriginalFileName)
-                        ? await _db.Queryable<OnboardingFile>()
-                            .Where(f => f.OnboardingId == downstreamId
-                                     && f.OriginalFileName == sourceOriginalFileName
-                                     && f.Source != "AdobeSign"
-                                     && f.IsValid == true)
-                            .FirstAsync()
-                        : null;
+                    var downstreamId = triggerLog.TargetOnboardingId!.Value;
 
-                    // Fallback: use any non-AdobeSign file's stage if filename match fails
-                    if (downstreamSourceFile == null)
-                    {
-                        downstreamSourceFile = await _db.Queryable<OnboardingFile>()
-                            .Where(f => f.OnboardingId == downstreamId
-                                     && f.Source != "AdobeSign"
-                                     && f.IsValid == true)
-                            .OrderBy(f => f.CreateDate)
-                            .FirstAsync();
-                    }
-
-                    var downstreamStageId = downstreamSourceFile?.StageId;
+                    // Resolve StageId from the target workflow's first stage
+                    var targetStage = await _db.Queryable<Stage>()
+                        .Where(s => s.WorkflowId == triggerLog.TargetWorkflowId && s.IsValid == true)
+                        .OrderBy(s => s.Id)
+                        .FirstAsync();
+                    var downstreamStageId = targetStage?.Id;
 
                     var existing = await _db.Queryable<OnboardingFile>()
                         .Where(f => f.OnboardingId == downstreamId
