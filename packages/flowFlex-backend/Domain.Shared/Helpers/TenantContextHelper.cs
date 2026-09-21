@@ -34,11 +34,14 @@ namespace FlowFlex.Domain.Shared.Helpers
         }
 
         /// <summary>
-        /// Get TenantId from UserContext with fallback to default
-        /// Use this only for non-critical operations where default tenant is acceptable
+        /// Get TenantId from UserContext with fallback to "default".
+        /// <para>
+        /// ⚠️ Use only when a missing TenantId is genuinely acceptable.
+        /// If the returned value is "default" in a production context it almost always
+        /// means UserContext was not populated (e.g. called from a background task without
+        /// explicit tenant injection). Log a warning at the call site when this matters.
+        /// </para>
         /// </summary>
-        /// <param name="userContext">User context</param>
-        /// <returns>TenantId or "default"</returns>
         public static string GetTenantIdOrDefault(UserContext? userContext)
         {
             return userContext?.TenantId ?? "default";
@@ -55,10 +58,13 @@ namespace FlowFlex.Domain.Shared.Helpers
         }
 
         /// <summary>
-        /// Get AppCode from UserContext with fallback to default
+        /// Get AppCode from UserContext with fallback to "default".
+        /// <para>
+        /// ⚠️ Use only when a missing AppCode is genuinely acceptable.
+        /// If the returned value is "default" in a production context it almost always
+        /// means UserContext was not populated. Log a warning at the call site when this matters.
+        /// </para>
         /// </summary>
-        /// <param name="userContext">User context</param>
-        /// <returns>AppCode or "default"</returns>
         public static string GetAppCodeOrDefault(UserContext? userContext)
         {
             return userContext?.AppCode ?? "default";

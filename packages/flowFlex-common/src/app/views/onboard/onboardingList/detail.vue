@@ -271,6 +271,9 @@
 							@stage-block-changed="loadOnboardingDetail"
 						/>
 
+						<!-- OW-728: Related Cases — only show after main onboarding data is loaded -->
+						<RelatedCases v-if="onboardingData" :onboarding-id="onboardingId" />
+
 						<!-- 笔记区域 -->
 						<InternalNotes
 							v-if="activeStage && onboardingId"
@@ -357,6 +360,7 @@ import GradientTag from '@/components/global/GradientTag/index.vue';
 import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
 import InternalNotes from './components/InternalNotes.vue';
+import RelatedCases from './components/RelatedCases.vue';
 import ChangeLog from './components/ChangeLog.vue';
 import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';

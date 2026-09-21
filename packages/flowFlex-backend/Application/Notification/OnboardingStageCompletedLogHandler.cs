@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Notification
                         WriteIndented = false,
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     }),
-                    EventDescription = eventData.Description,
+                    EventDescription = eventData.Description ?? string.Empty,
                     EventStatus = "Published",
                     EventTags = JsonSerializer.Serialize(eventData.Tags ?? new List<string>()),
                     RelatedEntityId = eventData.CompletedStageId,
