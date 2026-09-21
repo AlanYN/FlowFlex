@@ -898,7 +898,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 stageProgress.AiSummaryModel = modelUsed;
                 stageProgress.AiSummaryData = JsonSerializer.Serialize(new
                 {
-                    trigger = "Stream API onboarding update",
+                    source = "Stream API onboarding update",
                     generatedAt = generatedAt,
                     confidence = confidence,
                     model = modelUsed,

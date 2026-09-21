@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
 using SqlSugar;
 using System.Linq;
 using System.Linq.Expressions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -14,48 +15,18 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class StageRepository : BaseRepository<Stage>, IStageRepository, IScopedService
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly UserContext _userContext;
         private readonly ILogger<StageRepository> _logger;
 
-        public StageRepository(ISqlSugarClient sqlSugarClient, IHttpContextAccessor httpContextAccessor, ILogger<StageRepository> logger) : base(sqlSugarClient)
+        public StageRepository(ISqlSugarClient sqlSugarClient, UserContext userContext, ILogger<StageRepository> logger) : base(sqlSugarClient)
         {
-            _httpContextAccessor = httpContextAccessor;
+            _userContext = userContext;
             _logger = logger;
         }
 
-        /// <summary>
-        /// Get current tenant ID from HTTP context
-        /// </summary>
-        private string GetCurrentTenantId()
-        {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext != null)
-            {
-                var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(tenantId))
-                {
-                    return tenantId;
-                }
-            }
-            return "default"; // Default tenant ID
-        }
+        private string GetCurrentTenantId() => TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
-        /// <summary>
-        /// Get current app code from HTTP context
-        /// </summary>
-        private string GetCurrentAppCode()
-        {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext != null)
-            {
-                var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(appCode))
-                {
-                    return appCode;
-                }
-            }
-            return "default"; // Default app code
-        }
+        private string GetCurrentAppCode() => TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         /// <summary>
         /// Get stage list by expression with tenant isolation
