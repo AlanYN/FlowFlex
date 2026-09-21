@@ -104,7 +104,10 @@ namespace FlowFlex.Application.Services.Action
             // 4. Questionnaire answers from all completed stages + current triggering stage
             await AggregateQuestionnaireAnswersAsync(context.OnboardingId, context.StageId, onboarding, contextData);
 
-            // 5. Previous action result
+            // 5. File Management attachments from all completed stages + current triggering stage
+            await AggregateFileManagementDataAsync(context.OnboardingId, context.StageId, onboarding, contextData);
+
+            // 6. Previous action result
             if (previousActionResult != null)
             {
                 contextData["previousActionResult"] = previousActionResult;
@@ -229,6 +232,77 @@ namespace FlowFlex.Application.Services.Action
             }
 
             SetEmptyQuestionnaireContext(contextData, answersList, answerMap, answerByQuestionId);
+        }
+
+        /// <summary>
+        /// Aggregate File Management (OnboardingFile) data from all completed stages
+        /// and the current triggering stage, then write into contextData under:
+        ///   - stageFiles          : flat list of all AttachmentFileInfo objects
+        ///   - stageFilesByStageId : { stageId(string) -> List<AttachmentFileInfo> }
+        /// </summary>
+        private async Task AggregateFileManagementDataAsync(
+            long onboardingId,
+            long currentStageId,
+            Onboarding? onboarding,
+            Dictionary<string, object> contextData)
+        {
+            var allFiles = new List<AttachmentFileInfo>();
+            var filesByStageId = new Dictionary<string, List<AttachmentFileInfo>>();
+
+            try
+            {
+                if (onboarding == null)
+                {
+                    contextData["stageFiles"] = allFiles;
+                    contextData["stageFilesByStageId"] = filesByStageId;
+                    return;
+                }
+
+                // Collect same stage set as questionnaire aggregation:
+                // completed stages + always include current triggering stage
+                var stagesProgress = StagesProgressHelper.ParseStagesProgress(
+                    onboarding.StagesProgressJson, _logger, $"OnboardingId={onboardingId}");
+
+                var stageIdsToCollect = stagesProgress
+                    .Where(sp => sp.IsCompleted || sp.Status == "Completed")
+                    .OrderBy(sp => sp.CompletionTime ?? DateTimeOffset.MaxValue)
+                    .ThenBy(sp => sp.StageId)
+                    .Select(sp => sp.StageId)
+                    .ToList();
+
+                if (!stageIdsToCollect.Contains(currentStageId))
+                {
+                    stageIdsToCollect.Add(currentStageId);
+                }
+
+                foreach (var stageId in stageIdsToCollect)
+                {
+                    AttachmentData attachmentData;
+                    try
+                    {
+                        attachmentData = await _componentDataService.GetAttachmentDataAsync(onboardingId, stageId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get attachment data for stage {StageId}, skipping", stageId);
+                        continue;
+                    }
+
+                    if (attachmentData?.Files == null || !attachmentData.Files.Any())
+                        continue;
+
+                    var stageIdStr = stageId.ToString();
+                    filesByStageId[stageIdStr] = attachmentData.Files;
+                    allFiles.AddRange(attachmentData.Files);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error aggregating file management data for onboarding {OnboardingId}", onboardingId);
+            }
+
+            contextData["stageFiles"] = allFiles;
+            contextData["stageFilesByStageId"] = filesByStageId;
         }
 
         private static object NormalizeAnswerValue(object value)

@@ -481,6 +481,19 @@ namespace FlowFlex.Application.Services.OW
                 result.FileCount = files.Count;
                 result.TotalSize = files.Sum(f => f.FileSize);
                 result.FileNames = files.Select(f => f.OriginalFileName).ToList();
+                result.Files = files.Select(f => new AttachmentFileInfo
+                {
+                    Id = f.Id,
+                    FileName = f.OriginalFileName ?? string.Empty,
+                    FileExtension = f.FileExtension ?? string.Empty,
+                    FileSize = f.FileSize,
+                    ContentType = f.ContentType ?? string.Empty,
+                    Category = f.Category ?? string.Empty,
+                    AccessUrl = f.AccessUrl ?? string.Empty,
+                    UploadedByName = f.UploadedByName ?? string.Empty,
+                    UploadedDate = f.UploadedDate,
+                    StageId = f.StageId ?? 0L,
+                }).ToList();
 
                 return result;
             }
