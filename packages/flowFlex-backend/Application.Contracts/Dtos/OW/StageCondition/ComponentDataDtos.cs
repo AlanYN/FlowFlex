@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using FlowFlex.Domain.Shared.JsonConverters;
@@ -113,6 +114,49 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         /// File names
         /// </summary>
         public List<string> FileNames { get; set; } = new List<string>();
+
+        /// <summary>
+        /// File details (used when passing to Action triggerContext)
+        /// </summary>
+        public List<AttachmentFileInfo> Files { get; set; } = new List<AttachmentFileInfo>();
+    }
+
+    /// <summary>
+    /// Individual file info within an AttachmentData
+    /// </summary>
+    public class AttachmentFileInfo
+    {
+        /// <summary>File ID (snowflake)</summary>
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long Id { get; set; }
+
+        /// <summary>Original file name</summary>
+        public string FileName { get; set; } = string.Empty;
+
+        /// <summary>File extension (e.g. .pdf)</summary>
+        public string FileExtension { get; set; } = string.Empty;
+
+        /// <summary>File size in bytes</summary>
+        public long FileSize { get; set; }
+
+        /// <summary>MIME type</summary>
+        public string ContentType { get; set; } = string.Empty;
+
+        /// <summary>File category (Document / Image / Certificate / Other)</summary>
+        public string Category { get; set; } = string.Empty;
+
+        /// <summary>Access URL</summary>
+        public string AccessUrl { get; set; } = string.Empty;
+
+        /// <summary>Uploaded by user name</summary>
+        public string UploadedByName { get; set; } = string.Empty;
+
+        /// <summary>Upload date (UTC)</summary>
+        public DateTimeOffset UploadedDate { get; set; }
+
+        /// <summary>Stage ID this file belongs to</summary>
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long StageId { get; set; }
     }
 
     /// <summary>
