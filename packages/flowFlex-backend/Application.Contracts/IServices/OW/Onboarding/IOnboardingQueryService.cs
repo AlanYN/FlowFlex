@@ -39,6 +39,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
             int pageSize = 20);
 
         /// <summary>
+        /// Get a lightweight list of cases for a given systemId + entityId.
+        /// Returns only Id, CaseName, WorkflowId and Status — no JSONB columns are loaded.
+        /// Intended for CRM's "Connect to WFE Workflow" dialog.
+        /// </summary>
+        Task<List<CaseSlimDto>> GetCasesSlimAsync(string systemId, string entityId, int pageSize = 100);
+
+        /// <summary>
         /// Export onboarding data to Excel
         /// </summary>
         /// <param name="query">Query request for filtering export data</param>
