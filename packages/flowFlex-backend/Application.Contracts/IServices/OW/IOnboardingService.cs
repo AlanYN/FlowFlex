@@ -177,6 +177,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<PagedResult<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int pageIndex = 1, int pageSize = 20);
 
         /// <summary>
+        /// Get a lightweight list of cases for a given systemId + entityId.
+        /// Returns only Id, CaseName, WorkflowId and Status — no JSONB columns are loaded.
+        /// Intended for CRM's "Connect to WFE Workflow" dialog.
+        /// </summary>
+        Task<List<CaseSlimDto>> GetCasesSlimAsync(string systemId, string entityId, int pageSize = 100);
+
+        /// <summary>
         /// Check whether the current user has already seen the guided tour for a specific stage.
         /// </summary>
         Task<bool> GetTourSeenAsync(long onboardingId, long stageId);

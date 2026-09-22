@@ -467,6 +467,29 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Get a lightweight case list (id, caseName, workflowId, status only).
+        /// Skips all large JSONB columns — intended for CRM's "Connect to WFE Workflow" dialog.
+        /// Requires CASE:READ permission.
+        /// </summary>
+        /// <param name="systemId">Integration system ID</param>
+        /// <param name="entityId">External entity ID (company/lead ID from CRM)</param>
+        /// <param name="pageSize">Max records to return (default 100, max 100)</param>
+        [HttpGet("by-system-slim")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<CaseSlimDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetCasesSlimAsync(
+            [FromQuery] string systemId,
+            [FromQuery] string entityId,
+            [FromQuery] int pageSize = 100)
+        {
+            if (string.IsNullOrWhiteSpace(systemId) || string.IsNullOrWhiteSpace(entityId))
+                return BadRequest("systemId and entityId are required");
+
+            var result = await _onboardingService.GetCasesSlimAsync(systemId, entityId, pageSize);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Check whether the current user has already seen the guided tour for a specific stage.
         /// Returns { "seen": true/false }.
         /// Requires CASE:READ permission.
