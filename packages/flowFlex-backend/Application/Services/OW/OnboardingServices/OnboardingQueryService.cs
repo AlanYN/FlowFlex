@@ -910,6 +910,42 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
         }
 
+        /// <summary>
+        /// Lightweight case list for CRM's "Connect to WFE Workflow" dialog.
+        /// Only selects Id, CaseName, WorkflowId and Status — skips all large JSONB columns.
+        /// </summary>
+        public async Task<List<CaseSlimDto>> GetCasesSlimAsync(string systemId, string entityId, int pageSize = 100)
+        {
+            if (string.IsNullOrWhiteSpace(systemId) || string.IsNullOrWhiteSpace(entityId))
+                return [];
+
+            if (pageSize < 1) pageSize = 100;
+            if (pageSize > 100) pageSize = 100;
+
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
+
+            var items = await _onboardingRepository.GetSqlSugarClient()
+                .Queryable<Onboarding>()
+                .Where(x => x.IsValid == true && x.IsActive == true)
+                .Where(x => x.SystemId == systemId)
+                .Where(x => x.EntityId == entityId)
+                .WhereIF(!string.IsNullOrEmpty(tenantId), x => x.TenantId.ToLower() == tenantId.ToLower())
+                .WhereIF(!string.IsNullOrEmpty(appCode), x => x.AppCode.ToLower() == appCode.ToLower())
+                .OrderByDescending(x => x.ModifyDate)
+                .Take(pageSize)
+                .Select(x => new CaseSlimDto
+                {
+                    Id = x.Id,
+                    CaseName = x.CaseName,
+                    WorkflowId = x.WorkflowId,
+                    Status = x.Status.ToString(),
+                })
+                .ToListAsync();
+
+            return items;
+        }
+
         #endregion
 
 

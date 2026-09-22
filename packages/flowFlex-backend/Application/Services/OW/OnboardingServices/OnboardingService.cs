@@ -79,6 +79,9 @@ namespace FlowFlex.Application.Services.OW
             int pageSize = 20)
             => _queryService.GetActiveBySystemIdAsync(systemId, entityId, sortField, sortOrder, pageIndex, pageSize);
 
+        public Task<List<CaseSlimDto>> GetCasesSlimAsync(string systemId, string entityId, int pageSize = 100)
+            => _queryService.GetCasesSlimAsync(systemId, entityId, pageSize);
+
         public Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query)
             => _queryService.ExportToExcelAsync(query);
 
