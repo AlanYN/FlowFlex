@@ -302,7 +302,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
         /// <returns>Complete file upload information</returns>
         [HttpPost("questions/upload-file")]
-        [WFEAuthorize(PermissionConsts.Question.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<QuestionnaireFileUploadResponseDto>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadQuestionFileAsync(
@@ -364,7 +364,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
         /// <returns>List of complete file upload information</returns>
         [HttpPost("questions/batch-upload-files")]
-        [WFEAuthorize(PermissionConsts.Question.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireFileUploadResponseDto>>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadMultipleQuestionFilesAsync(
@@ -480,7 +480,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="download">If true, returns as attachment (download); if false/omitted, returns inline (preview)</param>
         /// <returns>File stream</returns>
         [HttpGet("questions/files/preview")]
-        [WFEAuthorize(PermissionConsts.Question.Read)]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType(typeof(FileStreamResult), 200)]
         public async Task<IActionResult> PreviewQuestionFileAsync([FromQuery] string filePath, [FromQuery] bool download = false)
         {
