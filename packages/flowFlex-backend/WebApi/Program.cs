@@ -1,4 +1,4 @@
-﻿using Application.Contracts.Options;
+using Application.Contracts.Options;
 using FlowFlex.Application.Client;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared.Const;
@@ -485,6 +485,11 @@ builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTas
 builder.Services.AddHostedService<FlowFlex.Application.Services.MessageCenter.EmailSyncBackgroundService>();
 
 // Register IntegrationApiLogFilter for external API logging
+builder.Services.AddSignalR();
+
+// In-memory collaboration state (rooms, presence, changeset revisions)
+builder.Services.AddSingleton<FlowFlex.WebApi.Hubs.CollabRoomRegistry>();
+
 builder.Services.AddScoped<FlowFlex.WebApi.Filters.IntegrationApiLogFilter>();
 
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
@@ -572,6 +577,22 @@ app.UseAuthorization();
 app.UseMiddleware<FlowFlex.WebApi.Middlewares.PortalScopeValidationMiddleware>();
 
 app.MapControllers();
+
+// SignalR collaborative editing hub
+app.MapHub<FlowFlex.WebApi.Hubs.CollabHub>("/collab/{unitId}");
+
+// Enable WebSocket upgrades for the collaboration endpoint below
+app.UseWebSockets();
+
+// Raw WebSocket collaboration endpoint (presence + changesets) used by the web client.
+// See WebApi/Hubs/CollabWebSocketEndpoint.cs for the message protocol.
+app.Map("/ws/collab/{unitId}", (HttpContext context) =>
+{
+    var unitId = context.Request.RouteValues["unitId"]?.ToString() ?? string.Empty;
+    var registry = context.RequestServices.GetRequiredService<FlowFlex.WebApi.Hubs.CollabRoomRegistry>();
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("CollabWebSocket");
+    return FlowFlex.WebApi.Hubs.CollabWebSocketEndpoint.HandleAsync(context, unitId, registry, logger, context.RequestAborted);
+});
 
 // Initialize database
 try

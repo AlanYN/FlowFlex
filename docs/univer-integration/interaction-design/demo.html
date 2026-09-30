@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Univer 文档管理 — 交互原型</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; color: #303133; background: #f0f2f5; }
+
+  /* ── 布局 ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 220px; background: #fff; border-right: 1px solid #e4e7ed; padding: 24px 0; flex-shrink: 0; }
+  .sidebar-logo { padding: 0 20px 24px; font-weight: 700; font-size: 16px; color: #409eff; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 10px 20px; cursor: pointer; color: #606266; transition: background 150ms; }
+  .nav-item:hover { background: #f5f7fa; }
+  .nav-item.active { background: #ecf5ff; color: #409eff; font-weight: 600; }
+  .nav-icon { width: 18px; height: 18px; opacity: .7; }
+  .main { flex: 1; overflow: auto; }
+
+  /* ── 列表页 ── */
+  .page { padding: 24px; display: none; }
+  .page.active { display: block; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .page-title { font-size: 20px; font-weight: 700; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; border: 1px solid transparent; cursor: pointer; font-size: 14px; transition: opacity 150ms; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: #409eff; color: #fff; border-color: #409eff; }
+  .btn-default { background: #fff; color: #606266; border-color: #dcdfe6; }
+  .btn-danger { background: #f56c6c; color: #fff; border-color: #f56c6c; }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .search-box { flex: 0 0 260px; display: flex; align-items: center; border: 1px solid #dcdfe6; border-radius: 4px; overflow: hidden; background: #fff; }
+  .search-box input { flex: 1; border: none; outline: none; padding: 7px 12px; font-size: 14px; }
+  .search-box .icon { padding: 0 10px; color: #c0c4cc; }
+  .filter-group { display: flex; gap: 4px; }
+  .filter-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid #dcdfe6; background: #fff; cursor: pointer; font-size: 13px; color: #606266; transition: all 150ms; }
+  .filter-btn.active { border-color: #409eff; color: #409eff; background: #ecf5ff; }
+
+  /* ── 卡片网格 ── */
+  .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 1279px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 959px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .doc-card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); cursor: pointer; transition: box-shadow 150ms, background 150ms; position: relative; }
+  .doc-card:hover { background: #f5f7fa; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+  .doc-card:hover .card-menu-btn { opacity: 1; }
+  .card-icon { width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+  .icon-sheet { background: #d1fae5; }
+  .icon-doc   { background: #dbeafe; }
+  .icon-slide { background: #fef3c7; }
+  .card-title { font-weight: 600; font-size: 14px; line-height: 1.4; max-height: 2.8em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .card-meta { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; color: #909399; font-size: 12px; }
+  .avatar-sm { width: 20px; height: 20px; border-radius: 50%; background: #409eff; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+  .card-menu-btn { position: absolute; top: 12px; right: 12px; opacity: 0; background: #fff; border: 1px solid #e4e7ed; border-radius: 4px; padding: 2px 8px; font-size: 16px; cursor: pointer; transition: opacity 150ms; z-index: 1; }
+
+  /* ── 分页 ── */
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; }
+  .pag-btn { width: 32px; height: 32px; border-radius: 4px; border: 1px solid #dcdfe6; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+  .pag-btn.active { background: #409eff; color: #fff; border-color: #409eff; }
+  .pag-btn:hover:not(.active) { background: #f5f7fa; }
+  .pag-total { color: #909399; font-size: 13px; }
+
+  /* ── 弹窗 ── */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; display: none; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .dialog { background: #fff; border-radius: 8px; width: 480px; max-width: 95vw; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,.15); }
+  .dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .dialog-title { font-size: 16px; font-weight: 700; }
+  .close-btn { cursor: pointer; font-size: 18px; color: #909399; line-height: 1; }
+  .form-label { font-size: 13px; color: #606266; margin-bottom: 6px; font-weight: 500; }
+  .form-input { width: 100%; border: 1px solid #dcdfe6; border-radius: 4px; padding: 8px 12px; font-size: 14px; outline: none; transition: border 150ms; }
+  .form-input:focus { border-color: #409eff; }
+  .form-input.error { border-color: #f56c6c; }
+  .form-error { font-size: 12px; color: #f56c6c; margin-top: 4px; min-height: 16px; }
+  .type-cards { display: flex; gap: 12px; margin-top: 8px; }
+  .type-card { flex: 1; border: 2px solid #e4e7ed; border-radius: 8px; padding: 14px 8px; text-align: center; cursor: pointer; transition: border-color 150ms, background 150ms; }
+  .type-card:hover { border-color: #c0c4cc; }
+  .type-card.selected { border-color: #409eff; background: #ecf5ff; }
+  .type-card .type-icon { font-size: 28px; }
+  .type-card .type-name { font-size: 13px; margin-top: 6px; font-weight: 500; }
+  .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
+
+  /* ── 编辑器页 ── */
+  .editor-page { display: none; flex-direction: column; height: 100vh; }
+  .editor-page.active { display: flex; }
+  .editor-toolbar { height: 56px; background: #fff; border-bottom: 1px solid #e4e7ed; display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; }
+  .back-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #606266; padding: 4px 8px; border-radius: 4px; transition: background 150ms; white-space: nowrap; }
+  .back-btn:hover { background: #f5f7fa; }
+  .divider-v { width: 1px; height: 20px; background: #e4e7ed; flex-shrink: 0; }
+  .editor-title-wrap { flex: 1; overflow: hidden; }
+  .editor-title-display { font-size: 15px; font-weight: 600; cursor: text; padding: 4px 8px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .editor-title-display:hover { background: #f5f7fa; }
+  .editor-title-input { font-size: 15px; font-weight: 600; border: 1px solid #409eff; border-radius: 4px; padding: 3px 8px; outline: none; width: 100%; display: none; }
+  .avatars { display: flex; align-items: center; gap: -6px; flex-shrink: 0; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #fff; margin-left: -6px; position: relative; cursor: default; }
+  .avatar:first-child { margin-left: 0; }
+  .avatar[title]:hover::after { content: attr(title); position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.75); color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+  .editor-area { flex: 1; overflow: hidden; background: #f9fafb; display: flex; align-items: center; justify-content: center; }
+  .editor-mock { width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #909399; }
+  .editor-mock .mock-icon { font-size: 48px; }
+
+  /* ── 空状态 ── */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 16px; color: #909399; }
+  .empty-icon { font-size: 64px; }
+  .empty-text { font-size: 15px; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #fff; border: 1px solid #e4e7ed; border-radius: 8px; padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,.12); display: none; align-items: center; gap: 8px; z-index: 200; font-size: 14px; }
+  .toast.show { display: flex; }
+  .toast.success { border-left: 4px solid #67c23a; }
+  .toast.error { border-left: 4px solid #f56c6c; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 侧边导航 -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">📋 FlowFlex</div>
+    <div class="nav-item" onclick="showPage('placeholder')">
+      <span>🏠</span> 仪表盘
+    </div>
+    <div class="nav-item" onclick="showPage('placeholder')">
+      <span>⚙️</span> 工作流
+    </div>
+    <div class="nav-item active" onclick="showPage('list')">
+      <span>📄</span> 文档管理
+    </div>
+    <div class="nav-item" onclick="showPage('placeholder')">
+      <span>✅</span> 清单
+    </div>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main">
+
+    <!-- 文档列表页 -->
+    <div id="page-list" class="page active">
+      <div class="page-header">
+        <div class="page-title">文档管理</div>
+        <button class="btn btn-primary" onclick="openDialog()">＋ 新建文档</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="icon">🔍</span>
+          <input type="text" placeholder="搜索文档名称…" oninput="filterCards(this.value)" />
+        </div>
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="setFilter(this,'')">全部</button>
+          <button class="filter-btn" onclick="setFilter(this,'Sheet')">电子表格</button>
+          <button class="filter-btn" onclick="setFilter(this,'Doc')">文档</button>
+          <button class="filter-btn" onclick="setFilter(this,'Slide')">演示</button>
+        </div>
+        <select style="padding:6px 12px;border:1px solid #dcdfe6;border-radius:4px;background:#fff;font-size:13px;color:#606266;">
+          <option>最近修改</option>
+          <option>创建时间</option>
+          <option>名称</option>
+        </select>
+      </div>
+
+      <div class="card-grid" id="card-grid">
+        <!-- 卡片由 JS 渲染 -->
+      </div>
+
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">📄</div>
+        <div class="empty-text">还没有文档</div>
+        <div style="font-size:13px;color:#c0c4cc;">点击「+ 新建文档」开始创建</div>
+        <button class="btn btn-primary" onclick="openDialog()">＋ 新建文档</button>
+      </div>
+
+      <div class="pagination" id="pagination">
+        <div class="pag-btn">◀</div>
+        <div class="pag-btn active">1</div>
+        <div class="pag-btn">2</div>
+        <div class="pag-btn">3</div>
+        <div class="pag-btn">▶</div>
+        <div class="pag-total">共 48 条</div>
+      </div>
+    </div>
+
+    <!-- 占位页 -->
+    <div id="page-placeholder" class="page">
+      <div style="padding:80px;text-align:center;color:#c0c4cc;font-size:18px;">（其他模块页面）</div>
+    </div>
+
+  </main>
+
+  <!-- 编辑器页（全屏覆盖） -->
+  <div id="editor-page" class="editor-page">
+    <div class="editor-toolbar">
+      <div class="back-btn" onclick="backToList()">← 返回</div>
+      <div class="divider-v"></div>
+      <div class="editor-title-wrap">
+        <div class="editor-title-display" id="title-display" onclick="startEditTitle()">销售数据分析表</div>
+        <input class="editor-title-input" id="title-input" onblur="endEditTitle()" onkeydown="if(event.key==='Enter')this.blur()" />
+      </div>
+      <div class="avatars">
+        <div class="avatar" style="background:#409eff;" title="张三">张</div>
+        <div class="avatar" style="background:#67c23a;" title="李四">李</div>
+        <div class="avatar" style="background:#e6a23c;" title="王五">王</div>
+      </div>
+      <button class="btn btn-primary" id="save-btn" onclick="handleSave()">保存</button>
+    </div>
+    <div class="editor-area">
+      <div class="editor-mock" id="editor-mock-content">
+        <div class="mock-icon" id="editor-icon">📊</div>
+        <div id="editor-type-label" style="font-size:16px;font-weight:600;color:#409eff;">Univer Sheets 编辑器</div>
+        <div style="font-size:13px;">（实际集成后由 Univer 渲染表格/文档/演示内容）</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新建文档弹窗 -->
+<div class="overlay" id="dialog-overlay" onclick="onOverlayClick(event)">
+  <div class="dialog">
+    <div class="dialog-header">
+      <div class="dialog-title">新建文档</div>
+      <span class="close-btn" onclick="closeDialog()">×</span>
+    </div>
+    <div>
+      <div class="form-label">文档名称</div>
+      <input class="form-input" id="doc-name-input" placeholder="请输入文档名称" maxlength="200" oninput="clearNameError()" />
+      <div class="form-error" id="name-error"></div>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="form-label">文档类型</div>
+      <div class="type-cards">
+        <div class="type-card selected" data-type="Sheet" onclick="selectType(this)">
+          <div class="type-icon">📊</div>
+          <div class="type-name">电子表格</div>
+        </div>
+        <div class="type-card" data-type="Doc" onclick="selectType(this)">
+          <div class="type-icon">📄</div>
+          <div class="type-name">文档</div>
+        </div>
+        <div class="type-card" data-type="Slide" onclick="selectType(this)">
+          <div class="type-icon">📑</div>
+          <div class="type-name">演示</div>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-default" onclick="closeDialog()">取消</button>
+      <button class="btn btn-primary" id="create-btn" onclick="handleCreate()">创 建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast success" id="toast">
+  <span id="toast-icon">✓</span>
+  <span id="toast-msg">已保存</span>
+</div>
+
+<script>
+// ── 模拟数据 ──
+const mockDocs = [
+  { id:'1', unitId:'u1', title:'2026 Q3 销售数据分析表', docType:'Sheet', modifyDate:'3小时前', createBy:'张三' },
+  { id:'2', unitId:'u2', title:'产品功能说明文档 v2.1',   docType:'Doc',   modifyDate:'昨天',    createBy:'李四' },
+  { id:'3', unitId:'u3', title:'季度业务汇报 PPT',         docType:'Slide', modifyDate:'2天前',   createBy:'王五' },
+  { id:'4', unitId:'u4', title:'客户清单',                 docType:'Sheet', modifyDate:'上周',    createBy:'张三' },
+  { id:'5', unitId:'u5', title:'项目计划书',               docType:'Doc',   modifyDate:'上周',    createBy:'李四' },
+  { id:'6', unitId:'u6', title:'年终总结演示',             docType:'Slide', modifyDate:'上月',    createBy:'赵六' },
+  { id:'7', unitId:'u7', title:'预算跟踪表 2026',          docType:'Sheet', modifyDate:'上月',    createBy:'张三' },
+  { id:'8', unitId:'u8', title:'技术方案文档',             docType:'Doc',   modifyDate:'3月前',   createBy:'王五' },
+];
+
+const typeIconMap  = { Sheet:'📊', Doc:'📄', Slide:'📑' };
+const typeColorMap = { Sheet:'icon-sheet', Doc:'icon-doc', Slide:'icon-slide' };
+const typeEditorLabelMap = { Sheet:'Univer Sheets 编辑器', Doc:'Univer Docs 编辑器', Slide:'Univer Slides 编辑器' };
+const typeEditorIconMap = { Sheet:'📊', Doc:'📄', Slide:'📑' };
+
+let currentFilter = '';
+let currentSearch = '';
+
+function renderCards() {
+  const grid = document.getElementById('card-grid');
+  const empty = document.getElementById('empty-state');
+  const pag = document.getElementById('pagination');
+  const filtered = mockDocs.filter(d => {
+    const matchType = !currentFilter || d.docType === currentFilter;
+    const matchSearch = !currentSearch || d.title.toLowerCase().includes(currentSearch.toLowerCase());
+    return matchType && matchSearch;
+  });
+  if (filtered.length === 0) {
+    grid.innerHTML = ''; empty.style.display = 'flex'; pag.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; pag.style.display = 'flex';
+  grid.innerHTML = filtered.map(d => `
+    <div class="doc-card" onclick="openEditor('${d.unitId}','${d.title}','${d.docType}')">
+      <button class="card-menu-btn" onclick="event.stopPropagation();showMenuToast('${d.title}')">⋯</button>
+      <div class="card-icon ${typeColorMap[d.docType]}">${typeIconMap[d.docType]}</div>
+      <div class="card-title">${d.title}</div>
+      <div class="card-meta">
+        <span>🕐 ${d.modifyDate}</span>
+        <div class="avatar-sm">${d.createBy[0]}</div>
+        <span>${d.createBy}</span>
+      </div>
+    </div>`).join('');
+}
+
+function setFilter(el, type) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCards();
+}
+
+function filterCards(val) { currentSearch = val; renderCards(); }
+
+// ── 弹窗 ──
+function openDialog() {
+  document.getElementById('dialog-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('doc-name-input').focus(), 50);
+}
+function closeDialog() {
+  document.getElementById('dialog-overlay').classList.remove('open');
+  document.getElementById('doc-name-input').value = '';
+  document.getElementById('name-error').textContent = '';
+  document.querySelector('.type-card[data-type="Sheet"]').click();
+}
+function onOverlayClick(e) { if (e.target === e.currentTarget) closeDialog(); }
+function selectType(el) {
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function clearNameError() { document.getElementById('name-error').textContent = ''; document.getElementById('doc-name-input').classList.remove('error'); }
+function handleCreate() {
+  const name = document.getElementById('doc-name-input').value.trim();
+  if (!name) {
+    document.getElementById('name-error').textContent = '请输入文档名称';
+    document.getElementById('doc-name-input').classList.add('error');
+    document.getElementById('doc-name-input').focus();
+    return;
+  }
+  const btn = document.getElementById('create-btn');
+  btn.textContent = '创建中…'; btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '创 建'; btn.disabled = false;
+    const type = document.querySelector('.type-card.selected').dataset.type;
+    closeDialog();
+    const newId = 'u' + Date.now();
+    mockDocs.unshift({ id: newId, unitId: newId, title: name, docType: type, modifyDate: '刚刚', createBy: '我' });
+    renderCards();
+    openEditor(newId, name, type);
+  }, 800);
+}
+
+// ── 编辑器页 ──
+let currentTitle = '';
+function openEditor(unitId, title, docType) {
+  currentTitle = title;
+  document.getElementById('title-display').textContent = title;
+  document.getElementById('editor-icon').textContent = typeEditorIconMap[docType];
+  document.getElementById('editor-type-label').textContent = typeEditorLabelMap[docType];
+  document.getElementById('editor-page').classList.add('active');
+  document.querySelector('.app>.main').style.display = 'none';
+}
+function backToList() {
+  document.getElementById('editor-page').classList.remove('active');
+  document.querySelector('.app>.main').style.display = '';
+}
+function handleSave() {
+  const btn = document.getElementById('save-btn');
+  btn.textContent = '保存中…'; btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '✓ 已保存'; btn.disabled = false;
+    setTimeout(() => { btn.textContent = '保存'; }, 1000);
+    showToast('success', '✓', '文档已保存');
+  }, 600);
+}
+
+// ── 标题编辑 ──
+function startEditTitle() {
+  const disp = document.getElementById('title-display');
+  const inp = document.getElementById('title-input');
+  inp.value = currentTitle; disp.style.display = 'none'; inp.style.display = 'block'; inp.focus(); inp.select();
+}
+function endEditTitle() {
+  const disp = document.getElementById('title-display');
+  const inp = document.getElementById('title-input');
+  const val = inp.value.trim();
+  if (val) { currentTitle = val; disp.textContent = val; }
+  inp.style.display = 'none'; disp.style.display = '';
+}
+
+// ── 工具 ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+function showMenuToast(title) { showToast('success', 'ℹ️', '操作菜单：' + title); }
+function showToast(type, icon, msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => { t.classList.remove('show'); }, 2500);
+}
+
+// ── Ctrl+S ──
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (document.getElementById('editor-page').classList.contains('active')) handleSave(); }
+});
+
+// 初始化
+renderCards();
+</script>
+</body>
+</html>

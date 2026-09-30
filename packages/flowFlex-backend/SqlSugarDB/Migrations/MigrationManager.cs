@@ -120,6 +120,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20260810000001_CreateUserTourRecordsTable", (Action)(() => Migration_20260810000001_CreateUserTourRecordsTable.Up(_db))),
                     ("20260806000001_AddRollBackTeamsToStage", (Action)(() => Migration_20260806000001_AddRollBackTeamsToStage.Up(_db))),
                     ("20260810000001_CreateUserSignatureTable", (Action)(() => Migration_20260810000001_CreateUserSignatureTable.Up(_db))),
+                    ("20260930000001_AddOldValuesJsonToDocumentOperationLog", (Action)(() => Migration_20260930000001_AddOldValuesJsonToDocumentOperationLog.Up(_db))),
                     ("20260810000002_AddSigningFieldsToOnboardingFile", (Action)(() => Migration_20260810000002_AddSigningFieldsToOnboardingFile.Up(_db))),
                     ("20260819000001_AddGanttFieldsToStage",
                         (Action)(() => Migration_20260819000001_AddGanttFieldsToStage.Up(_db))),
@@ -137,7 +138,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("202609080001_AddWorkflowRuntimePermission", (Action)(() => Migration_202609080001_AddWorkflowRuntimePermission.Up(_db))),
                     ("202609080002_AddStageRuntimePermission", (Action)(() => Migration_202609080002_AddStageRuntimePermission.Up(_db))),
                     ("202609080003_AddOnboardingPermissionSnapshot", (Action)(() => Migration_202609080003_AddOnboardingPermissionSnapshot.Up(_db))),
-                    ("202609140001_AddUseWorkflowRuntimePermissionToOnboarding", (Action)(() => Migration_202609140001_AddUseWorkflowRuntimePermissionToOnboarding.Up(_db)))
+                    ("202609140001_AddUseWorkflowRuntimePermissionToOnboarding", (Action)(() => Migration_202609140001_AddUseWorkflowRuntimePermissionToOnboarding.Up(_db))),
+                    ("20260922000001_CreateDocumentTables", (Action)(() => Migration_20260922000001_CreateDocumentTables.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

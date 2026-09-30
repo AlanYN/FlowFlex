@@ -15,7 +15,7 @@ export default {
 
 	// 作用域前缀
 	prefix: '',
-	important: ['.sub-app-body', '.flowflex-app'],
+	important: ['.sub-app-body', '.flowflex-app', '#app'],
 
 	theme: {
 		extend: {
