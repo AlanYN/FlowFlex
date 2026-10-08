@@ -70,7 +70,6 @@ export interface SearchParams {
 	workFlowId: string;
 	caseCode: string;
 	caseName: string;
-	lifeCycleStageName: string;
 	currentStageId: string;
 	updatedBy: string;
 	priority: string;
@@ -333,6 +332,8 @@ export interface Stage {
 	visibleInPortal?: boolean;
 	portalPermission?: number; // PortalPermissionEnum value
 	attachmentManagementNeeded?: boolean;
+	/** OW-731: Whether Adobe Sign legal signing is enabled for this stage */
+	adobeSignEnabled?: boolean;
 	// AI summary fields (optional)
 	aiSummary?: string;
 	aiSummaryGeneratedAt?: string;

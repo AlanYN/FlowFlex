@@ -663,13 +663,16 @@
 
 		<!-- 甘特图模态框 -->
 		<GanttModal ref="ganttModalRef" />
+
+		<!-- Adobe Sign: Pending signatures warning before Force Complete -->
+		<PendingSignaturesModal ref="pendingSignaturesModalRef" />
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onActivated, markRaw, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus';
 import {
 	ArrowDownBold,
 	Link,
@@ -706,6 +709,7 @@ import {
 	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
 import { getAllStages, getWorkflowList, getWorkflowsForCaseFilter, getWorkflowDetail } from '@/apis/ow';
+import { getPendingSignatures, type PendingSignatureItem } from '@/apis/ow/adobeSign';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
 import type { FlowflexUser } from '#/golbal';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
@@ -732,6 +736,7 @@ import { functionPermission } from '@/hooks';
 import { WFEMoudels } from '@/enums/appEnum';
 import GanttPreview from './components/GanttPreview.vue';
 import GanttModal from './components/GanttModal.vue';
+import PendingSignaturesModal from './components/adobeSign/PendingSignaturesModal.vue';
 
 defineOptions({ name: 'OnboardList' });
 
@@ -769,6 +774,7 @@ const loading = ref(false);
 
 // 甘特图相关状态
 const ganttModalRef = ref<InstanceType<typeof GanttModal> | null>(null);
+const pendingSignaturesModalRef = ref<InstanceType<typeof PendingSignaturesModal> | null>(null);
 const onboardingList = ref<OnboardingItem[]>([]);
 
 const selectedItems = ref<OnboardingItem[]>([]);
@@ -1524,6 +1530,28 @@ const handleReactivate = async (row: OnboardingItem) => {
 };
 
 const handleForceComplete = async (row: OnboardingItem) => {
+	// Step 1: Query pending signatures — show spinner while waiting
+	let pendingItems: PendingSignatureItem[] = [];
+	const loadingInstance = ElLoading.service();
+	try {
+		const pendingRes = await getPendingSignatures(row.id);
+		pendingItems = (pendingRes as any)?.data ?? [];
+	} catch {
+		// Non-critical — proceed without warning if check fails
+	} finally {
+		loadingInstance.close();
+	}
+
+	// Step 2: If there are pending signatures, warn the user (separate try so cancel aborts the flow)
+	if (pendingItems.length > 0) {
+		try {
+			await pendingSignaturesModalRef.value?.open(pendingItems);
+		} catch {
+			return; // User cancelled the warning dialog — abort
+		}
+	}
+
+	// Step 3: Prompt for reason and execute force complete
 	ElMessageBox.prompt(
 		`Are you sure you want to force complete the onboarding process for "${row.caseName}"? This action will bypass all validation and mark the onboarding as Force Completed. Please provide a reason for this action.`,
 		'⚠️ Force Complete Onboarding',

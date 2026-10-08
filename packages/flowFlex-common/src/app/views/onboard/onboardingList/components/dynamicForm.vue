@@ -69,7 +69,7 @@
 							<div class="mb-2" v-if="question.type !== 'page_break'">
 								<div class="flex items-center gap-2">
 									<span class="text-sm font-medium form-question-number">
-										{{ currentSectionIndex + 1 }}.{{ questionIndex + 1 }}.
+										{{ currentSectionIndex + 1 }}.{{ +questionIndex + 1 }}.
 										{{ question.title }}
 										<span v-if="question.required" class="text-red-500">*</span>
 									</span>

@@ -22,7 +22,8 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useTourGuide, type TourStep } from '@/hooks/useTourGuide';
+import { useTourGuide } from '@/hooks/useTourGuide';
+import { TourStep } from '#/config';
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -90,14 +91,14 @@ const fabTarget = ref<string | HTMLElement | null>(
 	typeof props.fabContainer === 'function' ? null : props.fabContainer
 );
 
-function _resolveFabTarget() {
-	if (typeof props.fabContainer !== 'function') return;
-	const target = props.fabContainer();
-	if (target) {
-		fabTarget.value = target;
-	}
-	// target 为 null 时保持当前值不变（不 fallback 到 body）
-}
+// function _resolveFabTarget() {
+// 	if (typeof props.fabContainer !== 'function') return;
+// 	const target = props.fabContainer();
+// 	if (target) {
+// 		fabTarget.value = target;
+// 	}
+// 	// target 为 null 时保持当前值不变（不 fallback 到 body）
+// }
 
 /**
  * 对 getter 型 fabContainer 进行带重试的 resolve：
@@ -107,7 +108,7 @@ async function _resolveFabTargetWithRetry() {
 	if (typeof props.fabContainer !== 'function') return;
 	let attempts = 0;
 	const tryResolve = async () => {
-		const target = props.fabContainer!();
+		const target = (props.fabContainer as () => string | HTMLElement | null)();
 		if (target) {
 			fabTarget.value = target;
 			return;

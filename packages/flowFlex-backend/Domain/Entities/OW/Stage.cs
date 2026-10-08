@@ -199,6 +199,12 @@ namespace FlowFlex.Domain.Entities.OW
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
+        /// Adobe Sign Enabled - Enables legally binding signatures via Adobe Sign for PDF files in this stage
+        /// </summary>
+        [SugarColumn(ColumnName = "adobe_sign_enabled")]
+        public bool AdobeSignEnabled { get; set; } = false;
+
+        /// <summary>
         /// Required - Indicates whether this stage is required to complete the workflow
         /// </summary>
         [SugarColumn(ColumnName = "required")]

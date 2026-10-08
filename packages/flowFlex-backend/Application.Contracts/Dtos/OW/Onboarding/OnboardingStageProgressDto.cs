@@ -165,6 +165,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
+        /// Adobe Sign Enabled - Enables legally binding signatures via Adobe Sign (OW-731)
+        /// </summary>
+        public bool AdobeSignEnabled { get; set; } = false;
+
+        /// <summary>
         /// Required - Indicates whether this stage is required to complete the workflow
         /// </summary>
         public bool Required { get; set; } = false;

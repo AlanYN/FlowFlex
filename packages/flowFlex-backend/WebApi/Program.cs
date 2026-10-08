@@ -162,6 +162,10 @@ builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<FlowFlex.Application.Services.MessageCenter.OutlookOptions>(
     builder.Configuration.GetSection(FlowFlex.Application.Services.MessageCenter.OutlookOptions.SectionName));
 
+// Register HttpClient for Adobe Sign API (OW-731)
+// Token is injected at request time via IConfiguration — no named client needed
+builder.Services.AddHttpClient();
+
 // Register HttpClient for OutlookService with connection pooling and retry policy
 builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
     FlowFlex.Application.Services.MessageCenter.OutlookService>("OutlookService", client =>

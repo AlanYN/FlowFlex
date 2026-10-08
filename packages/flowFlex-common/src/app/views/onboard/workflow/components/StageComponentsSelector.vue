@@ -353,6 +353,30 @@
 							</p>
 						</div>
 					</div>
+
+					<!-- Enable Adobe Sign (OW-731) -->
+					<div
+						v-if="getFileComponent().isEnabled"
+						class="flex items-center space-x-2 p-2 border rounded-xl bg-black-400 mt-2"
+					>
+						<el-switch
+							:model-value="props.modelValue.adobeSignEnabled || false"
+							@change="(val) => updateAdobeSignEnabled(!!val)"
+							id="adobe-sign-enabled"
+							size="small"
+						/>
+						<div class="flex-1 min-w-0">
+							<label
+								for="adobe-sign-enabled"
+								class="text-sm leading-none font-medium cursor-pointer block truncate"
+							>
+								Enable Adobe Sign
+							</label>
+							<p class="text-xs mt-1 truncate">
+								Allow legally binding signatures via Adobe Sign
+							</p>
+						</div>
+					</div>
 				</div>
 			</el-scrollbar>
 		</div>
@@ -1326,6 +1350,12 @@ const toggleFileComponent = (enabled: boolean) => {
 
 const updateAttachmentManagementNeeded = (needed: boolean) => {
 	const newModelValue = { ...props.modelValue, attachmentManagementNeeded: needed };
+	emit('update:modelValue', newModelValue);
+};
+
+// OW-731: Adobe Sign toggle
+const updateAdobeSignEnabled = (enabled: boolean) => {
+	const newModelValue = { ...props.modelValue, adobeSignEnabled: enabled };
 	emit('update:modelValue', newModelValue);
 };
 

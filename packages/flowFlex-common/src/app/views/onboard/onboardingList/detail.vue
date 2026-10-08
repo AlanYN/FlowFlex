@@ -226,6 +226,7 @@
 									:stage-id="activeStage"
 									:component="component"
 									:document-is-required="documentIsRequired"
+									:adobe-sign-enabled="adobeSignEnabledForStage"
 									:disabled="
 										isAbortedReadonly ||
 										stageCanCompleted ||
@@ -548,6 +549,11 @@ const stageCanCompleted = computed(() => {
 const documentIsRequired = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.attachmentManagementNeeded;
+});
+
+const adobeSignEnabledForStage = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.adobeSignEnabled ?? false;
 });
 
 const onboardingStageStatus = computed(() => {
