@@ -58,7 +58,62 @@ description: >
 
    > ⚠️ **重要**：`gh` CLI 不可用时，**禁止**用 `web_fetch` 抓取 GitHub PR 页面来替代。
    > GitHub 返回的是渲染后的 HTML，无法获取真实 diff 内容，评审会基于错误信息。
-   > 正确做法是停止并告知用户安装 gh CLI。
+
+   **最终降级方式：GitHub REST API（仅当 gh CLI 和 github_pr.py 均不可用时）**
+
+   如果 `gh` CLI 无法安装或登录失败，且 `github_pr.py` 无法运行，可使用 PowerShell 直接调用
+   GitHub REST API。**此方式仅适用于公开仓库**，且匿名请求有速率限制（60 次/小时）。
+
+   **第一步：获取 PR 基本信息**
+
+   ```powershell
+   $headers = @{ "Accept" = "application/vnd.github.v3+json"; "User-Agent" = "PR-Review" }
+   $pr = Invoke-RestMethod -Uri "https://api.github.com/repos/{owner}/{repo}/pulls/{number}" -Headers $headers
+   $pr | Select-Object title, state, @{n="author";e={$_.user.login}}, @{n="head";e={$_.head.ref}}, @{n="base";e={$_.base.ref}}, additions, deletions, changed_files
+   ```
+
+   **第二步：获取变更文件列表（diffstat）**
+
+   ```powershell
+   $headers = @{ "Accept" = "application/vnd.github.v3+json"; "User-Agent" = "PR-Review" }
+   $files = @()
+   $page = 1
+   do {
+       $batch = Invoke-RestMethod -Uri "https://api.github.com/repos/{owner}/{repo}/pulls/{number}/files?per_page=100&page=$page" -Headers $headers
+       $files += $batch
+       $page++
+   } while ($batch.Count -eq 100)
+   $files | ForEach-Object { "[$($_.status.Substring(0,1).ToUpper())] $($_.filename)  (+$($_.additions) / -$($_.deletions))" }
+   ```
+
+   **第三步：获取完整 diff**
+
+   ```powershell
+   $headers = @{ "Accept" = "application/vnd.github.v3.diff"; "User-Agent" = "PR-Review" }
+   $diff = Invoke-RestMethod -Uri "https://api.github.com/repos/{owner}/{repo}/pulls/{number}" -Headers $headers
+   $diff  # 直接输出 unified diff 文本
+   ```
+
+   > ⚠️ **大 PR 注意**：diff 内容可能超过终端输出限制。超过 20 个文件时，改用逐文件获取：
+   > 从 diffstat 取得文件路径列表，再通过 `file_patch` 字段（`/files` 接口已包含）直接读取每个文件的 patch。
+
+   **第四步：获取 PR 评论**
+
+   ```powershell
+   $headers = @{ "Accept" = "application/vnd.github.v3+json"; "User-Agent" = "PR-Review" }
+   $comments = Invoke-RestMethod -Uri "https://api.github.com/repos/{owner}/{repo}/issues/{number}/comments?per_page=100" -Headers $headers
+   $comments | ForEach-Object { "[$($_.user.login)] $($_.created_at)`n$($_.body)`n---" }
+   ```
+
+   **速率限制处理**：如果遇到 `403 rate limit exceeded`，需要使用 Token：
+
+   ```powershell
+   # 将 Token 设置为环境变量，不要硬编码
+   $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
+   ```
+
+   > ℹ️ 注意：`/files` 接口返回的每个文件对象已包含 `patch` 字段（即该文件的 diff 内容），
+   > 大 PR 时可直接用这个字段逐文件评审，不需要单独拉取全量 diff。
 
    **推荐流程**：
    - 先 `info` 了解 PR 概况（标题、分支、变更行数）
