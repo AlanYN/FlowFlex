@@ -67,9 +67,61 @@ description: >
    - 大 PR（≥ 10 文件）：按业务模块用 `file-diff` 逐文件审查，优先审高风险文件（Service、Controller、Entity）
    - 最后 `comments` 查看已有评论，避免重复指出已知问题
 
-2. **如果用户提供了 git diff 或具体文件内容**，直接评审这些变更
-3. **如果用户说"评审最近的改动"**，执行 `git diff HEAD~1` 或 `git diff --staged` 获取变更
-4. **如果用户指定了某个文件或模块**，读取对应代码文件后评审
+2. **如果用户没有提供 PR 链接，或明确要求评审本地改动**（如"帮我看看我改的代码"、"review 一下暂存区"、"看看我本地的变更"），
+   按以下步骤获取本地 diff：
+
+   **步骤一：先了解当前 git 状态**
+
+   ```bash
+   git -C <workspace_root> status
+   ```
+
+   根据输出判断当前状态：
+   - 有暂存文件（staged）→ 走路径 A
+   - 无暂存但有未追踪改动（unstaged）→ 走路径 B
+   - 都有 → 先问用户要评审哪部分，或两者都评审
+
+   **路径 A：评审暂存区（staged changes）**
+
+   ```bash
+   git -C <workspace_root> diff --staged --stat
+   git -C <workspace_root> diff --staged
+   ```
+
+   - 先 `--stat` 了解变更文件列表和行数规模
+   - 再 `--staged` 获取完整 diff 内容
+
+   **路径 B：评审工作区未暂存的改动（unstaged changes）**
+
+   ```bash
+   git -C <workspace_root> diff --stat
+   git -C <workspace_root> diff
+   ```
+
+   **路径 C：评审最近一次提交**（用户说"看看我最近提交的"、"review 上一个 commit"）
+
+   ```bash
+   git -C <workspace_root> diff HEAD~1 --stat
+   git -C <workspace_root> diff HEAD~1
+   ```
+
+   **大 diff 处理策略**：
+   - 如果 `--stat` 显示变更超过 15 个文件，先列出文件列表告知用户，按业务模块分批评审
+   - 优先评审高风险文件：`*Service.cs`、`*Controller.cs`、`*Entity.cs`、`*.vue`（含业务逻辑的）
+   - 可用 `git diff --staged -- <文件路径>` 单独获取某个文件的 diff
+
+   **本地评审时报告头部格式**（替换 PR 信息行）：
+
+   ```
+   ## 代码评审报告（本地变更）
+
+   **来源**: 本地 git 暂存区 / 工作区 / HEAD~1
+   **变更规模**: {files} 文件，+{additions} / -{deletions}
+   **评审时间**: {当前时间}
+   ```
+
+3. **如果用户提供了 git diff 文本或具体文件内容**，直接基于提供的内容评审，无需执行任何命令
+4. **如果用户指定了某个文件或模块**，用 `read_file` 读取对应代码文件后评审
 
 ---
 
@@ -226,9 +278,9 @@ FlowFlex 的核心业务逻辑，评审时额外关注：
 ```
 ## PR 评审报告
 
-**PR**: #{number} {title}
-**作者**: {author}
-**分支**: {source} → {target}
+**PR**: #{number} {title}            ← GitHub PR 时填写；本地评审时替换为"本地变更 · {来源描述}"
+**作者**: {author}                    ← 本地评审时可省略或填 git config user.name
+**分支**: {source} → {target}        ← 本地评审时填当前分支名，如 feature/OW-731 → dev
 **变更规模**: {files} 文件，+{additions} / -{deletions}
 
 ---
@@ -279,7 +331,25 @@ FlowFlex 的核心业务逻辑，评审时额外关注：
 
 ---
 
-### 第四步：提供修复建议
+### 第四步：将报告写入 Markdown 文件
+
+评审报告输出完毕后，**必须**将完整报告内容写入工作区根目录下的 Markdown 文件。
+
+**文件命名规则：**
+
+- GitHub PR：`pr-review-{PR号}-{YYYYMMDD}.md`，例如 `pr-review-234-20261008.md`
+- 本地变更：`pr-review-local-{YYYYMMDD}.md`，例如 `pr-review-local-20261008.md`
+- 如果同一天有多次评审，追加序号：`pr-review-234-20261008-2.md`
+
+**文件保存路径：** 工作区根目录（即 `c:\Work\Project\FlowFlex2\`，或通过 `git rev-parse --show-toplevel` 获取）
+
+**文件内容：** 完整的评审报告 Markdown 文本，与对话中展示的内容完全一致，包括报告头、总结表格、Must Fix、Suggestions、Highlights 所有章节。
+
+写入成功后，告知用户文件路径，例如：
+
+> 评审报告已保存至：`pr-review-234-20261008.md`
+
+### 第五步：提供修复建议
 
 对每个 Must Fix 项，给出具体的修复代码示例，遵循项目编码规范（4 空格缩进，`_camelCase` 私有字段，`DateTimeOffset` 等）。
 
