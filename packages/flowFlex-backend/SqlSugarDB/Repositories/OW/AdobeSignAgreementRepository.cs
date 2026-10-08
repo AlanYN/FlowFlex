@@ -35,7 +35,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         /// <inheritdoc />
         public async Task<AdobeSignAgreement?> GetByAgreementIdAsync(string adobeAgreementId)
         {
+            // ClearFilter: webhook calls have no user context, global tenant filter must not apply
             return await db.Queryable<AdobeSignAgreement>()
+                .ClearFilter()
                 .Where(a => a.AgreementId == adobeAgreementId && a.IsValid == true)
                 .FirstAsync();
         }

@@ -143,14 +143,20 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             try
             {
+                // PR-234 fix: reject (but still return 200) when ClientId is not configured.
+                // Do NOT silently skip — log an error so misconfiguration is visible.
                 var expectedClientId = _configuration["AdobeSign:ClientId"] ?? string.Empty;
 
-                if (!string.IsNullOrEmpty(expectedClientId) &&
-                    !expectedClientId.StartsWith("PLACEHOLDER") &&
-                    !string.IsNullOrEmpty(incomingClientId) &&
+                if (string.IsNullOrEmpty(expectedClientId) || expectedClientId.StartsWith("PLACEHOLDER") || expectedClientId.StartsWith("REPLACE_WITH"))
+                {
+                    _logger.LogError("[AdobeSign] Webhook rejected: AdobeSign:ClientId is not configured. Event not processed.");
+                    return Ok(new { xAdobeSignClientId = incomingClientId });
+                }
+
+                if (!string.IsNullOrEmpty(incomingClientId) &&
                     !string.Equals(incomingClientId, expectedClientId, System.StringComparison.Ordinal))
                 {
-                    _logger.LogWarning("[AdobeSign] Webhook rejected: client ID mismatch. Incoming={Incoming}", incomingClientId);
+                    _logger.LogWarning("[AdobeSign] Webhook rejected: ClientId mismatch. Incoming={Incoming}", incomingClientId);
                     return Ok(new { xAdobeSignClientId = incomingClientId });
                 }
 
@@ -165,8 +171,6 @@ namespace FlowFlex.WebApi.Controllers.OW
                     _logger.LogWarning("[AdobeSign] Webhook received empty body");
                     return Ok(new { xAdobeSignClientId = incomingClientId });
                 }
-
-                _logger.LogDebug("[AdobeSign] Webhook payload: {Body}", body);
 
                 var payload = JsonDocument.Parse(body);
                 var root = payload.RootElement;
@@ -184,9 +188,12 @@ namespace FlowFlex.WebApi.Controllers.OW
 
                 if (string.IsNullOrEmpty(eventType) || string.IsNullOrEmpty(adobeAgreementId))
                 {
-                    _logger.LogWarning("[AdobeSign] Webhook payload missing event or agreement.id. Body={Body}", body);
+                    _logger.LogWarning("[AdobeSign] Webhook payload missing event or agreement.id — skipped");
                     return Ok(new { xAdobeSignClientId = incomingClientId });
                 }
+
+                // PR-234 fix: do NOT log the full body (contains PII — signer names/emails)
+                _logger.LogDebug("[AdobeSign] Webhook received. Event={Event}, AgreementId={Id}", eventType, adobeAgreementId);
 
                 await _adobeSignService.HandleWebhookAsync(eventType, adobeAgreementId);
             }
@@ -197,11 +204,5 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             return Ok(new { xAdobeSignClientId = incomingClientId });
         }
-    }
-
-    /// <summary>Input DTO for the Send Reminder endpoint</summary>
-    public class SendReminderInputDto
-    {
-        public List<string> SignerEmails { get; set; } = new();
     }
 }

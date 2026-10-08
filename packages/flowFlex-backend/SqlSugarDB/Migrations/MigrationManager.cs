@@ -133,7 +133,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         (Action)(() => Migration_20260828000001_GlobalTriggerGraph.Up(_db))),
                     ("20260828001_AddWhatsNew", (Action)(() => Migration_20260828001_AddWhatsNew.Up(_db))),
                     ("20260908001_AddAdobeSignEnabledToStage", (Action)(() => Migration_20260908001_AddAdobeSignEnabledToStage.Up(_db))),
-                    ("20260908002_CreateAdobeSignAgreementTable", (Action)(() => Migration_20260908002_CreateAdobeSignAgreementTable.Up(_db)))
+                    ("20260908002_CreateAdobeSignAgreementTable", (Action)(() => Migration_20260908002_CreateAdobeSignAgreementTable.Up(_db))),
+                    ("20260909000001_CreateAdobeSignTenantConfigTable", (Action)(() => Migration_20260909000001_CreateAdobeSignTenantConfigTable.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

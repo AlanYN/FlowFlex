@@ -32,9 +32,10 @@ namespace FlowFlex.Application.Services.OW
     ///   - Create multi-party signing agreements
     ///   - Handle Webhook callbacks to update status and archive completed files
     ///
-    /// API credentials are read from appsettings.json "AdobeSign" section (placeholders until real keys arrive).
+    /// Account selection: each AppCode maps to an Adobe Sign account key (Item/Unisco)
+    /// via IAdobeSignTenantConfigService. Falls back to AdobeSign:DefaultAccount in config.
     /// </summary>
-    public class AdobeSignService : IAdobeSignService
+    public class AdobeSignService : IAdobeSignService, IScopedService
     {
         private readonly IAdobeSignAgreementRepository _agreementRepository;
         private readonly IOnboardingFileRepository _onboardingFileRepository;
@@ -46,6 +47,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly ILogger<AdobeSignService> _logger;
         private readonly UserContext _userContext;
         private readonly IWorkflowTriggerLogRepository _triggerLogRepository;
+        private readonly IAdobeSignTenantConfigService _tenantConfigService;
 
         // Config section key
         private const string ConfigSection = "AdobeSign";
@@ -60,7 +62,8 @@ namespace FlowFlex.Application.Services.OW
             ISqlSugarClient db,
             ILogger<AdobeSignService> logger,
             UserContext userContext,
-            IWorkflowTriggerLogRepository triggerLogRepository)
+            IWorkflowTriggerLogRepository triggerLogRepository,
+            IAdobeSignTenantConfigService tenantConfigService)
         {
             _agreementRepository = agreementRepository;
             _onboardingFileRepository = onboardingFileRepository;
@@ -72,6 +75,7 @@ namespace FlowFlex.Application.Services.OW
             _logger = logger;
             _userContext = userContext;
             _triggerLogRepository = triggerLogRepository;
+            _tenantConfigService = tenantConfigService;
         }
 
         // ------------------------------------------------------------------ //
@@ -422,7 +426,7 @@ namespace FlowFlex.Application.Services.OW
                         break;
                     }
                     await UpdateStatusAsync(agreement, "Completed");
-                    await ArchiveSignedDocumentsAsync(agreement);
+                    await ArchiveSignedDocumentsAsync(agreement, agreement.AppCode);
                     break;
 
                 case "AGREEMENT_ACTION_COMPLETED":
@@ -459,8 +463,28 @@ namespace FlowFlex.Application.Services.OW
 
         private HttpClient CreateAdobeSignClient()
         {
-            var token   = _configuration["AdobeSign:AccessToken"] ?? throw new InvalidOperationException("AdobeSign:AccessToken not configured");
-            var baseUrl = (_configuration["AdobeSign:BaseUrl"] ?? "https://api.na2.adobesign.com/api/rest/v6").TrimEnd('/');
+            // Sync wrapper — kept for non-webhook call sites.
+            // Resolves account key via DB config, falls back to DefaultAccount.
+            return CreateAdobeSignClientForAppCodeAsync(_userContext?.AppCode ?? string.Empty)
+                .GetAwaiter().GetResult();
+        }
+
+        private async Task<HttpClient> CreateAdobeSignClientAsync(string? appCode = null)
+        {
+            var effectiveAppCode = appCode ?? _userContext?.AppCode ?? string.Empty;
+            return await CreateAdobeSignClientForAppCodeAsync(effectiveAppCode);
+        }
+
+        private async Task<HttpClient> CreateAdobeSignClientForAppCodeAsync(string appCode)
+        {
+            var accountKey = await _tenantConfigService.GetAccountKeyAsync(appCode);
+            var token = _configuration[$"AdobeSign:Accounts:{accountKey}:AccessToken"];
+
+            if (string.IsNullOrEmpty(token) || token.StartsWith("PLACEHOLDER") || token.StartsWith("REPLACE_WITH"))
+                throw new InvalidOperationException(
+                    $"AdobeSign AccessToken for account '{accountKey}' is not configured in appsettings.json");
+
+            var baseUrl = (_configuration["AdobeSign:BaseUrl"] ?? "https://api.na4.adobesign.com/api/rest/v6").TrimEnd('/');
 
             var client = _httpClientFactory.CreateClient();
             client.BaseAddress = new Uri(baseUrl + "/");
@@ -618,7 +642,7 @@ namespace FlowFlex.Application.Services.OW
         /// After archiving, also syncs the signed file to any downstream Cases that were triggered
         /// from the same source Case via the Workflow Trigger Graph.
         /// </summary>
-        private async Task ArchiveSignedDocumentsAsync(AdobeSignAgreement agreement)
+        private async Task ArchiveSignedDocumentsAsync(AdobeSignAgreement agreement, string? appCode = null)
         {
             try
             {
@@ -630,7 +654,8 @@ namespace FlowFlex.Application.Services.OW
                         agreement.AgreementId);
                     return;
                 }
-                var client = CreateAdobeSignClient();
+                // Use the agreement's own AppCode to select the correct Adobe Sign account
+                var client = await CreateAdobeSignClientAsync(appCode ?? agreement.AppCode);
 
                 // Get source file info for naming
                 var sourceFile = await _onboardingFileRepository.GetByIdAsync(agreement.SourceFileId);
@@ -867,7 +892,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var client = CreateAdobeSignClient();
+                var client = await CreateAdobeSignClientAsync(agreement.AppCode);
                 var response = await client.GetAsync($"agreements/{agreement.AgreementId}/members");
 
                 if (!response.IsSuccessStatusCode) return;
@@ -891,6 +916,9 @@ namespace FlowFlex.Application.Services.OW
                 // { "participantSets": [{ "memberInfos": [{ "email": "...", "status": "...", "completionDate": "..." }] }] }
                 var membersNode = JsonNode.Parse(body);
                 var participantSets = membersNode?["participantSets"]?.AsArray();
+                // PR-234 fix: do NOT log the full body (contains PII — signer names/emails)
+                _logger.LogDebug("[AdobeSign] SyncSignerStatuses. AgreementId={Id}, ParticipantSetsCount={Count}",
+                    agreement.AgreementId, participantSets?.Count ?? 0);
                 if (participantSets != null)
                 {
                     foreach (var set in participantSets)
@@ -950,29 +978,6 @@ namespace FlowFlex.Application.Services.OW
             await _db.Updateable(agreement)
                 .UpdateColumns(a => new { a.Status, a.ModifyDate })
                 .ExecuteCommandAsync();
-        }
-
-        /// <summary>
-        /// Download file bytes from a URL (blob storage or direct URL)
-        /// </summary>
-        private async Task<byte[]> DownloadFileBytesAsync(string urlOrPath)
-        {
-            // If it's a relative local path, read from disk via storage service
-            if (!urlOrPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                using var fileStream = (await _fileStorageService.GetFileAsync(urlOrPath)).stream;
-                if (fileStream == null)
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Could not read file at path: {urlOrPath}");
-
-                using var ms = new MemoryStream();
-                await fileStream.CopyToAsync(ms);
-                return ms.ToArray();
-            }
-
-            // Otherwise fetch via HTTP
-            using var httpClient = _httpClientFactory.CreateClient();
-            var bytes = await httpClient.GetByteArrayAsync(urlOrPath);
-            return bytes;
         }
 
         // ------------------------------------------------------------------ //
