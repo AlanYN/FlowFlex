@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Services.Shared;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -508,6 +510,291 @@ namespace FlowFlex.Application.Services.OW.Permission
 
         #endregion
 
+        #region Three-Layer Permission Check (OW-736)
+
+        /// <summary>
+        /// Check Stage permission with three-layer intersection:
+        ///   Layer 1: Workflow Runtime snapshot (Onboarding.MaxViewPermissionMode / MaxViewTeams)
+        ///   Layer 2: Stage Effective Runtime (PermissionCalculator.ComputeStageEffectiveRuntime)
+        ///   Layer 3: Case Stage permission (MaxStageViewTeams snapshot OR StageViewTeams independent)
+        /// All three layers must pass for access to be granted.
+        /// The existing two-parameter overloads are kept unchanged for backward compatibility.
+        /// </summary>
+        public PermissionResult CheckStagePermissionWithCaseStage(
+            Stage stage,
+            Workflow workflow,
+            Onboarding onboarding,
+            OnboardingStageProgress stageProgress,
+            long userId,
+            PermissionOperationType operationType,
+            List<string> userTeamIds = null)
+        {
+            userTeamIds ??= _helpers.GetUserTeamIds();
+
+            // ── Layer 1: Workflow Runtime snapshot ───────────────────────────────
+            if (onboarding.MaxViewPermissionMode.HasValue)
+            {
+                var maxViewMode = onboarding.MaxViewPermissionMode.Value;
+                var maxViewTeams = DeserializeJsonTeams(onboarding.MaxViewTeams);
+
+                bool layer1ViewPass = maxViewMode switch
+                {
+                    ViewPermissionModeEnum.Public => true,
+                    ViewPermissionModeEnum.VisibleToTeams => maxViewTeams.Count == 0
+                        || userTeamIds.Any(t => maxViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                    ViewPermissionModeEnum.InvisibleToTeams => !userTeamIds.Any(t => maxViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                    ViewPermissionModeEnum.Private => false,
+                    _ => false
+                };
+
+                if (!layer1ViewPass)
+                {
+                    _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 1 (Workflow snapshot) denied for Stage {StageId}", stage.Id);
+                    return PermissionResult.CreateFailure(
+                        "User does not have view permission on Workflow Runtime snapshot",
+                        "WORKFLOW_RUNTIME_SNAPSHOT_DENIED");
+                }
+
+                if (operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete)
+                {
+                    var maxOperateTeams = DeserializeJsonTeams(onboarding.MaxOperateTeams);
+                    bool layer1OperatePass = maxOperateTeams.Count == 0
+                        || userTeamIds.Any(t => maxOperateTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+
+                    if (!layer1OperatePass)
+                    {
+                        _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 1 operate (Workflow snapshot) denied for Stage {StageId}", stage.Id);
+                        var res = PermissionResult.CreateFailure(
+                            "User has view permission but not operate permission on Workflow Runtime snapshot",
+                            "WORKFLOW_RUNTIME_SNAPSHOT_OPERATE_DENIED");
+                        res.CanView = true;
+                        return res;
+                    }
+                }
+            }
+
+            // ── Layer 2: Stage Effective Runtime ─────────────────────────────────
+            WorkflowEffectiveRuntime wfRuntime;
+            StageEffectiveRuntime stageRuntime;
+            try
+            {
+                wfRuntime = PermissionCalculator.ComputeWorkflowEffectiveRuntime(workflow);
+                stageRuntime = PermissionCalculator.ComputeStageEffectiveRuntime(stage, wfRuntime);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CheckStagePermissionWithCaseStage - Failed to compute Stage runtime for Stage {StageId}", stage.Id);
+                return PermissionResult.CreateFailure("Error computing Stage effective runtime", "STAGE_RUNTIME_ERROR");
+            }
+
+            bool layer2ViewPass = stageRuntime.ViewMode switch
+            {
+                ViewPermissionModeEnum.Public => true,
+                ViewPermissionModeEnum.VisibleToTeams => stageRuntime.ViewTeams.Count == 0
+                    || userTeamIds.Any(t => stageRuntime.ViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                ViewPermissionModeEnum.InvisibleToTeams => !userTeamIds.Any(t => stageRuntime.ViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                ViewPermissionModeEnum.Private => false,
+                _ => false
+            };
+
+            if (!layer2ViewPass)
+            {
+                _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 2 (Stage runtime) view denied for Stage {StageId}", stage.Id);
+                return PermissionResult.CreateFailure(
+                    "User does not have view permission on Stage Effective Runtime",
+                    "STAGE_RUNTIME_VIEW_DENIED");
+            }
+
+            bool layer2OperatePass = true;
+            if (operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete)
+            {
+                layer2OperatePass = stageRuntime.OperateTeams.Count == 0
+                    || userTeamIds.Any(t => stageRuntime.OperateTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+
+                if (!layer2OperatePass)
+                {
+                    _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 2 (Stage runtime) operate denied for Stage {StageId}", stage.Id);
+                    var res = PermissionResult.CreateFailure(
+                        "User has view permission but not operate permission on Stage Effective Runtime",
+                        "STAGE_RUNTIME_OPERATE_DENIED");
+                    res.CanView = true;
+                    return res;
+                }
+            }
+
+            // ── Layer 3: Case Stage permission ────────────────────────────────────
+            bool inheritFromWorkflowStage = stageProgress.StagePermissionInheritFromWorkflowStage != false; // null or true = inherit
+
+            if (inheritFromWorkflowStage)
+            {
+                // Use MaxStageViewTeams snapshot
+                var maxStageViewTeams = stageProgress.MaxStageViewTeams ?? new List<string>();
+                var maxStageViewMode = stageProgress.MaxStageViewPermissionMode;
+
+                bool layer3ViewPass = true;
+                if (maxStageViewMode.HasValue && maxStageViewMode.Value != ViewPermissionModeEnum.Public)
+                {
+                    layer3ViewPass = maxStageViewMode.Value switch
+                    {
+                        ViewPermissionModeEnum.VisibleToTeams => maxStageViewTeams.Count == 0
+                            || userTeamIds.Any(t => maxStageViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                        ViewPermissionModeEnum.InvisibleToTeams => !userTeamIds.Any(t => maxStageViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase)),
+                        _ => true
+                    };
+                }
+
+                if (!layer3ViewPass)
+                {
+                    _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 3 (Case stage snapshot) view denied for Stage {StageId}", stage.Id);
+                    return PermissionResult.CreateFailure(
+                        "User does not have view permission on Case Stage snapshot",
+                        "CASE_STAGE_SNAPSHOT_VIEW_DENIED");
+                }
+
+                if (operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete)
+                {
+                    var maxStageOperateTeams = stageProgress.MaxStageOperateTeams ?? new List<string>();
+                    bool layer3OperatePass = maxStageOperateTeams.Count == 0
+                        || userTeamIds.Any(t => maxStageOperateTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+
+                    if (!layer3OperatePass)
+                    {
+                        _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 3 (Case stage snapshot) operate denied for Stage {StageId}", stage.Id);
+                        var res = PermissionResult.CreateFailure(
+                            "User has view permission but not operate permission on Case Stage snapshot",
+                            "CASE_STAGE_SNAPSHOT_OPERATE_DENIED");
+                        res.CanView = true;
+                        return res;
+                    }
+                }
+            }
+            else
+            {
+                // Use independent StageViewTeams / StageViewUsers
+                var stageViewTeams = stageProgress.StageViewTeams ?? new List<string>();
+                bool layer3ViewPass;
+
+                if (stageProgress.StageViewPermissionSubjectType == Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User)
+                {
+                    var stageViewUsers = stageProgress.StageViewUsers ?? new List<string>();
+                    layer3ViewPass = stageViewUsers.Count == 0
+                        || stageViewUsers.Contains(userId.ToString(), StringComparer.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    layer3ViewPass = stageViewTeams.Count == 0
+                        || userTeamIds.Any(t => stageViewTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+                }
+
+                if (!layer3ViewPass)
+                {
+                    _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 3 (Case stage independent) view denied for Stage {StageId}", stage.Id);
+                    return PermissionResult.CreateFailure(
+                        "User does not have view permission on Case Stage independent configuration",
+                        "CASE_STAGE_INDEPENDENT_VIEW_DENIED");
+                }
+
+                if (operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete)
+                {
+                    bool layer3OperatePass;
+                    if (stageProgress.StageUseSameTeamForOperate)
+                    {
+                        // Reuse view result
+                        layer3OperatePass = true; // already passed layer3 view
+                    }
+                    else if (stageProgress.StageOperatePermissionSubjectType == Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User)
+                    {
+                        var stageOperateUsers = stageProgress.StageOperateUsers ?? new List<string>();
+                        layer3OperatePass = stageOperateUsers.Count == 0
+                            || stageOperateUsers.Contains(userId.ToString(), StringComparer.OrdinalIgnoreCase);
+                    }
+                    else
+                    {
+                        var stageOperateTeams = stageProgress.StageOperateTeams ?? new List<string>();
+                        layer3OperatePass = stageOperateTeams.Count == 0
+                            || userTeamIds.Any(t => stageOperateTeams.Contains(t, StringComparer.OrdinalIgnoreCase));
+                    }
+
+                    if (!layer3OperatePass)
+                    {
+                        _logger.LogDebug("CheckStagePermissionWithCaseStage - Layer 3 (Case stage independent) operate denied for Stage {StageId}", stage.Id);
+                        var res = PermissionResult.CreateFailure(
+                            "User has view permission but not operate permission on Case Stage independent configuration",
+                            "CASE_STAGE_INDEPENDENT_OPERATE_DENIED");
+                        res.CanView = true;
+                        return res;
+                    }
+                }
+            }
+
+            // All layers passed
+            bool finalCanOperate = operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete;
+            return PermissionResult.CreateSuccess(true, finalCanOperate, "CaseStageThreeLayerPermission");
+        }
+
+        #endregion
+
+        #region Roll Back Permission Check (OW-736)
+
+        /// <summary>
+        /// Check Roll Back permission for a stage within a Case.
+        /// Three paths based on StageRollBackInherit and StageRollBackUseSameAsOperate:
+        ///   Path 1 (StageRollBackInherit = true): use MaxStageRollBackTeams snapshot
+        ///   Path 2 (StageRollBackUseSameAsOperate = true): use the effective Case Stage operate teams passed in
+        ///   Path 3: use StageRollBackTeams / StageRollBackUsers based on subject type
+        /// </summary>
+        /// <exception cref="CRMException">HTTP 403 if user is not in the effective roll back set.</exception>
+        public void CheckRollBackPermission(
+            OnboardingStageProgress stageProgress,
+            List<string> effectiveCaseStageOperateTeams,
+            List<string> userTeamIds,
+            string userId)
+        {
+            List<string> effectiveRollBackTeams;
+
+            if (stageProgress.StageRollBackInherit)
+            {
+                // Path 1: Use MaxStageRollBackTeams snapshot
+                effectiveRollBackTeams = stageProgress.MaxStageRollBackTeams ?? new List<string>();
+            }
+            else if (stageProgress.StageRollBackUseSameAsOperate)
+            {
+                // Path 2: Use effective Case Stage Operate Teams (passed as parameter)
+                effectiveRollBackTeams = effectiveCaseStageOperateTeams ?? new List<string>();
+            }
+            else
+            {
+                // Path 3: Use StageRollBackTeams or StageRollBackUsers based on subject type
+                if (stageProgress.StageRollBackPermissionSubjectType == Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User)
+                {
+                    // Check user-based roll back permission
+                    var rollBackUsers = stageProgress.StageRollBackUsers ?? new List<string>();
+                    if (rollBackUsers.Count > 0 && !rollBackUsers.Contains(userId, StringComparer.OrdinalIgnoreCase))
+                    {
+                        throw new CRMException(ErrorCodeEnum.RollBackPermissionDenied,
+                            "User does not have roll back permission for this stage.");
+                    }
+                    return; // Access granted or no restriction configured
+                }
+
+                effectiveRollBackTeams = stageProgress.StageRollBackTeams ?? new List<string>();
+            }
+
+            // Check team membership
+            if (effectiveRollBackTeams.Count > 0)
+            {
+                var teamSet = new HashSet<string>(effectiveRollBackTeams, StringComparer.OrdinalIgnoreCase);
+                if (userTeamIds == null || !userTeamIds.Any(t => teamSet.Contains(t)))
+                {
+                    throw new CRMException(ErrorCodeEnum.RollBackPermissionDenied,
+                        "User does not have roll back permission for this stage.");
+                }
+            }
+            // effectiveRollBackTeams.Count == 0 means no restriction — all users can roll back
+        }
+
+        #endregion
+
         #region Authorized Teams for User Tree
 
         /// <summary>
@@ -658,6 +945,24 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             return result;
+        }
+
+        #endregion
+
+        #region Private Helpers
+
+        private static List<string> DeserializeJsonTeams(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<string>();
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
 
         #endregion

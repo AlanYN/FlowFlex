@@ -932,3 +932,32 @@ export function rollBackStage(
 		params: params || {},
 	});
 }
+
+/**
+ * Update Case Stage Permission
+ * PUT /ow/onboardings/v1/{id}/stage-permissions/{stageId}
+ */
+export function updateCaseStagePermission(
+    onboardingId: string | number,
+    stageId: string | number,
+    params: {
+        inheritFromWorkflowStage: boolean;
+        viewPermissionMode?: number | null;
+        viewPermissionSubjectType?: number;
+        viewTeams?: string[];
+        viewUsers?: string[];
+        useSameTeamForOperate?: boolean;
+        operatePermissionSubjectType?: number;
+        operateTeams?: string[];
+        operateUsers?: string[];
+        rollBackUseSameAsOperate?: boolean;
+        rollBackPermissionSubjectType?: number;
+        rollBackTeams?: string[];
+        rollBackUsers?: string[];
+    }
+) {
+    return defHttp.put({
+        url: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${onboardingId}/stage-permissions/${stageId}`,
+        params,
+    });
+}

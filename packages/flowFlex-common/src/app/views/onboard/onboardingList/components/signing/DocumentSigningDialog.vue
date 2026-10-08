@@ -166,6 +166,12 @@ async function loadPdf(): Promise<void> {
 		// URLs without any headers, which results in 401 for authenticated endpoints.
 		const res = await previewOnboardingFile(props.onboardingId, props.fileId);
 
+		// Global interceptor returns undefined for 403 (blob mode); abort silently
+		if (!res) {
+			isLoading.value = false;
+			return;
+		}
+
 		// Convert Blob response to ArrayBuffer for PDF.js
 		const blob = res instanceof Blob ? res : new Blob([res]);
 		const arrayBuffer = await blob.arrayBuffer();
@@ -186,6 +192,7 @@ async function loadPdf(): Promise<void> {
 	} catch (err: unknown) {
 		// PDF.js rejects with a PasswordException for encrypted/password-protected PDFs.
 		// Any load failure triggers the same error UX (Requirement 9.6).
+		// 403 is handled by the global Axios interceptor (blob parsing); res will be undefined.
 		loadFailed.value = true;
 		mode.value = 'preview';
 		console.error('[DocumentSigningDialog] PDF load failed:', err);
@@ -596,8 +603,11 @@ async function handleDownload(): Promise<void> {
 
 		// Revoke the blob URL shortly after to free memory
 		setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
-	} catch {
-		ElMessage.error('Failed to download the signed file. Please try again.');
+	} catch (err: any) {
+		// 403 is already handled by the global Axios interceptor; avoid a second toast
+		if (err?.response?.status !== 403) {
+			ElMessage.error('Failed to download the signed file. Please try again.');
+		}
 	}
 }
 
@@ -646,10 +656,13 @@ async function handlePrint(): Promise<void> {
 			}
 			setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
 		}, 2000);
-	} catch (err) {
-		ElMessage.error(
-			'Failed to prepare the PDF for printing. Please try downloading it instead.'
-		);
+	} catch (err: any) {
+		// 403 is already handled by the global Axios interceptor; avoid a second toast
+		if (err?.response?.status !== 403) {
+			ElMessage.error(
+				'Failed to prepare the PDF for printing. Please try downloading it instead.'
+			);
+		}
 	}
 }
 </script>

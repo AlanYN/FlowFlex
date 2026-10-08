@@ -300,6 +300,36 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "use_same_team_for_operate")]
         public bool UseSameTeamForOperate { get; set; } = false;
 
+        // ── Permission Snapshot Fields (added by OW-736) ─────────────────────────
+
+        /// <summary>
+        /// Whether this Case inherits Workflow Runtime Permission from the snapshot (max_* fields).
+        /// true (default) = inherit from snapshot; false = use Case's own View/Operate fields within snapshot boundary.
+        /// </summary>
+        [SugarColumn(ColumnName = "use_workflow_runtime_permission")]
+        public bool UseWorkflowRuntimePermission { get; set; } = true;
+
+        /// <summary>
+        /// Snapshot: Workflow Runtime View Permission Mode (written at Case creation, read-only afterwards).
+        /// Nullable for backward compatibility with Cases created before OW-736.
+        /// </summary>
+        [SugarColumn(ColumnName = "max_view_permission_mode")]
+        public ViewPermissionModeEnum? MaxViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Snapshot: Workflow Runtime View Teams — JSONB array of team IDs
+        /// (written at Case creation, read-only afterwards).
+        /// </summary>
+        [SugarColumn(ColumnName = "max_view_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string MaxViewTeams { get; set; }
+
+        /// <summary>
+        /// Snapshot: Workflow Runtime Operate Teams — JSONB array of team IDs
+        /// (written at Case creation, read-only afterwards).
+        /// </summary>
+        [SugarColumn(ColumnName = "max_operate_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string MaxOperateTeams { get; set; }
+
         /// <summary>
         /// Stage Progress Details (stored in JSONB format for better performance and querying)
         /// </summary>

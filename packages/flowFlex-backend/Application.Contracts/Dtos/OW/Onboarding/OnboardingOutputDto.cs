@@ -291,6 +291,30 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool UseSameTeamForOperate { get; set; }
 
         /// <summary>
+        /// Use Workflow Runtime Permission - Whether this Case inherits Workflow Runtime permission from snapshot.
+        /// </summary>
+        public bool UseWorkflowRuntimePermission { get; set; } = true;
+
+        /// <summary>
+        /// Max View Permission Mode - Snapshot of Workflow Runtime View mode at Case creation time.
+        /// Read-only. Frontend uses this to restrict the choosable range in View permission selectors.
+        /// Nullable: null for legacy Cases created before the permission snapshot feature.
+        /// </summary>
+        public ViewPermissionModeEnum? MaxViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// Max View Teams - Snapshot of Workflow Runtime View Teams at Case creation time.
+        /// Read-only. Frontend uses this to restrict the choosable team range for View permission.
+        /// </summary>
+        public List<string> MaxViewTeams { get; set; }
+
+        /// <summary>
+        /// Max Operate Teams - Snapshot of Workflow Runtime Operate Teams at Case creation time.
+        /// Read-only. Frontend uses this to restrict the choosable team range for Operate permission.
+        /// </summary>
+        public List<string> MaxOperateTeams { get; set; }
+
+        /// <summary>
         /// Stage进度详情
         /// </summary>
         public List<OnboardingStageProgressDto> StagesProgress { get; set; } = new List<OnboardingStageProgressDto>();

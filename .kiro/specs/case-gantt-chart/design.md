@@ -5,6 +5,7 @@
 为 FlowFlex WFE 系统的 Case 模块新增**甘特图时间线视图**。每个 Case 由多个按序推进的 Stage 组成，当前系统仅有单 Stage 进度条，缺乏整体进度与时间偏差的可视化能力。
 
 本功能在**不改动任何现有流程逻辑**的前提下，增量添加：
+
 - 数据模型扩展（StageProgress JSONB + ff_stage/ff_onboarding Migration）
 - 时间推算引擎（Planned 初始化 / Projected 动态重算）
 - 甘特图专属 API（数据查询、Blocked 状态管理、Tour 记录）
@@ -140,48 +141,62 @@ public interface IGanttService
 
 ```typescript
 // 修复后的类型（移除 Blocked，统一命名）
-export type GanttStageStatus = 'NotStarted' | 'Delayed' | 'InProgress' | 'Overdue' | 'Completed'
+export type GanttStageStatus =
+  | "NotStarted"
+  | "Delayed"
+  | "InProgress"
+  | "Overdue"
+  | "Completed";
 
 export interface GanttAssignee {
-  name: string
-  email?: string
+  name: string;
+  email?: string;
 }
 
 export interface GanttStageItem {
-  stageId: string
-  stageName: string
-  stageOrder: number
-  color?: string
-  isRequired: boolean
-  ganttStatus: GanttStageStatus      // 后端派生的甘特图专属状态
-  isBlocked: boolean
-  assignee: GanttAssignee[]
-  coAssignees: GanttAssignee[]
-  plannedStartDate: string
-  plannedEndDate: string
-  projectedStartDate: string | null
-  projectedEndDate: string | null
-  actualStartDate: string | null
-  actualEndDate: string | null
-  estimatedDurationDays: number
-  completionPercentage: number
-  inheritedDelayDays?: number | null  // 字段统一：ownVarianceDays（非 ownPerformanceDays）
-  ownVarianceDays?: number | null
-  totalVarianceDays?: number | null
-  blockedDays: number
-  blockReason?: string | null
-  expectedResolutionDate?: string | null
-  components?: GanttComponents
-  lastSavedBy?: string
-  lastSavedAt?: string
+  stageId: string;
+  stageName: string;
+  stageOrder: number;
+  color?: string;
+  isRequired: boolean;
+  ganttStatus: GanttStageStatus; // 后端派生的甘特图专属状态
+  isBlocked: boolean;
+  assignee: GanttAssignee[];
+  coAssignees: GanttAssignee[];
+  plannedStartDate: string;
+  plannedEndDate: string;
+  projectedStartDate: string | null;
+  projectedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  estimatedDurationDays: number;
+  completionPercentage: number;
+  inheritedDelayDays?: number | null; // 字段统一：ownVarianceDays（非 ownPerformanceDays）
+  ownVarianceDays?: number | null;
+  totalVarianceDays?: number | null;
+  blockedDays: number;
+  blockReason?: string | null;
+  expectedResolutionDate?: string | null;
+  components?: GanttComponents;
+  lastSavedBy?: string;
+  lastSavedAt?: string;
 }
 
 // 真实 API 调用（不使用 mock）
-export function getOnboardingGanttData(onboardingId: string | number): Promise<GanttDataResponse>
-export function blockStage(onboardingId: string | number, params: BlockStageParams): Promise<boolean>
-export function unblockStage(onboardingId: string | number, stageId: string, resolutionNotes?: string): Promise<boolean>
-export function getGanttTourSeen(): Promise<boolean>
-export function markGanttTourSeen(): Promise<void>
+export function getOnboardingGanttData(
+  onboardingId: string | number,
+): Promise<GanttDataResponse>;
+export function blockStage(
+  onboardingId: string | number,
+  params: BlockStageParams,
+): Promise<boolean>;
+export function unblockStage(
+  onboardingId: string | number,
+  stageId: string,
+  resolutionNotes?: string,
+): Promise<boolean>;
+export function getGanttTourSeen(): Promise<boolean>;
+export function markGanttTourSeen(): Promise<void>;
 ```
 
 #### Pinia Store（gantt.ts）
@@ -452,6 +467,7 @@ Algorithm:
 ```
 
 规则说明：
+
 - Planned 一旦写入后，任何对 `plannedStartDate` / `plannedEndDate` 的修改请求应被 GanttService 拦截并返回 400
 - 旧 Case（plannedStartDate = null）在 GET 查询时动态推算，**不写库**
 
@@ -513,32 +529,51 @@ Rules (评估顺序):
 
 ### ComputeCompletionPercentage（查询时实时计算）
 
+**权重字典的 key 设计（重要）：**
+
+`component_weights` 里每条记录有唯一的 `Id` 字段（checklist/questionnaire 的数字 ID，或字面 `"fields"`/`"files"`）。
+权重字典必须按 **`item.Id`** 而非 `item.Type` 建立——因为 `components_json` 的设计是每个 checklist 对应一个独立的 component 对象，多个 checklist 的 `Key` 都是 `"checklist"`，若用 `item.Type` 作 key 会互相覆盖，导致完成度计算错误（OW-753）。
+
 ```
 Input: stage, stageProgress, componentWeights, raw component data
 
 if stage.Components is empty:
   return 0
 
-weights = stage.ComponentWeights (parsed) or EqualDistribution(stage.Components)
+// 权重字典 key = item.Id（各 checklist/questionnaire 的唯一 ID，或 "fields"/"files"）
+// 不得使用 item.Type 作为 key！
+weightById = ParseComponentWeights(stage.ComponentWeights)
+  → 若 ComponentWeights 为空：对每个 non-quickLink component 均分 100/count，
+    key 同样用各 component 的 ID
+
+totalWeight = sum of all weightById.values
 
 completionPct = 0
 for each component in stage.Components:
-  w = weights[component.type + component.id]
+  if component.type == "quickLink": skip  // Quick Link 不计入完成度
+
+  // 查该 component 的权重：
+  //   checklist   → sum of weightById[checklistId] for each id in component.ChecklistIds
+  //   questionnaire → sum of weightById[questionnaireId] for each id in component.QuestionnaireIds
+  //   fields      → weightById["fields"]
+  //   files       → weightById["files"]
+  w = GetComponentWeight(component, weightById)
+
   switch component.type:
     case "checklist":
       comp = completedTasks / totalTasks  (0 if totalTasks == 0)
+      // totalTasks from ff_checklist_task template; completedTasks from ff_checklist_task_completion instances
     case "questionnaire":
-      comp = answeredRequired / totalRequired
-      if totalRequired == 0: comp = 1.0
+      comp = submittedCount / totalQuestionnaireCount
+      // submitted = status is "Submitted" or "Approved"
     case "fields":
-      comp = filledRequiredFields / totalRequiredFields (0 if 0 required)
+      comp = filledRequiredFields / totalRequiredFields (0 if no required fields)
     case "files":
-      comp = min(1.0, uploadedCount / minRequired)  (skip if no minRequired)
-    case "quickLink":
-      comp = 0  // Quick Link 不计入完成度
+      comp = 0  // file completion tracking out of scope
   completionPct += w * comp
 
-return Round(completionPct, 2)  // 0–100
+// Normalize by totalWeight to handle floating-point imprecision
+return Round(Clamp(completionPct / totalWeight, 0, 100), 2)
 ```
 
 ---
@@ -639,13 +674,15 @@ public class GanttProjectedTimeRecalcHandler :
 
 ```typescript
 // 根据视图模式计算单位像素宽度
-const UNIT_WIDTH = { day: 40, week: 120, month: 300 }  // px per unit
+const UNIT_WIDTH = { day: 40, week: 120, month: 300 }; // px per unit
 
 function dateToX(date: string, viewStart: Date, mode: ViewMode): number {
-  const diff = daysBetween(viewStart, parseISO(date))
-  return mode === 'day'   ? diff * UNIT_WIDTH.day
-       : mode === 'week'  ? (diff / 7) * UNIT_WIDTH.week
-       :                    (diff / 30) * UNIT_WIDTH.month
+  const diff = daysBetween(viewStart, parseISO(date));
+  return mode === "day"
+    ? diff * UNIT_WIDTH.day
+    : mode === "week"
+      ? (diff / 7) * UNIT_WIDTH.week
+      : (diff / 30) * UNIT_WIDTH.month;
 }
 
 // Planned rect：灰色虚线框，半透明
@@ -655,15 +692,15 @@ function dateToX(date: string, viewStart: Date, mode: ViewMode): number {
 
 **颜色映射：**
 
-| GanttStageStatus | Projected 条颜色   | Badge 颜色            |
-|-----------------|-------------------|-----------------------|
-| NotStarted      | #D9D9D9 (Gray)   | #D9D9D9               |
-| Delayed         | #FA8C16 (Orange)  | #FA8C16               |
-| InProgress      | #1890FF (Blue)    | #1890FF               |
-| Overdue         | #FF4D4F (Red)     | #FF4D4F               |
-| Completed（准时）| #52C41A (Green)  | #52C41A               |
-| Completed（延迟）| #FA8C16 (Orange) | #FA8C16               |
-| isBlocked=true  | #722ED1 条纹叠加  | Purple 覆盖层          |
+| GanttStageStatus  | Projected 条颜色 | Badge 颜色    |
+| ----------------- | ---------------- | ------------- |
+| NotStarted        | #D9D9D9 (Gray)   | #D9D9D9       |
+| Delayed           | #FA8C16 (Orange) | #FA8C16       |
+| InProgress        | #1890FF (Blue)   | #1890FF       |
+| Overdue           | #FF4D4F (Red)    | #FF4D4F       |
+| Completed（准时） | #52C41A (Green)  | #52C41A       |
+| Completed（延迟） | #FA8C16 (Orange) | #FA8C16       |
+| isBlocked=true    | #722ED1 条纹叠加 | Purple 覆盖层 |
 
 ### GanttThumbnail.vue
 
@@ -674,54 +711,54 @@ function dateToX(date: string, viewStart: Date, mode: ViewMode): number {
 
 ### GanttTour.vue — 5 步引导
 
-| Step | 高亮区域                          | 说明文字                                     |
-|------|----------------------------------|----------------------------------------------|
-| 1    | GanttSummaryHeader               | "查看 Case 的计划时间与当前预测时间"           |
-| 2    | Planned vs Projected 区域对比    | "灰色虚线 = 原始计划；实色 = 当前预测"         |
-| 3    | 某 Stage 时间轴条                 | "条形长度代表预计持续天数，颜色代表当前状态"   |
-| 4    | Status Badge + ⓘ 图标            | "Hover ⓘ 图标查看状态详情与偏差分析"           |
-| 5    | Legend 区域                      | "随时在此查看所有颜色与状态含义"               |
+| Step | 高亮区域                      | 说明文字                                     |
+| ---- | ----------------------------- | -------------------------------------------- |
+| 1    | GanttSummaryHeader            | "查看 Case 的计划时间与当前预测时间"         |
+| 2    | Planned vs Projected 区域对比 | "灰色虚线 = 原始计划；实色 = 当前预测"       |
+| 3    | 某 Stage 时间轴条             | "条形长度代表预计持续天数，颜色代表当前状态" |
+| 4    | Status Badge + ⓘ 图标         | "Hover ⓘ 图标查看状态详情与偏差分析"         |
+| 5    | Legend 区域                   | "随时在此查看所有颜色与状态含义"             |
 
 Tour 记录：通过 `IUserTourRecordService`，tourKey = `"gantt-case-tour"`，按 userId 记录，后续打开不再自动显示。
 
 ### hover 防抖实现（onboardingList/index.vue）
 
 ```typescript
-let hoverTimer: ReturnType<typeof setTimeout> | null = null
-let currentHoveredRow: OnboardingRow | null = null
+let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+let currentHoveredRow: OnboardingRow | null = null;
 
 const handleRowMouseEnter = (row: OnboardingRow) => {
-    hoverTimer = setTimeout(() => {
-        currentHoveredRow = row
-        ganttStore.fetchGanttData(row.id)
-        showGanttThumbnail(row)
-    }, 500)
-}
+  hoverTimer = setTimeout(() => {
+    currentHoveredRow = row;
+    ganttStore.fetchGanttData(row.id);
+    showGanttThumbnail(row);
+  }, 500);
+};
 
 const handleRowMouseLeave = () => {
-    if (hoverTimer) clearTimeout(hoverTimer)
-    hoverTimer = null
-    hideGanttThumbnail()
-}
+  if (hoverTimer) clearTimeout(hoverTimer);
+  hoverTimer = null;
+  hideGanttThumbnail();
+};
 ```
 
 ---
 
 ## Error Handling
 
-| 场景                                   | 处理方式                                                  |
-|---------------------------------------|----------------------------------------------------------|
-| GET gantt — Case 不存在或已软删除      | 404，`CRMException(DataNotFound)`                        |
-| GET gantt — 无查看权限                 | 403，`EnsureCaseViewPermissionAsync` 内部抛出             |
-| block-stage — 该 Stage 已为 Blocked   | 400，message: "Stage is already blocked"                 |
-| unblock-stage — 该 Stage 未被 Blocked | 400，message: "Stage is not blocked"                     |
-| block-stage / unblock-stage — 无操作权限 | 403，`EnsureCaseOperatePermissionAsync` 内部抛出        |
-| BlockerReason 为空                    | FluentValidation 校验，400                               |
-| 修改 Planned 时间的请求               | 400，message: "Planned dates cannot be modified after Case start" |
-| GanttPlannedTimeInitHandler 异常      | 记录 Error 日志，不阻断 StartOnboarding 响应（try-catch 内） |
-| GanttProjectedTimeRecalcHandler 异常  | 记录 Error 日志，不影响 StageComplete 主流程              |
-| 旧 Case（plannedStartDate 为 null）   | 动态推算兜底，不返回错误，前端无感知                       |
-| Component 权重之和 ≠ 100             | API 写入时 FluentValidation 校验，400                     |
+| 场景                                     | 处理方式                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| GET gantt — Case 不存在或已软删除        | 404，`CRMException(DataNotFound)`                                 |
+| GET gantt — 无查看权限                   | 403，`EnsureCaseViewPermissionAsync` 内部抛出                     |
+| block-stage — 该 Stage 已为 Blocked      | 400，message: "Stage is already blocked"                          |
+| unblock-stage — 该 Stage 未被 Blocked    | 400，message: "Stage is not blocked"                              |
+| block-stage / unblock-stage — 无操作权限 | 403，`EnsureCaseOperatePermissionAsync` 内部抛出                  |
+| BlockerReason 为空                       | FluentValidation 校验，400                                        |
+| 修改 Planned 时间的请求                  | 400，message: "Planned dates cannot be modified after Case start" |
+| GanttPlannedTimeInitHandler 异常         | 记录 Error 日志，不阻断 StartOnboarding 响应（try-catch 内）      |
+| GanttProjectedTimeRecalcHandler 异常     | 记录 Error 日志，不影响 StageComplete 主流程                      |
+| 旧 Case（plannedStartDate 为 null）      | 动态推算兜底，不返回错误，前端无感知                              |
+| Component 权重之和 ≠ 100                 | API 写入时 FluentValidation 校验，400                             |
 
 ---
 
@@ -806,52 +843,52 @@ ganttStore.spec.ts:
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: Planned 时间连续性
 
-*For any* Case 的所有 Stage 列表（按 order_index 排列），`ComputePlannedTimes` 计算结果中相邻 Stage 满足：Stage(N).plannedStartDate = Stage(N-1).plannedEndDate + 1 天，且 Stage(N).plannedEndDate ≥ Stage(N).plannedStartDate。
+_For any_ Case 的所有 Stage 列表（按 order_index 排列），`ComputePlannedTimes` 计算结果中相邻 Stage 满足：Stage(N).plannedStartDate = Stage(N-1).plannedEndDate + 1 天，且 Stage(N).plannedEndDate ≥ Stage(N).plannedStartDate。
 
 **Validates: Requirements 2.2**
 
 ### Property 2: Planned 时间覆盖 Case 全周期
 
-*For any* Case，Stage 1 的 `plannedStartDate` = `Case.StartDate`，最后一个 Stage 的 `plannedEndDate` ≥ Stage 1 的 `plannedStartDate`。
+_For any_ Case，Stage 1 的 `plannedStartDate` = `Case.StartDate`，最后一个 Stage 的 `plannedEndDate` ≥ Stage 1 的 `plannedStartDate`。
 
 **Validates: Requirements 2.2**
 
 ### Property 3: EstimatedDuration 聚合
 
-*For any* 所有 Stage 均有有效 `EstimatedDuration` 的 Case，所有 Stage 的 `estimatedDuration` 之和（取整后）= 最后一个 Stage 的 `plannedEndDate` - Case.StartDate 的天数差。
+_For any_ 所有 Stage 均有有效 `EstimatedDuration` 的 Case，所有 Stage 的 `estimatedDuration` 之和（取整后）= 最后一个 Stage 的 `plannedEndDate` - Case.StartDate 的天数差。
 
 **Validates: Requirements 2.2**
 
 ### Property 4: Projected 时间单调性
 
-*For any* 没有 Blocked Stage 的 Case，`ComputeProjectedTimes` 结果中所有 Stage 满足：Stage(N).projectedStartDate = Stage(N-1).projectedEndDate + 1 天。
+_For any_ 没有 Blocked Stage 的 Case，`ComputeProjectedTimes` 结果中所有 Stage 满足：Stage(N).projectedStartDate = Stage(N-1).projectedEndDate + 1 天。
 
 **Validates: Requirements 3.2**
 
 ### Property 5: Blocked 传播性
 
-*For any* Stage S 被标记为 Blocked，Stage S 及 S 之后所有 Stage 的 `projectedStartDate` 和 `projectedEndDate` 均为 null。
+_For any_ Stage S 被标记为 Blocked，Stage S 及 S 之后所有 Stage 的 `projectedStartDate` 和 `projectedEndDate` 均为 null。
 
 **Validates: Requirements 3.3**
 
 ### Property 6: GanttStageStatus 与实际时间一致性
 
-*For any* Stage，若 `IsCompleted = true` 则 `ganttStatus = Completed`；若 `actualStartDate != null && today > plannedEndDate` 则 `ganttStatus = Overdue`；规则优先级顺序严格遵循需求定义，不产生歧义状态。
+_For any_ Stage，若 `IsCompleted = true` 则 `ganttStatus = Completed`；若 `actualStartDate != null && today > plannedEndDate` 则 `ganttStatus = Overdue`；规则优先级顺序严格遵循需求定义，不产生歧义状态。
 
 **Validates: Requirements 5.2**
 
 ### Property 7: Component 权重合法性
 
-*For any* 已配置 `ComponentWeights` 的 Stage，所有 weight 之和等于 100；若 `ComponentWeights` 为空，则 CompletionPercentage 计算时等权分配不超过 100。
+_For any_ 已配置 `ComponentWeights` 的 Stage，所有 weight 之和等于 100；若 `ComponentWeights` 为空，则 CompletionPercentage 计算时等权分配不超过 100。
 
 **Validates: Requirements 1.3, 4.2**
 
 ### Property 8: CompletionPercentage 边界约束
 
-*For any* Stage，`completionPercentage` 的值始终在 [0, 100] 区间内。
+_For any_ Stage，`completionPercentage` 的值始终在 [0, 100] 区间内。
 
 **Validates: Requirements 4.1, 4.2**

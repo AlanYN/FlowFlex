@@ -72,11 +72,12 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 px-3 el-input__wrapper transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 px-3 el-input__wrapper border rounded-lg transition-colors duration-200 flex items-center"
+			style="background: var(--el-fill-color-blank); border-color: var(--el-border-color);"
 			:class="[
 				disabled
-					? 'bg-gray-50 dark:bg-[--el-disabled-bg-color] cursor-not-allowed'
-					: 'hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer',
+					? 'cursor-not-allowed opacity-70'
+					: 'cursor-pointer hover:border-[--el-border-color-hover]',
 			]"
 			@click="openModal"
 		>

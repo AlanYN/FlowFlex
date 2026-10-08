@@ -116,6 +116,42 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool UseSameTeamForOperate { get; set; } = false;
 
         /// <summary>
+        /// Template Use Same As Workflow - When true, Stage Template Permission inherits from
+        /// parent Workflow Template Permission (dynamically, not a snapshot).
+        /// </summary>
+        public bool TemplateUseSameAsWorkflow { get; set; } = true;
+
+        /// <summary>
+        /// Runtime Use Same As Workflow - When true, Stage Runtime Permission inherits from
+        /// parent Workflow's Effective Runtime Permission.
+        /// </summary>
+        public bool RuntimeUseSameAsWorkflow { get; set; } = true;
+
+        /// <summary>
+        /// Stage Runtime View Permission Mode.
+        /// Only effective when RuntimeUseSameAsWorkflow = false.
+        /// </summary>
+        public ViewPermissionModeEnum RuntimeViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// Stage Runtime View Teams.
+        /// Only effective when RuntimeUseSameAsWorkflow = false.
+        /// </summary>
+        public List<string> RuntimeViewTeams { get; set; }
+
+        /// <summary>
+        /// Stage Runtime Operate Teams.
+        /// Only effective when RuntimeUseSameAsWorkflow = false AND RuntimeUseSameTeamForOperate = false.
+        /// </summary>
+        public List<string> RuntimeOperateTeams { get; set; }
+
+        /// <summary>
+        /// Runtime Use Same Team For Operate - When true AND RuntimeUseSameAsWorkflow = false,
+        /// Stage Runtime Operate Teams = Stage Runtime View Teams.
+        /// </summary>
+        public bool RuntimeUseSameTeamForOperate { get; set; } = true;
+
+        /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         public bool AttachmentManagementNeeded { get; set; } = false;

@@ -103,7 +103,7 @@
 
 1. WHEN `GET /ow/onboardings/v1/{id}/gantt` 被调用，THE GanttDataService SHALL 为每个 Stage 实时计算 `completionPercentage`，计算结果不持久化到数据库
 
-2. THE System SHALL 按公式 `completionPercentage = Σ(componentWeight × componentCompletion)` 计算，其中各 Component 类型的 `componentCompletion` 按以下规则计算：Checklist = 已完成 Tasks / 总 Tasks；Questionnaire = 已填写 Questions / 总 Required Questions；Fields = 已填写 Required Fields / 总 Required Fields；Files = 已上传文件数 / 最小要求数（无最小要求则不计入）；Quick Link = 默认权重 0，不计入完成度
+2. THE System SHALL 按公式 `completionPercentage = Σ(componentWeight × componentCompletion) / totalWeight` 计算，其中各 Component 类型的 `componentCompletion` 按以下规则计算：Checklist = 已完成 Tasks / 总 Tasks；Questionnaire = 已提交问卷数 / 总问卷数；Fields = 已填写 Required Fields / 总 Required Fields；Files = 不计入完成度；Quick Link = 默认权重 0，不计入完成度。**`componentWeight` 须按 `component_weights` 中各条目的唯一 `Id`（checklist/questionnaire 的数字 ID，或 `"fields"`/`"files"`）查找，不得按 `Type` 聚合——一个 Stage 可包含多个独立 checklist component，每个有自己的 ID 和权重。**
 
 3. IF 某 Stage 没有任何 Component 被配置，THEN THE System SHALL 返回该 Stage 的 `completionPercentage` = 0
 

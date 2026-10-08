@@ -265,6 +265,25 @@ const transform: AxiosTransform = {
 			params: config?.data || config?.params,
 		};
 
+		// For blob responseType requests, response.data is a Blob so msg is always empty.
+		// When status is 403, try to parse the blob to get the backend's error message.
+		if (error?.response?.status === 403 && response?.data instanceof Blob) {
+			response.data.text().then((text: string) => {
+				try {
+					const json = JSON.parse(text);
+					const blobMsg = json?.msg || t('sys.api.errMsg403');
+					if (errorMessageMode === 'message') {
+						ElMessage.error(blobMsg);
+					}
+				} catch {
+					if (errorMessageMode === 'message') {
+						ElMessage.error(t('sys.api.errMsg403'));
+					}
+				}
+			});
+			return;
+		}
+
 		checkStatus(error?.response?.status, msg, errorMessageMode, requestInfo);
 	},
 };

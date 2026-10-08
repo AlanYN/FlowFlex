@@ -228,18 +228,36 @@
 										</div>
 									</div>
 								</div>
-								<!-- Roll Back 按钮：仅对已完成且有权限的 Stage 显示 -->
-								<div
-									v-if="stage.status === 'Completed' && stage.canRollBack"
-									class="mt-1 flex justify-end"
+								<!-- Roll Back + Shield: 同行显示在右上角，不撑开卡片高度 -->
+								<div class="flex items-center justify-end gap-1 mt-1"
+									v-if="(stage.status === 'Completed' && stage.canRollBack) || stage.permission?.canOperate"
 								>
 									<el-button
+										v-if="stage.status === 'Completed' && stage.canRollBack"
 										type="warning"
 										size="small"
+										plain
 										@click.stop="handleRollBack(stage)"
+										class="!px-2 !py-0.5 !text-xs !h-6"
 									>
 										Roll Back
 									</el-button>
+
+									<el-tooltip
+										v-if="stage.permission?.canOperate"
+										content="Stage Permission"
+										placement="top"
+									>
+										<el-button
+											size="small"
+											circle
+											text
+											class="stage-permission-btn !w-6 !h-6 !min-h-0"
+											@click.stop="handleOpenStagePermission(stage)"
+										>
+											<Icon icon="mdi:shield-outline" class="text-gray-400 hover:text-primary text-sm" />
+										</el-button>
+									</el-tooltip>
 								</div>
 							</div>
 						</div>
@@ -247,6 +265,17 @@
 				</el-scrollbar>
 			</div>
 		</el-collapse-transition>
+
+		<!-- Case Stage Permission Dialog -->
+		<CaseStagePermissionDialog
+			v-if="stagePermissionDialogVisible"
+			v-model:visible="stagePermissionDialogVisible"
+			:case-id="props.onboardingId"
+			:stage-id="stagePermissionTargetStageId"
+			:stage-name="stagePermissionTargetStageName"
+			:stage-permission-data="stagePermissionTargetData"
+			@saved="handleStagePermissionSaved"
+		/>
 
 		<!-- Roll Back Stage 确认弹窗 -->
 		<el-dialog
@@ -657,6 +686,7 @@ import ActionTag from '@/components/actionTools/ActionTag.vue';
 import { rollBackStage } from '@/apis/ow/onboarding';
 import { getAllUser } from '@/apis/global';
 import dayjs from 'dayjs';
+import CaseStagePermissionDialog from '@/components/global/CaseStagePermissionDialog/index.vue';
 
 // Props
 interface Props {
@@ -682,6 +712,24 @@ const rollBackDialogVisible = ref(false);
 const rollBackReason = ref('');
 const rollBackLoading = ref(false);
 const rollBackTargetStage = ref<any>(null);
+
+// Stage Permission 弹窗状态
+const stagePermissionDialogVisible = ref(false);
+const stagePermissionTargetStageId = ref('');
+const stagePermissionTargetStageName = ref('');
+const stagePermissionTargetData = ref<any>(null);
+
+const handleOpenStagePermission = (stage: any) => {
+	stagePermissionTargetStageId.value = stage.stageId;
+	stagePermissionTargetStageName.value = stage.title || stage.stageName || '';
+	stagePermissionTargetData.value = stage; // pass full stage data including MaxStage* fields
+	stagePermissionDialogVisible.value = true;
+};
+
+const handleStagePermissionSaved = () => {
+	stagePermissionDialogVisible.value = false;
+	emit('stageBlockChanged'); // reuse this emit to trigger a refresh
+};
 
 // 用户列表（用于 assignee ID → 名字映射，组件挂载时即加载）
 const allUserOptions = ref<{ key: string; value: string }[]>([]);
