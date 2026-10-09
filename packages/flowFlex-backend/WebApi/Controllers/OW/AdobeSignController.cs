@@ -145,10 +145,12 @@ namespace FlowFlex.WebApi.Controllers.OW
             {
                 var expectedClientId = _configuration["AdobeSign:ClientId"] ?? string.Empty;
 
-                if (!string.IsNullOrEmpty(expectedClientId) &&
-                    !expectedClientId.StartsWith("PLACEHOLDER") &&
-                    !string.IsNullOrEmpty(incomingClientId) &&
-                    !string.Equals(incomingClientId, expectedClientId, System.StringComparison.Ordinal))
+                if (string.IsNullOrEmpty(expectedClientId))
+                {
+                    _logger.LogWarning("[AdobeSign] AdobeSign:ClientId not configured — Webhook security check skipped");
+                }
+                else if (!string.IsNullOrEmpty(incomingClientId) &&
+                         !string.Equals(incomingClientId, expectedClientId, System.StringComparison.Ordinal))
                 {
                     _logger.LogWarning("[AdobeSign] Webhook rejected: client ID mismatch. Incoming={Incoming}", incomingClientId);
                     return Ok(new { xAdobeSignClientId = incomingClientId });

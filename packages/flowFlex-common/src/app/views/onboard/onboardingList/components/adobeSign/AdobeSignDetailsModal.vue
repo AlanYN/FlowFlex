@@ -117,8 +117,12 @@
 						</div>
 						<!-- 签署状态 -->
 						<div class="flex-shrink-0 text-xs">
-							<span v-if="signer.signedAt" class="text-[var(--el-color-success)]">
-								✓ {{ timeZoneConvert(signer.signedAt) }}
+							<span
+								v-if="signer.signedAt || signer.status === 'Signed'"
+								class="text-[var(--el-color-success)]"
+							>
+								✓
+								{{ signer.signedAt ? timeZoneConvert(signer.signedAt) : 'Signed' }}
 							</span>
 							<span
 								v-else-if="signer.status === 'Declined'"
@@ -170,6 +174,9 @@
 		</div>
 
 		<template #footer>
+			<el-button @click="handleRefresh" :loading="loading" :icon="RefreshRight">
+				Refresh
+			</el-button>
 			<el-button @click="handleClose">Close</el-button>
 		</template>
 	</el-dialog>
@@ -177,19 +184,26 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Document, Loading, Sort, Grid } from '@element-plus/icons-vue';
+import { Document, Loading, Sort, Grid, RefreshRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { getAgreement } from '@/apis/ow/adobeSign';
 import type { AdobeSignAgreement } from '#/adobeSign';
 import { ADOBE_SIGN_TAG_TYPES } from '@/enums/adobeSignConstants';
 import { timeZoneConvert } from '@/hooks/time';
 
+const emit = defineEmits<{
+	/** Fired when closing a Completed agreement — parent should refresh the file list */
+	completed: [];
+}>();
+
 const visible = ref(false);
 const fileName = ref('');
 const loading = ref(false);
 const agreement = ref<AdobeSignAgreement | null>(null);
+const currentAgreementId = ref<string | number>('');
 
 const open = async (params: { agreementId: string | number; fileName?: string }) => {
+	currentAgreementId.value = params.agreementId;
 	fileName.value = params.fileName || '';
 	agreement.value = null;
 	visible.value = true;
@@ -207,10 +221,26 @@ const open = async (params: { agreementId: string | number; fileName?: string })
 };
 
 const handleClose = () => {
+	const wasCompleted = agreement.value?.status === 'Completed';
 	fileName.value = '';
 	agreement.value = null;
+	currentAgreementId.value = '';
 	loading.value = false;
 	visible.value = false;
+	if (wasCompleted) emit('completed');
+};
+
+const handleRefresh = async () => {
+	if (!currentAgreementId.value) return;
+	loading.value = true;
+	try {
+		const res = await getAgreement(currentAgreementId.value);
+		if (res.code == 200) {
+			agreement.value = (res as any)?.data ?? res;
+		}
+	} finally {
+		loading.value = false;
+	}
 };
 
 defineExpose({ open });

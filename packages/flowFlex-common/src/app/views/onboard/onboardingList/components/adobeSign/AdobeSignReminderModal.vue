@@ -124,7 +124,10 @@ const awaitingSigners = computed(() =>
 		.map((signer, originalIndex) => ({ signer, originalIndex }))
 		.filter(
 			({ signer }) =>
-				!signer.signedAt && signer.status !== 'Declined' && signer.status !== 'Cancelled'
+				!signer.signedAt &&
+				signer.status !== 'Signed' &&
+				signer.status !== 'Declined' &&
+				signer.status !== 'Cancelled'
 		)
 );
 

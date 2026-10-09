@@ -10,7 +10,7 @@ export type AdobeSignerRole = 'Signer' | 'Approver' | 'CC';
 export type AdobeAgreementStatus = 'Awaiting' | 'Completed' | 'Declined' | 'Expired' | 'Cancelled';
 
 /** 签署人级别的状态 */
-export type AdobeSignerStatus = 'Awaiting' | 'Declined' | 'Cancelled';
+export type AdobeSignerStatus = 'Awaiting' | 'Signed' | 'Declined' | 'Cancelled';
 
 /** 单个签署人信息 */
 export interface AdobeSigner {
