@@ -1,8 +1,72 @@
-import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import dayjs from 'dayjs';
 import { readPackageJSON } from 'pkg-types';
-import { defineConfig, loadEnv, type UserConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type UserConfig } from 'vite';
 import { createPlugins } from '@uni/vite-config';
+
+/**
+ * Univer resolves its UI text through the locale handed to `createUniver(...)`,
+ * but a few components hard-code Chinese labels instead of using their locale
+ * service. Rewrite those literals while the module is loaded so the editor is
+ * fully English - in the dev pre-bundle as well as in the production bundle.
+ */
+const UNIVER_TEXT_PATCHES: Array<[string, string]> = [
+	// sheets-conditional-formatting-ui: entry of the "cell icon" picker
+	['无单元格图标', 'No cell icon'],
+	// sheets-table-ui: placeholder of the string condition input
+	['请输入', 'Please enter'],
+];
+
+function patchUniverText(code: string): string | null {
+	let next = code;
+	for (const [from, to] of UNIVER_TEXT_PATCHES) next = next.replaceAll(from, to);
+	return next === code ? null : next;
+}
+
+function univerLocalisationPatch(): Plugin {
+	const isUniverModule = (id: string) => id.includes('@univerjs') && /\.(m?js|cjs)$/.test(id);
+	return {
+		name: 'univer-localisation-patch',
+		enforce: 'pre',
+		transform(code, id) {
+			if (!isUniverModule(id)) return null;
+			return patchUniverText(code);
+		},
+		// The dev server serves pre-bundled dependencies, so the same rewrite has to
+		// happen inside esbuild's dependency optimizer as well.
+		config() {
+			return {
+				optimizeDeps: {
+					esbuildOptions: {
+						plugins: [
+							{
+								name: 'univer-localisation-patch',
+								setup(build: any) {
+									build.onLoad(
+										{ filter: /@univerjs[/\\].*\.(m?js|cjs)$/ },
+										async (args: any) => {
+											const patched = patchUniverText(
+												await readFile(args.path, 'utf8')
+											);
+											return patched === null
+												? undefined
+												: {
+														contents: patched,
+														loader: 'js',
+														resolveDir: dirname(args.path),
+												  };
+										}
+									);
+								},
+							},
+						],
+					},
+				},
+			} as UserConfig;
+		},
+	};
+}
 
 export default defineConfig(async ({ command, mode }) => {
 	const root = process.cwd();
@@ -110,20 +174,44 @@ export default defineConfig(async ({ command, mode }) => {
 				},
 			},
 		},
-		plugins,
+		plugins: [...plugins, univerLocalisationPatch()],
 		optimizeDeps: {
 			include: [
 				'@iconify/iconify',
-				'element-plus/es', // 预构建 Element Plus
+				'element-plus/es',
 				'vue',
 				'vue-router',
 				'pinia',
+				// ── Univer ──────────────────────────────────────────────────────
+				// All @univerjs/* packages must share the same redi instance
+				// (@wendellhu/redi). Each preset bundles redi internally, which creates
+				// two separate knownIdentifiers Sets — causing the "You are loading
+				// scripts of redi more than once" error and HoverManagerService
+				// QuantityCheckError when UniverDoc and UniverSheet are used together.
+				//
+				// Listing @wendellhu/redi here forces esbuild to deduplicate it into
+				// a single module that all Univer packages import from.
+				'@wendellhu/redi',
+				'@wendellhu/redi/react-bindings',
+				// Preset packages — must be pre-bundled together so they share the
+				// single deduplicated redi and other shared modules (rxjs, react, etc.)
+				'@univerjs/presets',
+				'@univerjs/preset-sheets-core',
+				'@univerjs/preset-docs-core',
+				// Core packages imported directly by editor components
+				'@univerjs/core',
+				'@univerjs/ui',
+				'@univerjs/docs',
+				'@univerjs/docs-ui',
+				'@univerjs/engine-render',
+				// Explicit CJS transitive deps — ensures esbuild converts them to ESM
+				// even if Vite's dependency crawler misses them.
+				'async-lock',
+				'fast-diff',
+				'ot-json1',
+				'numfmt',
 			],
-			exclude: [
-				// 排除不需要预构建的大型库，让它们按需加载
-				'echarts',
-				'gsap',
-			],
+			exclude: ['echarts', 'gsap'],
 		},
 		server: {
 			open: true,
@@ -134,6 +222,13 @@ export default defineConfig(async ({ command, mode }) => {
 			},
 			proxy: {
 				'/api': {
+					target: VITE_PROXY_URL,
+					changeOrigin: true,
+					ws: true,
+					secure: false,
+				},
+				// Collaborative editing websocket (WebApi/Hubs/CollabWebSocketEndpoint.cs)
+				'/ws': {
 					target: VITE_PROXY_URL,
 					changeOrigin: true,
 					ws: true,

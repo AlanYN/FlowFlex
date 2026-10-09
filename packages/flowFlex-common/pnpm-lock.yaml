@@ -4,6 +4,35 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@univerjs/core': 0.25.1
+  '@univerjs/docs': 0.25.1
+  '@univerjs/docs-ui': 0.25.1
+  '@univerjs/docs-drawing': 0.25.1
+  '@univerjs/docs-drawing-ui': 0.25.1
+  '@univerjs/docs-hyper-link': 0.25.1
+  '@univerjs/docs-hyper-link-ui': 0.25.1
+  '@univerjs/docs-thread-comment': 0.25.1
+  '@univerjs/docs-thread-comment-ui': 0.25.1
+  '@univerjs/drawing': 0.25.1
+  '@univerjs/drawing-ui': 0.25.1
+  '@univerjs/engine-formula': 0.25.1
+  '@univerjs/engine-render': 0.25.1
+  '@univerjs/find-replace': 0.25.1
+  '@univerjs/network': 0.25.1
+  '@univerjs/protocol': 0.25.1
+  '@univerjs/rpc': 0.25.1
+  '@univerjs/sheets': 0.25.1
+  '@univerjs/sheets-formula': 0.25.1
+  '@univerjs/sheets-formula-ui': 0.25.1
+  '@univerjs/sheets-ui': 0.25.1
+  '@univerjs/slides': 0.25.1
+  '@univerjs/slides-ui': 0.25.1
+  '@univerjs/themes': 0.25.1
+  '@univerjs/thread-comment': 0.25.1
+  '@univerjs/thread-comment-ui': 0.25.1
+  '@univerjs/ui': 0.25.1
+
 importers:
 
   .:
@@ -32,6 +61,78 @@ importers:
       '@uni/ts-config':
         specifier: workspace:*
         version: link:internal/ts-config
+      '@univerjs/core':
+        specifier: 0.25.1
+        version: 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs':
+        specifier: 0.25.1
+        version: 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui':
+        specifier: 0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing':
+        specifier: 0.25.1
+        version: 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render':
+        specifier: 0.25.1
+        version: 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-core':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-drawing':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-hyper-link':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-thread-comment':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-conditional-formatting':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-core':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-data-validation':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-drawing':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-filter':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-find-replace':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-hyper-link':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-note':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-sort':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-table':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-thread-comment':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/presets':
+        specifier: ^0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/slides':
+        specifier: 0.25.1
+        version: 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/slides-ui':
+        specifier: 0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui':
+        specifier: 0.25.1
+        version: 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
       '@vue-flow/background':
         specifier: ^1.3.2
         version: 1.3.2(@vue-flow/core@1.48.1)(vue@3.5.12)
@@ -1747,7 +1848,6 @@ packages:
   /@babel/runtime@7.27.6:
     resolution: {integrity: sha512-vbavdySgbTTrmFE+EsiqUTzlOr5bzlnJtUv9PynGCAKvfQqjIXbvFdumPM/GxMDfyuGMJaJAU6TO4zc1Jf1i8Q==}
     engines: {node: '>=6.9.0'}
-    dev: false
 
   /@babel/standalone@7.26.2:
     resolution: {integrity: sha512-i2VbegsRfwa9yq3xmfDX3tG2yh9K0cCqwpSyVG2nPxifh0EOnucAZUeO/g4lW2Zfg03aPJNtPfxQbDHzXc7H+w==}
@@ -2633,21 +2733,43 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: true
 
-  /@floating-ui/core@1.6.8:
-    resolution: {integrity: sha512-7XJ9cPU+yI2QeLS+FCSlqNFZJq8arvswefkZrYI1yQBbftw6FyrZOxYSh+9S7z7TpeWlRt9zJ5IhM1WIL334jA==}
+  /@flatten-js/interval-tree@1.1.3:
+    resolution: {integrity: sha512-xhFWUBoHJFF77cJO1D6REjdgJEMRf2Y2Z+eKEPav8evGKcLSnj1ud5pLXQSbGuxF3VSvT1rWhMfVpXEKJLTL+A==}
+    dev: false
+
+  /@floating-ui/core@1.8.0:
+    resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
     dependencies:
-      '@floating-ui/utils': 0.2.8
+      '@floating-ui/utils': 0.2.12
     dev: false
 
   /@floating-ui/dom@1.6.12:
     resolution: {integrity: sha512-NP83c0HjokcGVEMeoStg317VD9W7eDlGK7457dMBANbKA6GJZdc7rjujdgqzTaz93jkGgc5P/jeWbaCHnMNc+w==}
     dependencies:
-      '@floating-ui/core': 1.6.8
-      '@floating-ui/utils': 0.2.8
+      '@floating-ui/core': 1.8.0
+      '@floating-ui/utils': 0.2.12
     dev: false
 
-  /@floating-ui/utils@0.2.8:
-    resolution: {integrity: sha512-kym7SodPp8/wloecOpcmSnWJsK7M0E5Wg8UcFA+uO4B9s5d0ywXOEro/8HM9x0rW+TljRzul/14UYz3TleT3ig==}
+  /@floating-ui/dom@1.8.0:
+    resolution: {integrity: sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==}
+    dependencies:
+      '@floating-ui/core': 1.8.0
+      '@floating-ui/utils': 0.2.12
+    dev: false
+
+  /@floating-ui/react-dom@2.1.9(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@floating-ui/dom': 1.8.0
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@floating-ui/utils@0.2.12:
+    resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
     dev: false
 
   /@formkit/auto-animate@0.8.2:
@@ -2657,6 +2779,25 @@ packages:
   /@fortawesome/fontawesome-free@6.6.0:
     resolution: {integrity: sha512-60G28ke/sXdtS9KZCpZSHHkCbdsOGEhIUGlwq6yhY74UpTiToIh8np7A8yphhM4BWsvNFtIvLpi4co+h9Mr9Ow==}
     engines: {node: '>=6'}
+    dev: false
+
+  /@grpc/grpc-js@1.14.5:
+    resolution: {integrity: sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==}
+    engines: {node: '>=12.10.0'}
+    dependencies:
+      '@grpc/proto-loader': 0.8.1
+      '@js-sdsl/ordered-map': 4.4.2
+    dev: false
+
+  /@grpc/proto-loader@0.8.1:
+    resolution: {integrity: sha512-wtF6h+DY6M3YaDBPAmvuuA6jV8Sif9MjtOI5euKFWRgCDl5PeDpPsHR9u2l6St5ceY8AZgoNDww5+HvEsXFsGg==}
+    engines: {node: '>=6'}
+    hasBin: true
+    dependencies:
+      lodash.camelcase: 4.3.0
+      long: 5.3.2
+      protobufjs: 7.6.6
+      yargs: 17.7.2
     dev: false
 
   /@humanwhocodes/config-array@0.13.0:
@@ -3026,6 +3167,10 @@ packages:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
+  /@js-sdsl/ordered-map@4.4.2:
+    resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+    dev: false
+
   /@kurkle/color@0.3.2:
     resolution: {integrity: sha512-fuscdXJ9G1qb7W8VdHi+IwRqij3lBkosAm4ydQtEmbY58OzHXqQhvlxqEkoz0yssNVn38bcpRWgA9PP+OGoisw==}
     dev: false
@@ -3115,6 +3260,20 @@ packages:
     resolution: {integrity: sha512-hKoGSM+7aAc7eRTRjpqAZucPmoNOC4UUbknb/VNoTkEIkCPhqV8LfbsgM1webRM7S/z21eHEx9Fkwx8Z/C/+Xw==}
     dependencies:
       state-local: 1.0.7
+    dev: false
+
+  /@noble/ciphers@2.4.0:
+    resolution: {integrity: sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw==}
+    engines: {node: '>= 20.19.0'}
+    dev: false
+
+  /@noble/ed25519@3.1.0:
+    resolution: {integrity: sha512-pfcObRY3CtvwfaG9Mt5XqZdKmAQppl37tHUeuBhDUbiwJBCVY4/A4lbMvb1xKhMDx96AqAqZpMWuBX1HulhX4g==}
+    dev: false
+
+  /@noble/hashes@2.2.0:
+    resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
+    engines: {node: '>= 20.19.0'}
     dev: false
 
   /@nodelib/fs.scandir@2.1.5:
@@ -3293,6 +3452,574 @@ packages:
 
   /@popperjs/core@2.11.8:
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
+    dev: false
+
+  /@protobufjs/aspromise@1.1.2:
+    resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
+    dev: false
+
+  /@protobufjs/base64@1.1.2:
+    resolution: {integrity: sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==}
+    dev: false
+
+  /@protobufjs/codegen@2.0.5:
+    resolution: {integrity: sha512-zgXFLzW3Ap33e6d0Wlj4MGIm6Ce8O89n/apUaGNB/jx+hw+ruWEp7EwGUshdLKVRCxZW12fp9r40E1mQrf/34g==}
+    dev: false
+
+  /@protobufjs/eventemitter@1.1.1:
+    resolution: {integrity: sha512-vW1GmwMZNnL+gMRaovlh9yZX74kc+TTU3FObkkurpMaRtBfLP3ldjS9KQWlwZgraRE0+dheEEoAxdzcJQ8eXZg==}
+    dev: false
+
+  /@protobufjs/fetch@1.1.1:
+    resolution: {integrity: sha512-GpptLrs57adMSuHi3VNj0mAF8dwh36LMaYF6XyJ6JMWlVsc+t42tm1HSEDmOs3A8fC9yyeisgLhsTVQokOZ0zw==}
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+    dev: false
+
+  /@protobufjs/float@1.0.2:
+    resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
+    dev: false
+
+  /@protobufjs/path@1.1.2:
+    resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
+    dev: false
+
+  /@protobufjs/pool@1.1.0:
+    resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
+    dev: false
+
+  /@protobufjs/utf8@1.1.2:
+    resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
+    dev: false
+
+  /@radix-ui/primitive@1.1.7:
+    resolution: {integrity: sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q==}
+    dev: false
+
+  /@radix-ui/react-arrow@1.1.15(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-v4zggRcjadnI+ClKDuijlQEW4tw3NoaeHc/PwpKnLoLLKNUG4InLegkstooLcRIUWCs+8L22dGURCVuFfOKfnA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-collection@1.1.15(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-9W+B9NPF0NaaPh/1NJd3+KqsnlLqU9H7T2rvww+fp+T/evVXdNAyYcnfRQZFOjkR1ajQp3yORlqnI8soawLvNA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-compose-refs@1.1.5(react@19.3.0):
+    resolution: {integrity: sha512-+48PbAAbq3didjJxa+OaWY2ZwgAKsNiRGyeHKszblZMQ+kcpd9pAaT11cMkGEie0vsOi3QdeTE6d5Fe3Gn61kA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-context@1.2.2(react@19.3.0):
+    resolution: {integrity: sha512-RHCUGwKHDr0hDGg4X7ma4JG4/+12qxw8rkh5QKdDldlCvtja6nUx1Ef/8HVrJze81lEsgLQlqjzjGNHantgnQA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-dialog@1.1.23(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-Ksw4WeROkO4rC9k/onilX/Ao2Cr1ku1unMNH+XSCcP4jSXYu7HDsg9n4ojMjVb22XpYjAQ9qfrFlVbru1vXDUA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-dismissable-layer': 1.1.19(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-focus-guards': 1.1.6(react@19.3.0)
+      '@radix-ui/react-focus-scope': 1.1.16(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-id': 1.1.4(react@19.3.0)
+      '@radix-ui/react-portal': 1.1.17(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-presence': 1.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      '@radix-ui/react-use-controllable-state': 1.2.6(react@19.3.0)
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      aria-hidden: 1.2.6
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      react-remove-scroll: 2.7.2(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-direction@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-5pzg4FGQNpExhnhT2zlrP1wZFaYCd1K0nYWoFAdcYoYK868IEigqMX3B3f8yIoRlAhAeDWciLI6ZdCKHF9P4Vg==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-dismissable-layer@1.1.19(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-8g4pfOL9HoKKLWGiypT+dphVqjFfmcXO5GBnhsG6zI+lxAx/8feQpr+1LSN8Re3hiZ+XkLNS4O9ztK11/LzQ6w==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-callback-ref': 1.1.4(react@19.3.0)
+      '@radix-ui/react-use-effect-event': 0.0.5(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-dropdown-menu@2.1.24(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-geq8l2rJkxvkXsT9RMgtUE3P8pITFpTsvYpbySi1IH4fZEABD/Gp85myayFgxk0ktljGMJnCbeFkyTusvSvv7g==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-id': 1.1.4(react@19.3.0)
+      '@radix-ui/react-menu': 2.1.24(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-controllable-state': 1.2.6(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-focus-guards@1.1.6(react@19.3.0):
+    resolution: {integrity: sha512-RNOJjfZMTyBM6xYmV3IVGXkPjIhcBAuv48POevAXwrGJhkWZ9p1rFoIS1JFooPuT193AZmRsCPhpoVJxx6OPoQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-focus-scope@1.1.16(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-wmRZ2WWLvmt6KHy2rNPOdPUjwq5xOHY02+m+udwJTn0aNIox/rkskAvJTyTLGhPK6KgrUjlJUJpgmx/+wFiFIQ==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-callback-ref': 1.1.4(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-hover-card@1.1.23(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-H8qONfZd3ltrU3+jHCIgITbWo6e1iTKvP9DHdrvYbX48ooRM5FjEDTn16AMwdfuOGkWdZEhpl3PLL/Wk/AnHDQ==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-dismissable-layer': 1.1.19(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-popper': 1.3.7(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-portal': 1.1.17(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-presence': 1.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-controllable-state': 1.2.6(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-id@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-TMQp2llA+RYn7JcjnrMnz7wN4pcVttPZnRZo52PLQsoLVKzNlVwUeHmfePgTgRluXFvlD3GD5g5MOVVTJCO0qA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-menu@2.1.24(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-uW7RVuU6Lp/ZtfeY4b3kL32zccgEWvPv1+cf17ubYzHa9cL8AHokmk36cG/XEiH/smbQvumnieXX9j/e9RqJWA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-collection': 1.1.15(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-direction': 1.1.4(react@19.3.0)
+      '@radix-ui/react-dismissable-layer': 1.1.19(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-focus-guards': 1.1.6(react@19.3.0)
+      '@radix-ui/react-focus-scope': 1.1.16(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-id': 1.1.4(react@19.3.0)
+      '@radix-ui/react-popper': 1.3.7(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-portal': 1.1.17(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-presence': 1.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-roving-focus': 1.1.19(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      '@radix-ui/react-use-callback-ref': 1.1.4(react@19.3.0)
+      aria-hidden: 1.2.6
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      react-remove-scroll: 2.7.2(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-popover@1.1.23(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-mw58MrBlyHWFisTOYignD0vf/3gdcgAR+9of1s9G/38CbFiUwH1nCDkc0AUM9IrXFgN5Ue8n45j9WCgyM1sbiQ==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-dismissable-layer': 1.1.19(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-focus-guards': 1.1.6(react@19.3.0)
+      '@radix-ui/react-focus-scope': 1.1.16(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-id': 1.1.4(react@19.3.0)
+      '@radix-ui/react-popper': 1.3.7(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-portal': 1.1.17(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-presence': 1.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      '@radix-ui/react-use-controllable-state': 1.2.6(react@19.3.0)
+      aria-hidden: 1.2.6
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      react-remove-scroll: 2.7.2(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-popper@1.3.7(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-UsJrrd7w4wuKKTdvd/DNERVlwSlUcyXzjhyDwBk+3aPOsCjOY6ZSbxuw8E6lZTjjfP8Cpd0J8VVkrYUWyGYXyg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@floating-ui/react-dom': 2.1.9(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-arrow': 1.1.15(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-callback-ref': 1.1.4(react@19.3.0)
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      '@radix-ui/react-use-rect': 1.1.4(react@19.3.0)
+      '@radix-ui/react-use-size': 1.1.4(react@19.3.0)
+      '@radix-ui/rect': 1.1.3
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-portal@1.1.17(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-vKQLcWypUnwZVvfV7UkGahH2g6ySe8M8R+zYBwPrv5byZ9QAW6cQVvNKo7GgmD+p8aYb6D9JBuvy8/WhOno2wQ==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-presence@1.1.10(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-3wyzCQ6+ubRA+D4uv9m95JYLXxmOHp05qjrkjeA7uKHHtjpPggQzc6DAb0URl7j67oR0K2foO4ip27TiX037Bw==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-primitive@2.1.10(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-MucOnzh6hR5mid6VpkbglRAMYMjKLqRnGBbjXkzjK52fuQDd1qbkx78a5P40mkcnVXJdEVxm26E9OPAiUq7nBg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-roving-focus@1.1.19(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-V9jI6hDjT7l3jsCQD9bLNvDLM3tH/gdbOTp7Tefp3hbbgCGQoK7tUvrWiRlcoBHIZ809ElXwNQwVo0B98LuTXQ==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-collection': 1.1.15(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      '@radix-ui/react-context': 1.2.2(react@19.3.0)
+      '@radix-ui/react-direction': 1.1.4(react@19.3.0)
+      '@radix-ui/react-id': 1.1.4(react@19.3.0)
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-use-callback-ref': 1.1.4(react@19.3.0)
+      '@radix-ui/react-use-controllable-state': 1.2.6(react@19.3.0)
+      '@radix-ui/react-use-is-hydrated': 0.1.3(react@19.3.0)
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-separator@1.1.15(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-jOLO4lssEzWpoDu7G+Ze4VjwMRUBt291pnZD0gmalREZipnTX3wadQo7Fy48GCTfe14/YRN6rw/rOJqrE85Wxw==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/react-primitive': 2.1.10(react-dom@19.3.0)(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@radix-ui/react-slot@1.3.3(react@19.3.0):
+    resolution: {integrity: sha512-qx7oqnYbxnK9kYI9m317qmFmEgo6ywqWvbTogdj7cL9p3/yx4M48p7Rnw5z3H890cL/ow/EeWJsuTykeZVXP5Q==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.5(react@19.3.0)
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-callback-ref@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-R6OUY2e2fA6Yn6s+VSx5KBV6Nx8LQEhu+cz7LCej18rQ1HLyg9PSC9jP/ZNx0o6FAIK9c0F1kHylzSxKsdlkrQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-controllable-state@1.2.6(react@19.3.0):
+    resolution: {integrity: sha512-uEQJGT97ZA/TgP/Hydw47lHu+/vQj6z/0jA+WeTbK1o9Rx45GImjpD0tc3W5ad3D6XTSR6e1yEO0FvGq6WQfVQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-use-effect-event': 0.0.5(react@19.3.0)
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-effect-event@0.0.5(react@19.3.0):
+    resolution: {integrity: sha512-7cshFL8HGS/7HEiHH+9kL9HBwp2sa9yX18Knwek6KYWmXwM7pegMgta2AXMQKI+rq3JnfSj9x8wYqFMTdG1Jgg==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-is-hydrated@0.1.3(react@19.3.0):
+    resolution: {integrity: sha512-umO/aJ+82CpOnhDZUTbILCQf7kU/g0iv+oGs/Q8jw7IkhWBzaEP4sA268PhFAJTFetbwp3ICc6ktpI4TqtxcIw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-layout-effect@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-K20DkRkUwDnxEYMBPcg3Y6voLkEy5p5QQmszZgLngKKiC7dzBR/aEuK3w1qlx2JWDUNH6FluahYdgR3BP+QbYw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-rect@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-cSOCh6JlkmfjLyNcLiu2nB4v+nm+dkZ+Q5KHWk/soo4U7ZLiEQFKHK9/YmtBHjfCEaU43IBKQOc4/uJmCaiCTQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/rect': 1.1.3
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/react-use-size@1.1.4(react@19.3.0):
+    resolution: {integrity: sha512-D3anSY15EJoxrihpsXI6SMrmmonnQtR2ni7arO+Lfdg3O95b9hNXxONk8jA5C8ANdF/h5HMAxejgs8PWJ6rlhw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@radix-ui/react-use-layout-effect': 1.1.4(react@19.3.0)
+      react: 19.3.0
+    dev: false
+
+  /@radix-ui/rect@1.1.3:
+    resolution: {integrity: sha512-JtyZR+mqgBibTo8xea3B6ZRmzZiM/YeVBtUkas6zMuXjAlfIFIW2FgqeM9eLyvEaYX66vr6DJMK+4U6LV0KhNw==}
     dev: false
 
   /@rollup/plugin-alias@5.1.1(rollup@3.29.5):
@@ -4251,6 +4978,1893 @@ packages:
     resolution: {integrity: sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==}
     dev: true
 
+  /@univerjs-pro/collaboration-client-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-cpHvRNCWeYAPibzzy2s3FwWBiNiVP52/QZMO4BhYj+Ft2OYVrrpcu6EtKSTXUiuyqVtbFobOu71atJGYc+12xw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/collaboration-client@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-QZ1WHsAlb618i0Ta3tVpZJFjjY3aBmTQXwdrFp0thJI/aNZ+Mpug1dkHe25bt+dRmv7BMpb2yg+UFG6aGw4AZg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@noble/ciphers': 2.4.0
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/telemetry': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/collaboration@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-54aiegetXmkr5TgucrvHAuziw5O9+6fw0oHAdo86yfhAJRCinM+DHyH4BiIej8q5UfhHCv841MBjwT3Pm5YRpA==}
+    dependencies:
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-outline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      uuid: 14.0.2
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/docs-exchange-client@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-9AzGATwSvisQ2PpkEDIZehqbeuKhBFqMRVyVDmhw7hRUzGackiEojxRw0BZCLp3Dxot5rvH7T3EtJaYB9ogHUA==}
+    dependencies:
+      '@univerjs-pro/exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/docs-print@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-HlxPHGP3Wl0HLsQcupkGMCCgPyb9gE0uNkhv4ZQVFlZZMwmfh1bNQhHSA8xGwhP6IC33QA51trhO7oCHZTzWpQ==}
+    dependencies:
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/print': 0.25.1
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/edit-history-loader@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-pK5TtIYwv9YZl35r8hm3bVvsvsNDFyOdB8t82zNVO4vm/f1Rbz1LEzyVet8LuYD5/+q/z29w7LeyJFL72oqINw==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/edit-history-viewer': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-pivot': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-shape': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-shape-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-sparkline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-sparkline-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-table': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/edit-history-viewer@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-U9NHs9kI1vaIRIDKHjU5oFCvmsYTrF6L5R2DOXCaYh0FkzW72Z83A5DwWkNTsQ7cdF5ilfjHeiYxMo04yBOdhA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-pivot': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-shape': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-sparkline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-table': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/engine-chart@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-o9RZh6hzBq4Wh/IuK4ai5E99TUvuw+XI6oL3iBtSSW2EDFH0IvsePtAaJR/1o1YxSDySPCB0tBFNWPUx4uVCcQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/engine-formula@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-oPREHYb4Jk+L4FiAht3+g4TGQSILHSN7dfG2XOyAGJRktN9ApNDIACaOnHxIzw6LQKUqpsstZjrcxR01nypxVg==}
+    dependencies:
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/engine-pivot@0.25.1:
+    resolution: {integrity: sha512-Dk5FbO1lhKESUeY5i8Qc/eFJzXunfPk8rsndIvG5w7c4DQgwjFryd8wZk9NIvwW+YrAX5J/NX7HmgSKreODt7g==}
+    dev: false
+
+  /@univerjs-pro/engine-shape@0.25.1:
+    resolution: {integrity: sha512-U0i0STMYc0W9MHIetiP4nvEFZjsVlmzcpRrcEEPTkj83KW9FpQV8xE6wER/0cSSbuvBfKbiHpZC8YoEgZVQaaw==}
+    dev: false
+
+  /@univerjs-pro/exchange-client@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-UgZTUOk+9VCRrODyIWplhesa4tOaXEr1OOuBXxmUi2NkMjJVteBRJacQBGR7cqUQUmhM7vqYiAeP8B5EjCsTEQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      fflate: 0.4.9
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/license@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-pXK47oWmDZWtCYzXam0EHAqi2zuE0+uR3HVolfFU5aP3k0GdHidOF1ZugOSBzkuV34rRU0g+/gXln+Xw6KkRQg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@noble/ed25519': 3.1.0
+      '@noble/hashes': 2.2.0
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/print@0.25.1:
+    resolution: {integrity: sha512-VPIK197YPFnDb/CsF/2Euaw72rC4BRvZNFhFNi62kx44tp8ppJ1kBOZwLSoudt51eNk4139yiWsGI7p5vsWmzw==}
+    dev: false
+
+  /@univerjs-pro/sheets-chart-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-0hxQEQwpaceANnzfU+eN/ktvfj6UXFOlupXGq8+ivI6MS4oAB7njI4W6q3mfo2VOi6btMUYfRT6E9cvtXdlyMw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-chart@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-YqufhKXIJD2dQcRJDGsqCN77k5Ii6/7qXeDC6+8sc3UCuUJXymmPPkEhqK09ofqu6u32z72Zri5jyUdrLsCa4A==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/sheets-exchange-client@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-gtSXuneb/wcn/8r7+2sbQUtN6GeaVeARZwIidixHT8/vPOpajbZlYYVpybyR6EP0qkZr7ufLgtNfeNP8PXGVsg==}
+    dependencies:
+      '@univerjs-pro/exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/sheets-outline-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-e5tv6FhbjFiZJ3b10aGIaJ3cI0gRSMS+s7MnKJVRzDFadMrULLHCFaX/XiqfB4atHEKwXgOBO7CbeLVcU7pJlw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/sheets-outline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-outline@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-LFfkrvel33khqEbYrhWXsQY6LwSGXd22JXRjleirJoWIVw+vVX6yDKkHVHhLHmG/RcJEqrNIgGsq7cBpSQKcgA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/sheets-pivot-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-VDbmWSJaCzeEImfhtNWSaU+mFKvlfjhDBuzkvKLxNvtRc1uJXzohYvCNlE2CBdq1zasA6UENrRc+ES5dRZa/Kw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-pivot': 0.25.1
+      '@univerjs-pro/sheets-pivot': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-pivot@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-VZ9rewAX/JK0j7W58u2rPgC3ONQ9JYrg8+jFtR+3ma5DZ2P1iicvVr1WG92MbaUaZi1C3zGWM/7nrPzSmuHIBQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-pivot': 0.25.1
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/sheets-print@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-RXU9Cnc++H5ZF/bDpTOuXjuDLkpjVDQzQRHbeF0Zd5MrEQxgmdBUny1UqunfDTki788CB21NeBcvLjqKQ4FS3g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/print': 0.25.1
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-shape-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-GfIFKWsqM5NpcZBbkl20l8oB1dHPzEa2dBMeMw1nerUCP7rvgOY2QbXoKL76IgqqD0srnAeWxXeT33L56O+czw==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-shape': 0.25.1
+      '@univerjs-pro/sheets-shape': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-shape@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-84I8/IS1nzgXpzr8que6fHPFkPuF4PnIIGJjQ/IOhn22oL8MPm8Km15cM52oLPqOGiq+4hs0E6Vjyb7AOXyyng==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    dependencies:
+      '@univerjs-pro/engine-shape': 0.25.1
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs-pro/sheets-sparkline-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-NBD5Trimk6JEggDgtJDLokyaD+0rbtD44oLkmCb0jzzI5j+XZlm4YVlYxDab6O9TElxgLpW5D6jATC/JCDXqFQ==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/sheets-sparkline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-graphics': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs-pro/sheets-sparkline@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-+2eq/n/QeyVBNxDifnayr+z5QpcNJMl7mYzVIddjgHrrHHp+lJHw89vesA8NlQSZEVkgz/wdghN0wBHqCcAgDQ==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs-pro/thread-comment-datasource@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Bbfu4Mb3O/5zO1jft3HaUAC3owSaG8sk7eFiT0J85EKLJsy9Pp3U/D88Q5JSvHwJENRrWMBYdo2TDbxnkGBo1Q==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+    dev: false
+
+  /@univerjs/core@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-0FQjuL1HdPtl8NsU5muT8HNtuA4yMEvbBLgewyqUVQmT5oks89a3jdqxi5/dvHYDRvW7wssVjZitfbL79el3Jg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/themes': 0.25.1
+      '@wendellhu/redi': 1.1.1(react@19.3.0)
+      async-lock: 1.4.1
+      fast-diff: 1.3.0
+      kdbush: 4.1.0
+      lodash-es: 4.18.1
+      nanoid: 5.1.11
+      numfmt: 3.2.6
+      ot-json1: 1.0.2
+      rbush: 4.0.1
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/data-validation@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-MLSOXYpQWNgwFnVXcdh5YbVjDFRYs9WZy1YwvN3aUDVYgy6dDoU2N52IE+IbDhTi33TZI0JdVLu5000bmv+bcQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/design@0.25.1(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-tqKzxh/HhUiHsZZzkFUHGBTEsRfOsSNgIGAjY6PTvbucpLJTYzijrQxEZfgOMC/tEQykUFJUo/WDRTXZEHMPXg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    dependencies:
+      '@radix-ui/react-dialog': 1.1.23(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-direction': 1.1.4(react@19.3.0)
+      '@radix-ui/react-dropdown-menu': 2.1.24(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-hover-card': 1.1.23(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-popover': 1.1.23(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-separator': 1.1.15(react-dom@19.3.0)(react@19.3.0)
+      '@radix-ui/react-slot': 1.3.3(react@19.3.0)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      class-variance-authority: 0.7.1
+      clsx: 2.1.1
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      react-transition-group: 4.4.5(react-dom@19.3.0)(react@19.3.0)
+      sonner: 2.0.8(react-dom@19.3.0)(react@19.3.0)
+      tailwind-merge: 2.6.0
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/docs-drawing-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-dNolVFpRKpDXAmFQ64rkzkNDDu7mpXgqQWGOndpHs/hPrIbOUgPuCk5t+dzejravAw89edDYs7qVJLqjW44i5Q==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/docs-drawing@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-xkDGZ/dcwpH6Q/+iYhVKQy8RsxXfLqmO9I9iJXMiZB5ZKZlWSHBKcMp/d09hf/n37ajkwtNCcxNayOAEnRyQXQ==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs/docs-hyper-link-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-k2rZU9d6md4yn3mmT2B+UwcK0ZKGmYymW9qt5X1YiQB8Cc5atDH9uM/BkiEigD1gFwzy0IXC2ONaV9b5p7/vuA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/docs-hyper-link@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-8EAQmyusCPD3z7P1b4romx3f490T/mn7rkDOtlqpmVMk1ojA2mPjOKP+HURsBr+f65wLbbhHdX/JYqlxvJplMw==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs/docs-thread-comment-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-eiamay2YqODtv2eQQHVLNeDbjqgClP7PdTNoIeeDxATjhJBwwmY+NT3gpaKFx6bcwV9VIK3RBtfFaNGwuvs++g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/docs-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Oy5iPjf+gJlijUe3pQj5iIAILR/4YzCvOVtGy4FPyksXXrYYy1oMZ5JnEP3U7AUKhQ4yTNIFoaTYT6LwbshG+A==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/docs@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-U85iZNLBxRCaiU3++N8rCBgUMTpFGsm1G0U6UcsZxAy0XGhRjD+vhtvgQNis25sNjksmy/25kXtYqWMrk/XWbw==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/drawing-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-SqctH5TFOpH9JILi9awe72uMS+VWkEtS4WhUkiN3hjLKZajzGrRBYjr0Sy2ix+AxiEG8tSc8K43FJHRBvuBxGQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/drawing@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-ZS+YpSo/RWoh21zZAHM0Hg57FyqqW/9P5zoQ8hL1vGoEN3ZhbZA8jwiQHv1PFqlzXPzKWO0bysc4yB8BtJW8Pg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      ot-json1: 1.0.2
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/engine-formula@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-ZNx8ndlz7d8zASwoE/pK1csreW553tSxoYJmEgHSAiCHtSYkdk6OiynkFjyDIUCMe56n5pdQo9uHfynMBbOY7A==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@flatten-js/interval-tree': 1.1.3
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      decimal.js: 10.6.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/engine-render@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-CDbIjOQTbEwwVe8+l6NEQGxegsbRjVXWJ6Qrm91Z1gzwKzrl9P1mOaDsXGYgbp5ujTJBxOVePPuU2QuS/9iMeA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@floating-ui/dom': 1.8.0
+      '@floating-ui/utils': 0.2.12
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      cjk-regex: 3.5.0
+      franc-min: 6.2.0
+      opentype.js: 2.0.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/find-replace@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Xa+pkCqogQ0AHcIzUGpmqbb6driQJ0i4nqT6XPS/RYh/u0encY9/an7z3ly9b5Z24PChyPGTfrvrbFAnmON3WA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/icons@1.4.0(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-ohBfPk+EyLuSc+1Rvz06jiMDgEydwc6lLUOQyUjS/W3zBKYLhbXaEP4qq7/YQH8OhzkTsRQGvsTgYSg1roRXgg==}
+    peerDependencies:
+      react: '*'
+      react-dom: '*'
+    dependencies:
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /@univerjs/network@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-5sqyI9qKyn/fb+IMIoW6nQPJHlpJr1/WscCyDG4PmMtpMm/ipN/CZu31FIyMyM1jLOeJX1uMeldflviEq4iorA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/preset-docs-advanced@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Es/BlOdMYM9jPRkQSF5JQXC8UHWxVdSLM0mYYubSD1Un+PSoKDMle9k4J8QT6wANWVqRTGeAP4EVlyyFEd0ENA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/docs-exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/docs-print': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-docs-collaboration@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-ZU6LIAxRfh72cR2Nyy9Sd56+GSPB+ugP5+fy8sjiSn2vOh10ZrQI7I1YNN9gB3CI4GRGtqEmbAV32VQDdfYcCQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-docs-core@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-V98oGWbMa2NjvHZEMFyHvVu0DXp8h4i/soJilAdK+mV+Ja0i2Eofj/Wsmoj9LT++nC1pXfGfNzpezy04uR/EVw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-docs-drawing@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-j6pYAGWSdNUhFWoydH0Cp4lpiKPjnXwQSByZhsK8yr51vkMe5AqBab0atPJYmYzu89Qth6e9Tnofe5qHUdu1aA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-docs-hyper-link@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-kN2vGhAgY7QBIynQasdwBOUxtimNufn29pJXSEmDeKpASNtcPFQI+VqfhPBuG6L5fJqYW9mYqnXIWes5wca3Ww==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-hyper-link-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-docs-node-core@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-alB/hLdIDMnd2/W8ZK1z9YrQI6zxqpt9jyXGXqo2aMz+eYuxJ9W2peKC04Iz8DAFlZnQmpcgxQzZ5tlxVV4lOQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc-node': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/preset-docs-thread-comment@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-2SRYv/byKi5DYIo1+n6kxG6x4S6Iy+PEr2TXimkTlg5lnlMyNUaaFSaisnsXKdAjPkhF82S81L5U57bSuzh6Rw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs-thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-advanced@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-+bkHUk3W0ui6+ZvW+Alo0vf+qBaj1S1o3FgBEGmKhdqxKKv5CLAhuRD6zQm755EV9tQGXqAZ1heGGggOBPK1/w==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/engine-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/engine-shape': 0.25.1
+      '@univerjs-pro/exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/license': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-chart-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-exchange-client': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-outline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-outline-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-pivot': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-pivot-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-print': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-shape': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-shape-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-sparkline': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/sheets-sparkline-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-graphics': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-collaboration@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-R/X0ZwkMWc5um8DE7kqNvb6gGt29IgCdq5qeJC+fU8BC4vgXpJhCEGsGk4HDPOnHH2rnZk9rPr1VzcUMThgFUA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs-pro/collaboration': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/collaboration-client-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/edit-history-loader': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/edit-history-viewer': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs-pro/thread-comment-datasource': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-advanced': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-conditional-formatting@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-MsbzZEw6Z6L7UHpNxF1B1ua/aM0we1u9GRBf7ExZlPAzZbEicd5DM2n0yvO/5a7SmzFuFQZshX1JY5xSNLJvhw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-conditional-formatting': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-core@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-hCxvFUcWBZLEUf1SUOmqHvf3MN/17LW7AQYLcWIJIGQP2laa0XIrW1kXrTfmh8G0BTwDes286FIPf5y70SC0YA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/network': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-data-validation@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-9K3XOzmfjxJ39iR9GQCH9FGrLdMqc0FOFv1BLfMyWwwh2N3sWaz+Ae1sKjpKPLDuOn8uYH6QRRAxif8UK1V49A==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-drawing@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-QLTWlzCx/K2eVq4TXTiGH8aIYBuTNEaPLLdzgguPJIqxCLjcmLwWAsTKgoSq058st+JOPVR9GCnx2VhEx9HBkQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-filter@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-ox6OAUFetC9Al1XY7eb4JNPvNwto7ZWZBXiD5nNGzeK6R8LKrN31Yhu69RgCTpuymVlv7rNROtDKeXxroJzUbg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-find-replace@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-eao9xoiPsnn3qfk9pRVEip7Yte36RgBWpdZ72xj0WtX7r0pKOsCWHLpluQwO2tR8YR6BBTB009qarxDMTeQw3g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/find-replace': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-find-replace': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-hyper-link@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-nKROwzxzYadnetwlGVAGtpuMP8Cn2qdiJiWQjXjPI217TUtojYKXIRdOhK909/BFAR/l7oalX4x+fKLWSdU5ag==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-node-core@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-AtHLj63zdM3SdT8Ya2kDsQ2N20Dp+RPEubXv5d4jA4aSZXJTzHRA4MOTMmlosowd5KQwoJO5/ewqM6ZKBgwrcQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc-node': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-sort': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/preset-sheets-note@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Lo0lhMfHHzSPJaAxUQ5F9TANtXwL7xIjoNdVPLDMz5dumPCPHKH3j7fewI4pOrSVqvcVyWvmDxwUQqMDYSk8SQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-note': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-note-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-sort@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-xebD11RrtJ+JY6Tn3pYoQf28jMuLAlOEAoDYqB8Rh4mzKLimBcB/emmXNg+KfNbbXFelFRvjr8uaLL5P41R5WQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-sort': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-sort-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-table@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-ycZlK/ZgyRXgsw0pYulFpUa++mJIGNX4D37M9Vg1pNOmdJWygPF8Q4zEZUK9bARYMalIdUommQ+93rl1jNiXWw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-table': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-table-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/preset-sheets-thread-comment@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-/zlzXHNWVQkp9fr+d6kSeGEwtb5nnGhKbCmF0y+JSHpws6MPWBVjBD1MbzsGvT99P7OhLXtdFrbrQUMBsFduOg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/sheets-thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/presets@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-AHZyR0KTd9Z43A3ybFkGGH8PBT8NDsJa7xY4PMq8ZDHdxUZIVjqoIJlqUq+DAFxGAWInr27SXu6KaBpfZ1U43Q==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-advanced': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-collaboration': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-core': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-drawing': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-hyper-link': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-node-core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-docs-thread-comment': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-advanced': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-collaboration': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-conditional-formatting': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-core': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-data-validation': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-drawing': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-filter': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-find-replace': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-hyper-link': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-node-core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-note': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-sort': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-table': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-thread-comment': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
+  /@univerjs/protocol@0.25.1:
+    resolution: {integrity: sha512-RHkNl/Gm8T5VyrXGj3dnJ4CGgB12/oqP7BVUZ4DcfxezFh1vq/nIHD0fIqL8DZslZV6CGK/sxcNeGn3E/S3Xnw==}
+    dependencies:
+      '@grpc/grpc-js': 1.14.5
+    dev: false
+
+  /@univerjs/rpc-node@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-573sHGgLVPzQa4alglAhTDxdEAh7XhlYIpYGhK1ueqjvn60g4/8HBAjq3yza0jW+rykHevkSg6tdatxn/0RyUg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/rpc@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-cwQJ+faKb983QRAGG/hkisASzb3HgjlWm4JMf6w1gVO/oYbLm6ObACu7zVHU+xhw8EKRFN3Kxl6SH0KTqFLOVQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-conditional-formatting-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-/DZRAhClo1T9v3S8h6W7shSemckIeLvYYwygl3vlWe1opcUFraUt2A8iS/SToQeIgIstVEGGq3EZh5yeDJDvAQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-conditional-formatting': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-conditional-formatting@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-+3q3WS6+m3qNDyyv4LuppxqNQdOFT99fQHpkrc2WIi1pSgO/HnCXm348KP1RhpYoVwcHOV8eoFDTqK9Q1DrdOg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-data-validation-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-jg40+G3S0gwtQILvfzB0bFnigLNHxUEcnuAGHwgdS+GRHxGb+GbtY2qy5Fob7tGCMlgIiL4vZBZ5LCRVq2ciLg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-data-validation@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-I2NkLoiRJs9+zyijsa+wLnFviJNurqxJ77wAnh+ZZe6OLWmh1ErCsmu20sljvaPZgIKBqeXYi/sRYv9f4xY+2w==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-drawing-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-GL9uteQK3xtkcJke0FJEfj+bfSilE0MJVF2BFAAa3x0iYSL0eUFAbqIG4TJ7zoHTzr4gToLk0xEma2zKT7NDVw==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-drawing@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-b1UknaJAgQ7687+ZN4QLo38ql1z+yEh0/a0Xng4K5pY+snDj2vaJAtyn6cj5fiQcXIaQoJdvnyAd7dPz5URNcQ==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs/sheets-filter-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-VROeSot8Fu/wUqeUuGaCgNHLllzOqrmnyeZO8oARlUZNaNSwZl1LfOxu35xR63HS1HuC7amaFspCdo5u4D1nsg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-filter': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-filter@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-pQl8KcHhR6Qj+VQQogKeaGbJ1yes39lfmTrCd5JUgXMXJwE2nrZsCBDXM4B3I4shMbE0vLvJVkHXxLV0ApVQvA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-find-replace@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-AdpmCl1Y7hqSMgTvCI9NOCjcAS+mutPCkmVyxoNHNtdguob6hbP0FQxcOkHd2feSLptcK/EvRZu3BfquMqAGmw==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/find-replace': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-formula-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-iMDZZutB5mcwBGn1kL2QfsQoiOJKJhyLtzp3oRv0bEhbScGDPyoADuAoOCQjDnnUKTp3cTAvc0ACn3Gj3vOvRQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-formula@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-5zDcLfzAhO0H1gwYeCY0JYgZIxcKAhA02jS0wXRpOa+dVWs2/zcKy4CjDCbINIsA/aLrICAd9O8Q3VbU/G3rEg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-graphics@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-TBdA+5ab2ZiX+FUhdx4vA+h12uAKk0TIEOJurXSOk42NC3ZJcyOIbl5snY8dDTzfdPh2SOoQmsq1hzXmZoFKTg==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react
+      - react-dom
+      - rxjs
+    dev: false
+
+  /@univerjs/sheets-hyper-link-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-grb7WsYlbzKOzZeEXKYv1IkrdwXcykpfWYKix6MNdAsg9EIIm2N85JAxdmz/gUO4Skh5YW8sfUiQx/1IKe/W7A==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-hyper-link@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-hr9YkCeGZzy1ZStbRoyt3zS0HUa2PxzfeasaTQyAf0o82Patq2jyKVSplp/iOOMUTgtYRZHv+NntQ2/dm/c9vA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-note-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-TSYVH9WEv+5p9lwwXXWKXJuG2G2Vb9ZcB/ptLUKR48XE3AB4aNUr+Nw01E57aYp0/Q64a5pmYZwlhTWalZQi7Q==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-note': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-note@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-mGKYGJwI3HB4ySRlOyqFwZTzYP7IYdedt/rF6OIQCwHSiEqliokRVqSh5zcHw46HhbBc36BqnBLImXGr/ib9pQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-numfmt-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-L8MzmnjYiWq/M/X+lv69ryOqiS0WTazv4CYTv10hO5mqmHsGVDx59ECkLhd3L8gN4CM9Wet7eU1Qf27H5i8RhA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-numfmt': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-numfmt@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-yLuOfgFa8t+uDnBvCs+PjCjYBq6iJ+tIUEj7ana5YCnxUdKmDed4M8woSffgDRaMXcV8sY9SOexA2iwMLo9ioQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-sort-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-KJPaD5Y+WqrlZncJYDggVhBG9T0DwpT00LNESZYdv55lbKUbH2Lc/ilUQ7xpVkkUml4UZtr/s/JB22m5++Gj6g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-sort': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-sort@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-xVKhNrdT5q7v3HIwx0Jp9gKkZWIEq/wQAIMPZkRZdtkGSMJ3wSvCXrWiiEalP2YOccfzxKzT58IiuqUpSgu82Q==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs/sheets-table-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-NufPBswZi8TtfxazeY313/MBHBP8sSM1cMD7AFMYeM+1wag6440qj3NRLBes8NmwVuZ1bdiWo1wleiAYjKl42Q==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-sort': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-table': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-table@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-439D8+q1E7EotM2W02yREi67ZK0OBmJwJ0/0LIIn4h1+C2MbJtZfrn1Q9AKE4BCQF8jBTrLuVKiyGjdhtcVQFQ==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-thread-comment-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-jjyGo7QRY/rLjlvV8wrJyUzH+FjAuO2SJojoRlR8U1zfyQGF7LDhCIkhmf5366hPUqvkzfz2Hkk+CAEp5zeg5g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets-thread-comment@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-Kw3V/hAXJwx0TpJ/JewwPgwcSZhXEbhjz4ocREY2KzxPzIqzgNOGz5ZgyY1F0HwvQgr5ZpPXMFVAQpUenKcidg==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/sheets-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-iCzUfuVc78iRYXCs4kzJKb7wdFQ05irvxxvMeeu5OfOMRef1z1Hr8fvChXfOfjDv6HzQ4nfTO7iGNzD59eE78g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/sheets': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/telemetry': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/sheets@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-VcHtHgCOStJZO4XLstvV6oWHxBwhGCpArKJaEe22EmKNY1lfsibOrvwIjEW/Xpm9Ago9ybTvmuIvByrCd60pew==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/protocol': 0.25.1
+      '@univerjs/rpc': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/slides-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-FW2Y0V9mWqLpJw8vHEP7bNaI2zaQrkIIIFBtbh/Dcq3+F4c5+271yJtcS8moljpMms8aBD+K3eZM9tL8mwkz/A==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/drawing': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/slides': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/slides@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-kcj5qgUXvDlLboGAnuFCw52hdkcvOOmbPTEYgNQPJijYDIgb5pIz44TJ9kW/Hs+V9b79X2Td2NN7TLB5+uqnew==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/telemetry@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-eAGiFs2OUAIBrC0g3gASRAvr7++KkmnPS49yAoa95gd6TW8R8o0YASOXyrahysMhDriBXmFGN7hHNLXRo9UlGw==}
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - react
+      - rxjs
+    dev: false
+
+  /@univerjs/themes@0.25.1:
+    resolution: {integrity: sha512-21iH3Z3Ai9pRV+l2weuHJu2V8XB3T5Hr8VEPlOyctFbqOJMTNRC5peYJdn7Ra5kMdO+Wa7uWsZf6qurHouswmg==}
+    dev: false
+
+  /@univerjs/thread-comment-ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-cCTPxMLjSzdLRXmdfFv4LtjBZFDG5VeCnqm6o9+XYPIVbZ7UAYRKGPOzv1204lDJu1XJgYgTnMJr4Ms2Yh2bUg==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/docs-ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/thread-comment': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/ui': 0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2)
+      react: 19.3.0
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+    dev: false
+
+  /@univerjs/thread-comment@0.25.1(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-TL7Pj5oCA0rD+EjmRIjoTG7tHgRVIBewTL27Ow79JkbJDUAMqaxGAyZc1BpuIM/Fvjp6+hcPO+9FribwRgj+6A==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@univerjs/ui@0.25.1(react-dom@19.3.0)(react@19.3.0)(rxjs@7.8.2):
+    resolution: {integrity: sha512-DapFtWHIcidxE+vfueIL/sDQeVnf5MRY4MzrK1ag+VHuN6/bU4jwFXDEmyGi1otL03cYg8PFJja2lkV73cbYJA==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+    dependencies:
+      '@univerjs/core': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/design': 0.25.1(react-dom@19.3.0)(react@19.3.0)
+      '@univerjs/engine-render': 0.25.1(react@19.3.0)(rxjs@7.8.2)
+      '@univerjs/icons': 1.4.0(react-dom@19.3.0)(react@19.3.0)
+      '@wendellhu/redi': 1.1.1(react@19.3.0)
+      localforage: 1.10.0
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+    dev: false
+
   /@vitejs/plugin-vue-jsx@3.1.0(vite@5.4.10)(vue@3.5.12):
     resolution: {integrity: sha512-w9M6F3LSEU5kszVb9An2/MmXNxocAnUb3WhRr8bHlimhDrXNt6n6D2nJQR3UXpGlZHh/EsgouOHCsM8V3Ln+WA==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -4788,6 +7402,17 @@ packages:
       '@webassemblyjs/ast': 1.14.1
       '@xtuc/long': 4.2.2
 
+  /@wendellhu/redi@1.1.1(react@19.3.0):
+    resolution: {integrity: sha512-y2fuAgHJ2n8sI8Pe/1QtAuPQ6ZbZ9/Dn3uVQI8cctVqLZzp/0OpLM7DSMOU6vmGYXNsIQwsquR91WcxZ4jrRvA==}
+    peerDependencies:
+      react: '>=16.8.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+    dependencies:
+      react: 19.3.0
+    dev: false
+
   /@xtuc/ieee754@1.2.0:
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
 
@@ -5055,6 +7680,13 @@ packages:
   /argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
+  /aria-hidden@1.2.6:
+    resolution: {integrity: sha512-ik3ZgC9dY/lYVVM++OISsaYDeg1tb0VtP5uL3ouh1koGOaUMDPpbFIei4JkFimWUFPn90sbMNMXQAIVOlnYKJA==}
+    engines: {node: '>=10'}
+    dependencies:
+      tslib: 2.8.1
+    dev: false
+
   /arr-diff@4.0.0:
     resolution: {integrity: sha512-YVIQ82gZPGBebQV/a8dar4AitzCQs0jjXwMPZllpXMaGjXPYVUawSxQrRsjhjupyVxEvbHgUmIhKVlND+j02kA==}
     engines: {node: '>=0.10.0'}
@@ -5163,6 +7795,10 @@ packages:
     resolution: {integrity: sha512-Q+JC7Whu8HhmTdBph/Tq59IoRtoy6KAm5zzPv00WdujX82lbAL8K7WVjne7vdCsAmbF4AYaDOPyO3k0kl8qIrw==}
     engines: {node: '>=0.10.0'}
     dev: true
+
+  /async-lock@1.4.1:
+    resolution: {integrity: sha512-Az2ZTpuytrtqENulXwO3GGv1Bztugx6TT37NIo7imr/Qo0gsYiGtSdBa2B6fsXhTpVZDNfu1Qn3pk531e3q+nQ==}
+    dev: false
 
   /async-validator@4.2.5:
     resolution: {integrity: sha512-7HhHjtERjqlNbZtqNqy2rckN/SpOOlmDliet+lP7k+eKZEjPk3DgyeU9lIXLdeLz0uBbbVp+9Qdow9wJWgwwfg==}
@@ -5711,6 +8347,14 @@ packages:
       consola: 3.2.3
     dev: true
 
+  /cjk-regex@3.5.0:
+    resolution: {integrity: sha512-J7xtiK3XwtR/DRX78dJmYG+mom2dIogDq5kP+XrXNXcVbByZj8mTQ7FJMrKkpFdFrjLQd2TTMXlKBKW46E71IQ==}
+    engines: {node: '>=16'}
+    dependencies:
+      regexp-util: 2.1.0
+      unicode-regex: 4.3.0
+    dev: false
+
   /cjs-module-lexer@1.4.1:
     resolution: {integrity: sha512-cuSVIHi9/9E/+821Qjdvngor+xpnlwnuwIyZOaLmHBVdXL+gP+I6QQB9VkO7RI77YIcTV+S1W9AreJ5eN63JBA==}
     dev: true
@@ -5724,6 +8368,12 @@ packages:
       isobject: 3.0.1
       static-extend: 0.1.2
     dev: true
+
+  /class-variance-authority@0.7.1:
+    resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
+    dependencies:
+      clsx: 2.1.1
+    dev: false
 
   /clean-css@5.3.3:
     resolution: {integrity: sha512-D5J+kHaVb/wKSFcyyV75uCn8fiY4sV38XJoe4CUyGQ+mOU/fMVYUdH1hJC+CJQ5uY3EnW27SbJYS4X8BiLrAFg==}
@@ -5754,11 +8404,15 @@ packages:
       string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
-    dev: true
 
   /clone@2.1.2:
     resolution: {integrity: sha512-3Pe/CF1Nn94hyhIYpjtiLhdCoEoz0DqQ+988E9gmeEdQZlojxnOb74wctFyuwWQHzqyf9X7C7MG8juUpqBJT8w==}
     engines: {node: '>=0.8'}
+
+  /clsx@2.1.1:
+    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
+    engines: {node: '>=6'}
+    dev: false
 
   /co@4.6.0:
     resolution: {integrity: sha512-QVb0dM5HvG+uaxitm8wONl7jltx8dqhfU33DcqtOZcLSVIKSDDLDi7+0LbAKiyI8hD9u42m2YxXSkMGWThaecQ==}
@@ -5772,6 +8426,10 @@ packages:
     dependencies:
       commander: 2.14.1
       exit-on-epipe: 1.0.1
+    dev: false
+
+  /collapse-white-space@2.1.0:
+    resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
     dev: false
 
   /collect-v8-coverage@1.0.2:
@@ -6499,6 +9157,10 @@ packages:
     resolution: {integrity: sha512-VBBaLc1MgL5XpzgIP7ny5Z6Nx3UrRkIViUkPUdtl9aya5amy3De1gsUUSB1g3+3sExYNjCAsAznmukyxCb1GRA==}
     dev: true
 
+  /decimal.js@10.6.0:
+    resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
+    dev: false
+
   /decode-uri-component@0.2.2:
     resolution: {integrity: sha512-FqUYQ+8o158GyGTrMFJms9qh3CqTKvAqgqsTnkLI8sKu0028orqBhxNMFkFen0zGyg6epACD32pjVk58ngIErQ==}
     engines: {node: '>=0.10'}
@@ -6634,6 +9296,10 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
+  /detect-node-es@1.1.0:
+    resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
+    dev: false
+
   /didyoumean@1.2.2:
     resolution: {integrity: sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw==}
 
@@ -6673,6 +9339,13 @@ packages:
   /dom-align@1.12.4:
     resolution: {integrity: sha512-R8LUSEay/68zE5c8/3BDxiTEvgb4xZTF0RKmAHfiEVN3klfIpXfi2/QCoiWPccVQ0J/ZGdz9OjzL4uJEP/MRAw==}
     dev: true
+
+  /dom-helpers@5.2.1:
+    resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
+    dependencies:
+      '@babel/runtime': 7.27.6
+      csstype: 3.1.3
+    dev: false
 
   /dom-scroll-into-view@2.0.1:
     resolution: {integrity: sha512-bvVTQe1lfaUr1oFzZX80ce9KLDlZ3iU+XGNE/bz9HnGdklTieqsbmsLHe+rT2XWqopvL0PckkYqN7ksmm5pe3w==}
@@ -7970,7 +10643,6 @@ packages:
 
   /fast-diff@1.3.0:
     resolution: {integrity: sha512-VxPP4NqbUjj6MaAOafWeUn2cXWLcCtljklUtZf0Ind4XQ+QPtmA0b18zZy0jIQx+ExRVCR/ZQpBmik5lXshNsw==}
-    dev: true
 
   /fast-glob@3.3.2:
     resolution: {integrity: sha512-oX2ruAFQwf/Orj8m737Y5adxDQO0LAB7/S5MnxCdTNDd4p6BsyIVsv9JQsATbTSq8KHRpLwIHbVlUNatxd+1Ow==}
@@ -8017,6 +10689,10 @@ packages:
 
   /fflate@0.3.11:
     resolution: {integrity: sha512-Rr5QlUeGN1mbOHlaqcSYMKVpPbgLy0AWT/W0EHxA6NGI12yO1jpoui2zBBvU2G824ltM6Ut8BFgfHSBGfkmS0A==}
+    dev: false
+
+  /fflate@0.4.9:
+    resolution: {integrity: sha512-zdxgIEddhfsyCaWpJ2SdXEP8ZMrKJ6+5jl4OupODcywU0IhRk6gdXuVGcPICyfx2H97hVK7xmJtRLPjkxAX8Vw==}
     dev: false
 
   /fflate@0.8.2:
@@ -8183,6 +10859,12 @@ packages:
       map-cache: 0.2.2
     dev: true
 
+  /franc-min@6.2.0:
+    resolution: {integrity: sha512-1uDIEUSlUZgvJa2AKYR/dmJC66v/PvGQ9mWfI9nOr/kPpMFyvswK0gPXOwpYJYiYD008PpHLkGfG58SPjQJFxw==}
+    dependencies:
+      trigram-utils: 2.0.1
+    dev: false
+
   /fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
@@ -8281,7 +10963,6 @@ packages:
   /get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
-    dev: true
 
   /get-east-asian-width@1.3.0:
     resolution: {integrity: sha512-vpeMIQKxczTD/0s2CdEWHcb0eeJe6TFjxb+J5xgX7hScxqrGuyjmv4c1D4A/gelKfyox0gJJwIHF+fLjeaM8kQ==}
@@ -8312,6 +10993,11 @@ packages:
       has-symbols: 1.1.0
       hasown: 2.0.2
       math-intrinsics: 1.1.0
+
+  /get-nonce@1.0.1:
+    resolution: {integrity: sha512-FJhYRoDaiatfEkUK8HKlicmu/3SGFD51q3itKDGoSTysQJBnfOcxU5GxnhE1E6soB76MbT0MBtnKJuXyAx+96Q==}
+    engines: {node: '>=6'}
+    dev: false
 
   /get-package-type@0.1.0:
     resolution: {integrity: sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==}
@@ -8753,6 +11439,10 @@ packages:
     resolution: {integrity: sha512-6TDAlDPZxUFCv+fuOkIoXT/V/f3Qbq8e37p+YOiYrUv3v9cc3/6x78VdfPgFVaB9dZYeLUfKgHRebpkm/oP2VQ==}
     engines: {node: '>=0.10.0'}
     hasBin: true
+
+  /immediate@3.0.6:
+    resolution: {integrity: sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==}
+    dev: false
 
   /immutable@4.3.7:
     resolution: {integrity: sha512-1hqclzwYwjRDFLjcFxOM5AYkkG0rpFPpr1RLPMEuGczoS7YA8gLhy8SWXYRAA/XwfEHpfo3cw5JGioS32fnMRw==}
@@ -9695,7 +12385,6 @@ packages:
 
   /js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
-    dev: true
 
   /js-tokens@9.0.0:
     resolution: {integrity: sha512-WriZw1luRMlmV3LGJaR6QOJjWwgLUTf89OwT2lUOyjX2dJGBwgmIkbcz+7WFZjrZM635JOIR517++e/67CP9dQ==}
@@ -9831,6 +12520,10 @@ packages:
       html2canvas: 1.4.1
     dev: false
 
+  /kdbush@4.1.0:
+    resolution: {integrity: sha512-e9vurzrXJQrFX6ckpHP3bvj5l+9CnYzkxDNnNQ1h2QTqdWsUAJgXiKdGNcOa1EY85dU8KbQ+z/FdQdB7P+9yfQ==}
+    dev: false
+
   /keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
     dependencies:
@@ -9899,6 +12592,12 @@ packages:
       prelude-ls: 1.2.1
       type-check: 0.4.0
     dev: true
+
+  /lie@3.1.1:
+    resolution: {integrity: sha512-RiNhHysUjhrDQntfYSfY4MU24coXXdEOgw9WGcKHNeEwffDYbF//u87M1EWaMGzuFoSbqW0C9C6lEEhDOAswfw==}
+    dependencies:
+      immediate: 3.0.6
+    dev: false
 
   /lilconfig@2.1.0:
     resolution: {integrity: sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ==}
@@ -9977,6 +12676,12 @@ packages:
       quansync: 0.2.10
     dev: true
 
+  /localforage@1.10.0:
+    resolution: {integrity: sha512-14/H1aX7hzBBmmh7sGPd+AOMkkIrHM3Z1PAyGgZigA1H1p5O5ANnMyWzvpAETtG68/dC4pC0ncy3+PPGzXZHPg==}
+    dependencies:
+      lie: 3.1.1
+    dev: false
+
   /locate-path@5.0.0:
     resolution: {integrity: sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==}
     engines: {node: '>=8'}
@@ -10001,6 +12706,10 @@ packages:
   /lodash-es@4.17.21:
     resolution: {integrity: sha512-mKnC+QJ9pWVzv+C4/U3rRsHapFfHvQFoFB92e52xeyGMcX6/OlIl78je1u8vePzYZSkkogMPJ2yjxxsb89cxyw==}
 
+  /lodash-es@4.18.1:
+    resolution: {integrity: sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==}
+    dev: false
+
   /lodash-unified@1.0.3(@types/lodash-es@4.17.12)(lodash-es@4.17.21)(lodash@4.17.21):
     resolution: {integrity: sha512-WK9qSozxXOD7ZJQlpSqOT+om2ZfcT4yO+03FuzAHD0wF6S0l0090LRPDx3vhTTLZ8cFKpBn+IOcVXK6qOcIlfQ==}
     peerDependencies:
@@ -10015,7 +12724,6 @@ packages:
 
   /lodash.camelcase@4.3.0:
     resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
-    dev: true
 
   /lodash.clonedeep@4.5.0:
     resolution: {integrity: sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==}
@@ -10087,12 +12795,15 @@ packages:
       wrap-ansi: 9.0.0
     dev: true
 
+  /long@5.3.2:
+    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
+    dev: false
+
   /loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
     dependencies:
       js-tokens: 4.0.0
-    dev: true
 
   /lower-case@2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
@@ -10571,6 +13282,10 @@ packages:
       object-assign: 4.1.1
       thenify-all: 1.6.0
 
+  /n-gram@2.0.2:
+    resolution: {integrity: sha512-S24aGsn+HLBxUGVAUFOwGpKs7LBcG4RudKU//eWzt/mQ97/NMKQxDWHyHx63UNWk/OOdihgmzoETn1tf5nQDzQ==}
+    dev: false
+
   /nan@2.28.0:
     resolution: {integrity: sha512-fTsDz99OTq2sVePhGdp4qQhggZFtKr64ZNVyVajRKtMOkJxYekplBh577PiJB12v/D3s2E5cGtOI45LWp6rnLQ==}
     requiresBuild: true
@@ -10587,6 +13302,12 @@ packages:
     resolution: {integrity: sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  /nanoid@5.1.11:
+    resolution: {integrity: sha512-v+KEsUv2ps74PaSKv0gHTxTCgMXOIfBEbaqa6w6ISIGC7ZsvHN4N9oJ8d4cmf0n5oTzQz2SLmThbQWhjd/8eKg==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+    dev: false
 
   /nanoid@5.1.5:
     resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
@@ -10765,6 +13486,10 @@ packages:
       boolbase: 1.0.0
     dev: true
 
+  /numfmt@3.2.6:
+    resolution: {integrity: sha512-MXc2KP3j+2usdHTY5/ENUc2S+3BRF/cJqnR6RHeq6LBqKoIZOAQ62DQw974nnaZOencbfkmkTPyTmMnlkCpjzg==}
+    dev: false
+
   /nwsapi@2.2.13:
     resolution: {integrity: sha512-cTGB9ptp9dY9A5VbMSe7fQBcl/tt22Vcqdq8+eN93rblOuE0aCFu4aZ2vMwct/2t+lFnosm8RkQW1I0Omb1UtQ==}
     dev: true
@@ -10908,6 +13633,11 @@ packages:
       is-wsl: 2.2.0
     dev: true
 
+  /opentype.js@2.0.0:
+    resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
+    hasBin: true
+    dev: false
+
   /optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -10919,6 +13649,18 @@ packages:
       type-check: 0.4.0
       word-wrap: 1.2.5
     dev: true
+
+  /ot-json1@1.0.2:
+    resolution: {integrity: sha512-IhxkqVWQqlkWULoi/Q2AdzKk0N5vQRbUMUwubFXFCPcY4TsOZjmp2YKrk0/z1TeiECPadWEK060sdFdQ3Grokg==}
+    dependencies:
+      ot-text-unicode: 4.0.0
+    dev: false
+
+  /ot-text-unicode@4.0.0:
+    resolution: {integrity: sha512-W7ZLU8QXesY2wagYFv47zErXud3E93FGImmSGJsQnBzE+idcPPyo2u2KMilIrTwBh4pbCizy71qRjmmV6aDhcQ==}
+    dependencies:
+      unicount: 1.1.0
+    dev: false
 
   /p-limit@2.3.0:
     resolution: {integrity: sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==}
@@ -11790,9 +14532,35 @@ packages:
       sisteransi: 1.0.5
     dev: true
 
+  /prop-types@15.8.1:
+    resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
+    dependencies:
+      loose-envify: 1.4.0
+      object-assign: 4.1.1
+      react-is: 16.13.1
+    dev: false
+
   /proto-list@1.2.4:
     resolution: {integrity: sha512-vtK/94akxsTMhe0/cbfpR+syPuszcuwhqVjJq26CuNDgFGj682oRBXOP5MJpv2r7JtE8MsiepGIqvvOTBwn2vA==}
     dev: true
+
+  /protobufjs@7.6.6:
+    resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
+    engines: {node: '>=12.0.0'}
+    requiresBuild: true
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.5
+      '@protobufjs/eventemitter': 1.1.1
+      '@protobufjs/fetch': 1.1.1
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.2
+      '@types/node': 20.17.6
+      long: 5.3.2
+    dev: false
 
   /proxy-addr@2.0.7:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
@@ -11875,6 +14643,10 @@ packages:
     engines: {node: '>=10'}
     dev: false
 
+  /quickselect@3.0.0:
+    resolution: {integrity: sha512-XdjUArbK4Bm5fLLvlm5KpTFOiOThgfWWI4axAZDWg4E/0mKdZyI9tNEfds27qCi1ze/vwTR16kvmmGhRra3c2g==}
+    dev: false
+
   /quill-delta@3.6.3:
     resolution: {integrity: sha512-wdIGBlcX13tCHOXGMVnnTVFtGRLoP0imqxM696fIPwIf5ODIYUHIvHbZcyvGlZFiFhK5XzDC2lpjbxRhnM05Tg==}
     engines: {node: '>=0.10'}
@@ -11931,9 +14703,95 @@ packages:
       unpipe: 1.0.0
     dev: true
 
+  /rbush@4.0.1:
+    resolution: {integrity: sha512-IP0UpfeWQujYC8Jg162rMNc01Rf0gWMMAb2Uxus/Q0qOFw4lCcq6ZnQEZwUoJqWyUGJ9th7JjwI4yIWo+uvoAQ==}
+    dependencies:
+      quickselect: 3.0.0
+    dev: false
+
+  /react-dom@19.3.0(react@19.3.0):
+    resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
+    peerDependencies:
+      react: ^19.3.0
+    dependencies:
+      react: 19.3.0
+      scheduler: 0.28.0
+    dev: false
+
+  /react-is@16.13.1:
+    resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
+    dev: false
+
   /react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
     dev: true
+
+  /react-remove-scroll-bar@2.3.8(react@19.3.0):
+    resolution: {integrity: sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+      react-style-singleton: 2.2.3(react@19.3.0)
+      tslib: 2.8.1
+    dev: false
+
+  /react-remove-scroll@2.7.2(react@19.3.0):
+    resolution: {integrity: sha512-Iqb9NjCCTt6Hf+vOdNIZGdTiH1QSqr27H/Ek9sv/a97gfueI/5h1s3yRi1nngzMUaOOToin5dI1dXKdXiF+u0Q==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+      react-remove-scroll-bar: 2.3.8(react@19.3.0)
+      react-style-singleton: 2.2.3(react@19.3.0)
+      tslib: 2.8.1
+      use-callback-ref: 1.3.3(react@19.3.0)
+      use-sidecar: 1.1.3(react@19.3.0)
+    dev: false
+
+  /react-style-singleton@2.2.3(react@19.3.0):
+    resolution: {integrity: sha512-b6jSvxvVnyptAiLjbkWLE/lOnR4lfTtDAl+eUC7RZy+QQWc6wRzIV2CE6xBuMmDxc2qIihtDCZD5NPOFl7fRBQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      get-nonce: 1.0.1
+      react: 19.3.0
+      tslib: 2.8.1
+    dev: false
+
+  /react-transition-group@4.4.5(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-pZcd1MCJoiKiBR2NRxeCRg13uCXbydPnmB4EOeRrY7480qNWO8IIgQG6zlDkm6uRMsURXPuKq0GWtiM59a5Q6g==}
+    peerDependencies:
+      react: '>=16.6.0'
+      react-dom: '>=16.6.0'
+    dependencies:
+      '@babel/runtime': 7.27.6
+      dom-helpers: 5.2.1
+      loose-envify: 1.4.0
+      prop-types: 15.8.1
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
+
+  /react@19.3.0:
+    resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
+    engines: {node: '>=0.10.0'}
+    dev: false
 
   /read-cache@1.0.0:
     resolution: {integrity: sha512-Owdv/Ft7IjOgm/i0xvNDZ1LrRANRfew4b2prF3OWMQLxLfu3bS8FVhCsrSCMK4lR56Y9ya+AThoTpDCTxCmpRA==}
@@ -12009,7 +14867,7 @@ packages:
   /regenerator-transform@0.15.2:
     resolution: {integrity: sha512-hfMp2BoF0qOk3uc5V20ALGDS2ddjQaLrdl7xrGXvAIow7qeWRM2VA2HuCHkUKk9slq3VwEwLNK3DFBqDfPGYtg==}
     dependencies:
-      '@babel/runtime': 7.26.0
+      '@babel/runtime': 7.27.6
     dev: true
 
   /regex-not@1.0.2:
@@ -12019,6 +14877,11 @@ packages:
       extend-shallow: 3.0.2
       safe-regex: 1.1.0
     dev: true
+
+  /regexp-util@2.1.0:
+    resolution: {integrity: sha512-F8EsMhpdhFHU7J2caWZpoolQIO6OlKYG1LYo4jSzr8cQANOBmrEuWy6wlWSAL1g3PP7AKq2r3GMhrvXfBTzVXg==}
+    engines: {node: '>=16'}
+    dev: false
 
   /regexp.prototype.flags@1.5.3:
     resolution: {integrity: sha512-vqlC04+RQoFalODCbCumG2xIOvapzVMHwsyIGM/SIE8fRhFFsXeH8/QQ+s0T0kDAhKc4k30s73/0ydkHQz6HlQ==}
@@ -12070,7 +14933,6 @@ packages:
   /require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
-    dev: true
 
   /require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
@@ -12253,6 +15115,12 @@ packages:
     dependencies:
       queue-microtask: 1.2.3
 
+  /rxjs@7.8.2:
+    resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
+    dependencies:
+      tslib: 2.8.1
+    dev: false
+
   /safe-array-concat@1.1.2:
     resolution: {integrity: sha512-vj6RsCsWBCf19jIeHEfkRMw8DPiBb+DMXklQ/1SGDHOMlHdPUkZXFQ2YdplS23zESTijAcurb1aSgJA3AgMu1Q==}
     engines: {node: '>=0.4'}
@@ -12333,6 +15201,10 @@ packages:
     dependencies:
       xmlchars: 2.2.0
     dev: true
+
+  /scheduler@0.28.0:
+    resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
+    dev: false
 
   /schema-utils@3.3.0:
     resolution: {integrity: sha512-pN/yOAvcC+5rQ5nERGuwrjLlYvLTbCibnZ1I7B1LaiAz9BRBlE9GMgE/eqV30P7aJQUf7Ddimy/RsbYO/GrVGg==}
@@ -12619,6 +15491,20 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+  /sonner@2.0.8(react-dom@19.3.0)(react@19.3.0):
+    resolution: {integrity: sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==}
+    peerDependencies:
+      '@types/react': ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    dev: false
 
   /sortablejs@1.14.0:
     resolution: {integrity: sha512-pBXvQCs5/33fdN1/39pPL0NZF20LeRbLQ5jtnheIPN9JQAaufGjKdWduZn4U7wCtVuzKhmRkI0DFYHYRbB2H1w==}
@@ -13080,6 +15966,10 @@ packages:
       tslib: 2.8.1
     dev: true
 
+  /tailwind-merge@2.6.0:
+    resolution: {integrity: sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==}
+    dev: false
+
   /tailwindcss@3.3.0(postcss@8.4.47)(ts-node@10.9.2):
     resolution: {integrity: sha512-hOXlFx+YcklJ8kXiCAfk/FMyr4Pm9ck477G0m/us2344Vuj355IpoEDB5UmGAsSpTBmr+4ZhjzW04JuFXkb/fw==}
     engines: {node: '>=12.13.0'}
@@ -13344,6 +16234,13 @@ packages:
       typedarray.prototype.slice: 1.0.3
       which-typed-array: 1.1.15
     dev: true
+
+  /trigram-utils@2.0.1:
+    resolution: {integrity: sha512-nfWIXHEaB+HdyslAfMxSqWKDdmqY9I32jS7GnqpdWQnLH89r6A5sdk3fDVYqGAZ0CrT8ovAFSAo6HRiWcWNIGQ==}
+    dependencies:
+      collapse-white-space: 2.1.0
+      n-gram: 2.0.2
+    dev: false
 
   /trim-newlines@3.0.1:
     resolution: {integrity: sha512-c1PTsA3tYrIsLGkJkzHF+w9F2EyxfXGo4UyJc4pFL++FMjnq0HJS69T3M7d//gKrFKwy429bouPescbjecU+Zw==}
@@ -13764,6 +16661,17 @@ packages:
     engines: {node: '>=4'}
     dev: true
 
+  /unicode-regex@4.3.0:
+    resolution: {integrity: sha512-X1u5dXkMT60vYlJqAKks8Wyr9+KdJsfy0zxNXSjSN9GUbzT740+RBzX0PogRoqC+YZ2tTPzsa5iEAnYN+kB3IQ==}
+    engines: {node: '>=16'}
+    dependencies:
+      regexp-util: 2.1.0
+    dev: false
+
+  /unicount@1.1.0:
+    resolution: {integrity: sha512-RlwWt1ywVW4WErPGAVHw/rIuJ2+MxvTME0siJ6lk9zBhpDfExDbspe6SRlWT3qU6AucNjotPl9qAJRVjP7guCQ==}
+    dev: false
+
   /unimport@3.13.1(rollup@3.29.5):
     resolution: {integrity: sha512-nNrVzcs93yrZQOW77qnyOVHtb68LegvhYFwxFMfuuWScmwQmyVCG/NBuN8tYsaGzgQUVYv34E/af+Cc9u4og4A==}
     dependencies:
@@ -13976,6 +16884,35 @@ packages:
       requires-port: 1.0.0
     dev: true
 
+  /use-callback-ref@1.3.3(react@19.3.0):
+    resolution: {integrity: sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      react: 19.3.0
+      tslib: 2.8.1
+    dev: false
+
+  /use-sidecar@1.1.3(react@19.3.0):
+    resolution: {integrity: sha512-Fedw0aZvkhynoPYlA5WXrMCAMm+nSWdZt6lzJQ7Ok8S6Q+VsHmHpRWndVRJ8Be0ZbkfPc5LRYH+5XrzXcEeLRQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      detect-node-es: 1.1.0
+      react: 19.3.0
+      tslib: 2.8.1
+    dev: false
+
   /use@3.1.1:
     resolution: {integrity: sha512-cwESVXlO3url9YWlFW/TA9cshCEhtu7IKJ/p5soJ/gGpj7vbvFrAY/eIioQ6Dw23KjZhYgiIo8HOs1nQ2vr/oQ==}
     engines: {node: '>=0.10.0'}
@@ -13993,6 +16930,11 @@ packages:
     resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
     dependencies:
       base64-arraybuffer: 1.0.2
+    dev: false
+
+  /uuid@14.0.2:
+    resolution: {integrity: sha512-xZe/16rV4aa+HGSOCiY2YeLT1OybRLrrkL/Rqaq7p7GMVXjFh+6wN4oMYgjFmnSnhY8t6Xpdl2l9qmnHYuMHwQ==}
+    hasBin: true
     dev: false
 
   /v8-compile-cache-lib@3.0.1:
@@ -14664,7 +17606,6 @@ packages:
   /y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
-    dev: true
 
   /yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
@@ -14697,7 +17638,6 @@ packages:
   /yargs-parser@21.1.1:
     resolution: {integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==}
     engines: {node: '>=12'}
-    dev: true
 
   /yargs@17.7.2:
     resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
@@ -14710,7 +17650,6 @@ packages:
       string-width: 4.2.3
       y18n: 5.0.8
       yargs-parser: 21.1.1
-    dev: true
 
   /yn@3.1.1:
     resolution: {integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==}

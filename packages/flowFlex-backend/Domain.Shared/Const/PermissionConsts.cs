@@ -304,5 +304,15 @@ namespace FlowFlex.Domain.Shared.Const
             public const string Update = "TOOL:UPDATE";
             public const string Delete = "TOOL:DELETE";
         }
+        /// <summary>
+        /// Document permission control
+        /// </summary>
+        public static class Document
+        {
+            public const string Create = "DOCUMENT:CREATE";
+            public const string Read = "DOCUMENT:READ";
+            public const string Update = "DOCUMENT:UPDATE";
+            public const string Delete = "DOCUMENT:DELETE";
+        }
     }
 }

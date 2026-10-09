@@ -304,7 +304,7 @@ import PageHeader from '@/components/global/PageHeader/index.vue';
 import QuestionnaireBasicInfo from './components/QuestionnaireBasicInfo.vue';
 import TourGuide from '@/components/global/TourGuide/index.vue';
 import { questionnaireEditorTourSteps } from '@/hooks/useAdminTourSteps';
-import { checkTourSeen, markTourSeen } from '@/apis/ow';
+import { checkTourSeen, markTourSeen, getWorkflows, getAllStages } from '@/apis/ow';
 import SectionManager from './components/SectionManager.vue';
 import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
@@ -319,7 +319,6 @@ import {
 	getQuestionnaireDetail,
 	updateQuestionnaire,
 } from '@/apis/ow/questionnaire';
-import { getWorkflows, getAllStages } from '@/apis/ow';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 
 const router = useRouter();
